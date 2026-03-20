@@ -1,7 +1,8 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import "./styles.css";
 import SplashScreen from "./components/SplashScreen";
 import OnboardingScreen from "./components/OnboardingScreen";
+import LoginScreen from "./components/LoginScreen";
 import Dashboard from "./components/Dashboard";
 import EventsScreen from "./components/EventsScreen";
 import BudgetScreen from "./components/BudgetScreen";
@@ -12,14 +13,43 @@ import { DEFAULT_EVENTS, DEFAULT_VENDORS, DEFAULT_TASKS } from "./data";
 import { NAV_ITEMS } from "./constants";
 
 export default function VivahGoApp() {
-  const [screen, setScreen] = useState("splash"); // splash | onboard | app
+  const [screen, setScreen] = useState("login"); // login | splash | onboard | app
   const [tab, setTab] = useState("home");
+  const [user, setUser] = useState(null);
   const [wedding, setWedding] = useState({bride:"",groom:"",date:"",venue:"",guests:"",budget:""});
   const [events, setEvents] = useState(DEFAULT_EVENTS);
   const [expenses, setExpenses] = useState([]);
   const [guests, setGuests] = useState([]);
   const [vendors, setVendors] = useState(DEFAULT_VENDORS);
   const [tasks, setTasks] = useState(DEFAULT_TASKS);
+
+  // Check for existing login on app start
+  useEffect(() => {
+    const storedUser = localStorage.getItem('user');
+    const isLoggedIn = localStorage.getItem('isLoggedIn') === 'true';
+
+    if (storedUser && isLoggedIn) {
+      setUser(JSON.parse(storedUser));
+      setScreen("splash");
+    }
+  }, []);
+
+  function handleLoginSuccess(userInfo) {
+    setUser(userInfo);
+    setScreen("splash");
+  }
+
+  function handleLoginError(error) {
+    console.error('Login failed:', error);
+    // Could show an error message to user
+  }
+
+  function handleLogout() {
+    localStorage.removeItem('user');
+    localStorage.removeItem('isLoggedIn');
+    setUser(null);
+    setScreen("login");
+  }
 
   function handleOnboardComplete(answers) {
     setWedding(answers);
@@ -40,20 +70,32 @@ export default function VivahGoApp() {
 
   return (
     <div className="app-shell">
-      {screen==="splash" && <SplashScreen onStart={()=>setScreen("onboard")}/>}
-      {screen==="onboard" && <OnboardingScreen onComplete={handleOnboardComplete}/>}
-      {screen==="app" && (
+      {screen === "login" && (
+        <LoginScreen onLoginSuccess={handleLoginSuccess} onLoginError={handleLoginError} />
+      )}
+      {screen === "splash" && <SplashScreen onStart={() => setScreen("onboard")} />}
+      {screen === "onboard" && <OnboardingScreen onComplete={handleOnboardComplete} />}
+      {screen === "app" && (
         <div className="main-app">
           {/* Top Bar */}
           <div className="top-bar">
             <div className="top-bar-pattern">🪔</div>
             <div className="top-bar-greeting">Your Wedding</div>
             <div className="top-bar-names">
-              {wedding.bride||"Bride"} & {wedding.groom||"Groom"}
+              {wedding.bride || "Bride"} & {wedding.groom || "Groom"}
             </div>
             <div className="top-bar-meta">
               {wedding.date && <div className="top-bar-chip">📅 {wedding.date}</div>}
               {wedding.venue && <div className="top-bar-chip">📍 {wedding.venue}</div>}
+            </div>
+            <div className="top-bar-user">
+              <img
+                src={user?.picture}
+                alt={user?.name}
+                className="user-avatar"
+                onClick={handleLogout}
+                title="Click to logout"
+              />
             </div>
           </div>
 
