@@ -2,11 +2,10 @@ import { EVENT_COLORS } from "../constants";
 import { BUDGET_CATEGORIES } from "../data";
 import { daysUntil, fmt } from "../utils";
 
-function Dashboard({ wedding, events, expenses, guests, budget }) {
+function Dashboard({ wedding, events, expenses, guests }) {
   const days = daysUntil(wedding.date);
   const totalSpent = expenses.reduce((s,e)=>s+Number(e.amount||0), 0);
   const totalBudget = Number((wedding.budget||"0").replace(/[^0-9]/g,""));
-  const remaining = totalBudget - totalSpent;
   const yesCount = guests.filter(g=>g.rsvp==="yes").length;
 
   let d=0,h=0,m=0;
@@ -48,16 +47,20 @@ function Dashboard({ wedding, events, expenses, guests, budget }) {
       <div className="section-head" style={{marginTop:8}}>
         <div className="section-title">Ceremonies</div>
       </div>
-      <div className="scroll-h">
-        {events.map((ev,i)=>(
-          <div key={ev.id} className="mini-event-card" style={{background:`linear-gradient(135deg, ${EVENT_COLORS[ev.colorIdx][0]}, ${EVENT_COLORS[ev.colorIdx][1]})`}}>
-            <div style={{fontSize:28}}>{ev.emoji}</div>
-            <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:15,fontWeight:700,color:"white",marginTop:6}}>{ev.name}</div>
-            <div style={{fontSize:11,color:"rgba(255,255,255,0.7)",marginTop:2}}>{ev.date||"Date TBD"}</div>
-            <div style={{display:"inline-block",background:"rgba(255,255,255,0.2)",borderRadius:8,padding:"2px 8px",fontSize:10,color:"white",marginTop:6,fontWeight:600}}>{ev.venue||"Venue TBD"}</div>
-          </div>
-        ))}
-      </div>
+      {events.length === 0 ? (
+        <div style={{textAlign:"center",padding:"8px 16px 0",color:"var(--color-light-text)",fontSize:13}}>No ceremonies added yet.</div>
+      ) : (
+        <div className="scroll-h">
+          {events.map((ev,i)=>(
+            <div key={ev.id} className="mini-event-card" style={{background:`linear-gradient(135deg, ${EVENT_COLORS[(ev.colorIdx ?? i) % EVENT_COLORS.length][0]}, ${EVENT_COLORS[(ev.colorIdx ?? i) % EVENT_COLORS.length][1]})`}}>
+              <div style={{fontSize:28}}>{ev.emoji}</div>
+              <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:15,fontWeight:700,color:"white",marginTop:6}}>{ev.name}</div>
+              <div style={{fontSize:11,color:"rgba(255,255,255,0.7)",marginTop:2}}>{ev.date||"Date TBD"}</div>
+              <div style={{display:"inline-block",background:"rgba(255,255,255,0.2)",borderRadius:8,padding:"2px 8px",fontSize:10,color:"white",marginTop:6,fontWeight:600}}>{ev.venue||"Venue TBD"}</div>
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* Recent Expenses */}
       <div className="section-head" style={{marginTop:4}}>

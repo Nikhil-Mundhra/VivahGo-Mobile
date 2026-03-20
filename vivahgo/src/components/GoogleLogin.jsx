@@ -1,5 +1,4 @@
 import { useEffect, useRef } from 'react';
-import { COLORS } from '../constants';
 
 function GoogleLogin({ onSuccess, onError }) {
   const buttonRef = useRef(null);

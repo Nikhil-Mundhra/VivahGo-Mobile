@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useEffect, useRef, useState } from "react";
 import "./styles.css";
 import SplashScreen from "./components/SplashScreen";
 import OnboardingScreen from "./components/OnboardingScreen";
@@ -9,71 +9,233 @@ import BudgetScreen from "./components/BudgetScreen";
 import GuestsScreen from "./components/GuestsScreen";
 import VendorsScreen from "./components/VendorsScreen";
 import TasksScreen from "./components/TasksScreen";
-import { DEFAULT_EVENTS, DEFAULT_VENDORS, DEFAULT_TASKS } from "./data";
 import { NAV_ITEMS } from "./constants";
+import { fetchPlanner, loginWithGoogle, savePlanner } from "./api";
+import { createBlankPlanner, createDemoPlanner, hasWeddingProfile, normalizePlanner } from "./plannerDefaults";
+
+const SESSION_STORAGE_KEY = "vivahgo.session";
+const DEMO_PLANNER_STORAGE_KEY = "vivahgo.demoPlanner";
 
 export default function VivahGoApp() {
-  const [screen, setScreen] = useState("login"); // login | splash | onboard | app
+  const [screen, setScreen] = useState("login");
   const [tab, setTab] = useState("home");
   const [user, setUser] = useState(null);
-  const [wedding, setWedding] = useState({bride:"",groom:"",date:"",venue:"",guests:"",budget:""});
-  const [events, setEvents] = useState(DEFAULT_EVENTS);
+  const [authMode, setAuthMode] = useState(null);
+  const [authToken, setAuthToken] = useState("");
+  const [wedding, setWedding] = useState(createBlankPlanner().wedding);
+  const [events, setEvents] = useState([]);
   const [expenses, setExpenses] = useState([]);
   const [guests, setGuests] = useState([]);
-  const [vendors, setVendors] = useState(DEFAULT_VENDORS);
-  const [tasks, setTasks] = useState(DEFAULT_TASKS);
+  const [vendors, setVendors] = useState([]);
+  const [tasks, setTasks] = useState([]);
+  const [isBootstrapping, setIsBootstrapping] = useState(true);
+  const [isLoggingIn, setIsLoggingIn] = useState(false);
+  const [loginError, setLoginError] = useState("");
+  const [saveState, setSaveState] = useState("idle");
 
-  // Check for existing login on app start
+  const saveTimerRef = useRef(null);
+
+  function applyPlanner(nextPlanner) {
+    const planner = normalizePlanner(nextPlanner);
+    setWedding(planner.wedding);
+    setEvents(planner.events);
+    setExpenses(planner.expenses);
+    setGuests(planner.guests);
+    setVendors(planner.vendors);
+    setTasks(planner.tasks);
+  }
+
+  function persistSession(session) {
+    localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(session));
+  }
+
+  function clearStoredSession() {
+    localStorage.removeItem(SESSION_STORAGE_KEY);
+    localStorage.removeItem(DEMO_PLANNER_STORAGE_KEY);
+  }
+
   useEffect(() => {
-    const storedUser = localStorage.getItem('user');
-    const isLoggedIn = localStorage.getItem('isLoggedIn') === 'true';
+    let cancelled = false;
 
-    if (storedUser && isLoggedIn) {
-      setUser(JSON.parse(storedUser));
-      setScreen("splash");
+    async function restoreSession() {
+      const rawSession = localStorage.getItem(SESSION_STORAGE_KEY);
+
+      if (!rawSession) {
+        if (!cancelled) {
+          setIsBootstrapping(false);
+        }
+        return;
+      }
+
+      try {
+        const session = JSON.parse(rawSession);
+
+        if (session.mode === "demo") {
+          const savedPlanner = JSON.parse(localStorage.getItem(DEMO_PLANNER_STORAGE_KEY) || "null");
+          if (!cancelled) {
+            setAuthMode("demo");
+            setUser(session.user || null);
+            applyPlanner(savedPlanner || createDemoPlanner());
+            setScreen("splash");
+          }
+          return;
+        }
+
+        if (session.mode === "google" && session.token) {
+          const { planner } = await fetchPlanner(session.token);
+          if (!cancelled) {
+            setAuthMode("google");
+            setAuthToken(session.token);
+            setUser(session.user || null);
+            applyPlanner(planner);
+            setScreen("splash");
+          }
+          return;
+        }
+      } catch (error) {
+        console.error("Failed to restore session:", error);
+        clearStoredSession();
+        if (!cancelled) {
+          setLoginError("Your previous session could not be restored. Please sign in again.");
+        }
+      } finally {
+        if (!cancelled) {
+          setIsBootstrapping(false);
+        }
+      }
     }
+
+    restoreSession();
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
-  function handleLoginSuccess(userInfo) {
-    setUser(userInfo);
+  useEffect(() => {
+    if (isBootstrapping) {
+      return undefined;
+    }
+
+    const planner = normalizePlanner({ wedding, events, expenses, guests, vendors, tasks });
+
+    if (authMode === "demo") {
+      localStorage.setItem(DEMO_PLANNER_STORAGE_KEY, JSON.stringify(planner));
+      return undefined;
+    }
+
+    if (authMode !== "google" || !authToken) {
+      return undefined;
+    }
+
+    clearTimeout(saveTimerRef.current);
+    saveTimerRef.current = setTimeout(async () => {
+      try {
+        setSaveState("saving");
+        await savePlanner(authToken, planner);
+        setSaveState("saved");
+      } catch (error) {
+        console.error("Auto-save failed:", error);
+        setSaveState("error");
+      }
+    }, 500);
+
+    return () => {
+      clearTimeout(saveTimerRef.current);
+    };
+  }, [authMode, authToken, expenses, events, guests, isBootstrapping, tasks, vendors, wedding]);
+
+  function handleDemoLogin() {
+    const demoUser = {
+      id: "demo-user",
+      name: "VivahGo Demo",
+      email: "demo@vivahgo.local",
+      picture: "",
+    };
+    const demoPlanner = createDemoPlanner();
+
+    setAuthMode("demo");
+    setAuthToken("");
+    setUser(demoUser);
+    applyPlanner(demoPlanner);
+    persistSession({ mode: "demo", user: demoUser });
+    localStorage.setItem(DEMO_PLANNER_STORAGE_KEY, JSON.stringify(demoPlanner));
+    setLoginError("");
+    setTab("home");
     setScreen("splash");
+  }
+
+  async function handleGoogleLoginSuccess(credentialResponse) {
+    try {
+      setIsLoggingIn(true);
+      setLoginError("");
+      const { token, user: authenticatedUser, planner } = await loginWithGoogle(credentialResponse.credential);
+
+      setAuthMode("google");
+      setAuthToken(token);
+      setUser(authenticatedUser);
+      applyPlanner(planner);
+      persistSession({ mode: "google", token, user: authenticatedUser });
+      setTab("home");
+      setSaveState("idle");
+      setScreen("splash");
+    } catch (error) {
+      console.error("Login failed:", error);
+      setLoginError(error.message || "Google login failed.");
+    } finally {
+      setIsLoggingIn(false);
+    }
   }
 
   function handleLoginError(error) {
     console.error('Login failed:', error);
-    // Could show an error message to user
+    setLoginError(error?.message || 'Google login failed.');
   }
 
   function handleLogout() {
-    localStorage.removeItem('user');
-    localStorage.removeItem('isLoggedIn');
+    clearStoredSession();
     setUser(null);
+    setAuthMode(null);
+    setAuthToken("");
+    applyPlanner(createBlankPlanner());
+    setTab("home");
+    setSaveState("idle");
     setScreen("login");
   }
 
   function handleOnboardComplete(answers) {
     setWedding(answers);
-    // Pre-load some sample data
-    setGuests([
-      {id:1,name:"Rajesh Sharma",side:"bride",phone:"+91 98765 43210",rsvp:"yes"},
-      {id:2,name:"Priya Mehta",side:"bride",phone:"+91 98765 12345",rsvp:"yes"},
-      {id:3,name:"Vikram Singh",side:"groom",phone:"+91 99887 56123",rsvp:"pending"},
-      {id:4,name:"Sunita Verma",side:"groom",phone:"+91 91234 56789",rsvp:"no"},
-      {id:5,name:"Arjun Kapoor",side:"bride",phone:"+91 87654 32109",rsvp:"pending"},
-    ]);
-    setExpenses([
-      {id:1,name:"Venue advance",amount:200000,category:"venue",note:"50% advance"},
-      {id:2,name:"Bridal lehenga",amount:150000,category:"attire",note:"Sabyasachi"},
-    ]);
     setScreen("app");
   }
+
+  if (isBootstrapping) {
+    return (
+      <div className="app-shell">
+        <div className="login-screen">
+          <div className="login-container" style={{ textAlign: "center" }}>
+            <div className="login-logo">🪔</div>
+            <h1 className="login-title">Loading your planner</h1>
+            <p className="login-subtitle">Checking your saved session and wedding data.</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  const saveLabel = saveState === "saving" ? "Saving..." : saveState === "saved" ? "Saved" : saveState === "error" ? "Save failed" : "";
 
   return (
     <div className="app-shell">
       {screen === "login" && (
-        <LoginScreen onLoginSuccess={handleLoginSuccess} onLoginError={handleLoginError} />
+        <LoginScreen
+          onGoogleLogin={handleGoogleLoginSuccess}
+          onDemoLogin={handleDemoLogin}
+          onLoginError={handleLoginError}
+          isLoggingIn={isLoggingIn}
+          errorMessage={loginError}
+        />
       )}
-      {screen === "splash" && <SplashScreen onStart={() => setScreen("onboard")} />}
+      {screen === "splash" && <SplashScreen onStart={() => setScreen(hasWeddingProfile(wedding) ? "app" : "onboard")} />}
       {screen === "onboard" && <OnboardingScreen onComplete={handleOnboardComplete} />}
       {screen === "app" && (
         <div className="main-app">
@@ -87,15 +249,22 @@ export default function VivahGoApp() {
             <div className="top-bar-meta">
               {wedding.date && <div className="top-bar-chip">📅 {wedding.date}</div>}
               {wedding.venue && <div className="top-bar-chip">📍 {wedding.venue}</div>}
+              {authMode === "google" && saveLabel && <div className="top-bar-chip">☁️ {saveLabel}</div>}
             </div>
             <div className="top-bar-user">
-              <img
-                src={user?.picture}
-                alt={user?.name}
-                className="user-avatar"
-                onClick={handleLogout}
-                title="Click to logout"
-              />
+              {user?.picture ? (
+                <img
+                  src={user.picture}
+                  alt={user?.name}
+                  className="user-avatar"
+                  onClick={handleLogout}
+                  title="Click to logout"
+                />
+              ) : (
+                <button className="user-avatar user-avatar-fallback" onClick={handleLogout} title="Click to logout">
+                  {(user?.name || "V").slice(0, 1).toUpperCase()}
+                </button>
+              )}
             </div>
           </div>
 

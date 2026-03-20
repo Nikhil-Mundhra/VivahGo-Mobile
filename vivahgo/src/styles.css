@@ -742,6 +742,65 @@ body { background: var(--color-deep-red); }
   margin-bottom: 24px;
 }
 
+.login-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.login-secondary-btn {
+  width: 100%;
+  border-radius: 14px;
+  border: 1px solid rgba(139, 26, 26, 0.16);
+  background: rgba(139, 26, 26, 0.05);
+  color: var(--color-crimson);
+  padding: 13px 16px;
+  font-size: 14px;
+  font-weight: 600;
+  font-family: 'Jost', sans-serif;
+  cursor: pointer;
+  transition: opacity 0.15s, transform 0.15s;
+}
+
+.login-secondary-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.65;
+}
+
+.login-status,
+.login-error {
+  margin-top: 12px;
+  border-radius: 12px;
+  padding: 10px 12px;
+  font-size: 12px;
+  text-align: center;
+}
+
+.login-status {
+  background: rgba(212, 175, 55, 0.1);
+  color: var(--color-gold-dark);
+}
+
+.login-error {
+  background: rgba(196, 30, 58, 0.08);
+  color: var(--color-bright-red);
+}
+
+.login-oauth-help {
+  margin-top: 12px;
+  border-radius: 12px;
+  padding: 10px 12px;
+  background: rgba(139, 26, 26, 0.05);
+  color: var(--color-mid-text);
+  font-size: 12px;
+  line-height: 1.45;
+  text-align: center;
+}
+
+.login-oauth-help strong {
+  color: var(--color-crimson);
+}
+
 .login-benefits {
   margin-bottom: 32px;
 }
@@ -810,6 +869,16 @@ body { background: var(--color-deep-red); }
   border: 2px solid var(--color-gold);
   cursor: pointer;
   transition: transform 0.15s;
+}
+
+.user-avatar-fallback {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, var(--color-gold), var(--color-gold-dark));
+  color: var(--color-deep-red);
+  font-weight: 700;
+  font-family: 'Cormorant Garamond', serif;
 }
 
 .user-avatar:hover {

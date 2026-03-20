@@ -1,6 +1,5 @@
 export function daysUntil(dateStr) {
   if (!dateStr) return null;
-  const parts = dateStr.split(" ");
   const d = new Date(dateStr);
   if (isNaN(d)) return null;
   const now = new Date();
@@ -24,7 +23,7 @@ export function validateOnboardingAnswer(key, value) {
   switch (key) {
     case 'bride':
     case 'groom':
-    case 'venue':
+    case 'venue': {
       if (!trimmedValue) {
         return { isValid: false, message: "This field cannot be empty. Please provide an answer." };
       }
@@ -32,8 +31,9 @@ export function validateOnboardingAnswer(key, value) {
         return { isValid: false, message: "Please enter at least 2 characters." };
       }
       return { isValid: true };
+    }
 
-    case 'date':
+    case 'date': {
       if (!trimmedValue) {
         return { isValid: false, message: "Please enter a wedding date." };
       }
@@ -48,8 +48,9 @@ export function validateOnboardingAnswer(key, value) {
         return { isValid: false, message: "Please enter a future date for your wedding." };
       }
       return { isValid: true };
+    }
 
-    case 'guests':
+    case 'guests': {
       if (!trimmedValue) {
         return { isValid: false, message: "Please enter the expected number of guests." };
       }
@@ -61,8 +62,9 @@ export function validateOnboardingAnswer(key, value) {
         return { isValid: false, message: "Please enter a realistic number of guests (under 2000)." };
       }
       return { isValid: true };
+    }
 
-    case 'budget':
+    case 'budget': {
       if (!trimmedValue) {
         return { isValid: false, message: "Please enter your wedding budget." };
       }
@@ -76,6 +78,7 @@ export function validateOnboardingAnswer(key, value) {
         return { isValid: false, message: "Please enter a realistic budget amount (minimum ₹10,000)." };
       }
       return { isValid: true };
+    }
 
     default:
       return { isValid: true };

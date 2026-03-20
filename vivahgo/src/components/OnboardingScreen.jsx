@@ -8,7 +8,6 @@ function OnboardingScreen({ onComplete }) {
   const [input, setInput] = useState("");
   const [typing, setTyping] = useState(false);
   const [answers, setAnswers] = useState({});
-  const [aiLoading, setAiLoading] = useState(false);
   const [validationError, setValidationError] = useState("");
   const chatRef = useRef();
   const inputRef = useRef();
@@ -65,7 +64,6 @@ function OnboardingScreen({ onComplete }) {
     if(step < QUESTIONS.length - 1) {
       setTyping(true);
       // Call Anthropic API for a personalized response
-      setAiLoading(true);
       try {
         const res = await fetch("https://api.anthropic.com/v1/messages", {
           method:"POST",
@@ -79,11 +77,9 @@ function OnboardingScreen({ onComplete }) {
         const data = await res.json();
         const aiText = data.content?.[0]?.text || (AI_RESPONSES[step] + QUESTIONS[step+1].q);
         setTyping(false);
-        setAiLoading(false);
         addAI(aiText);
       } catch {
         setTyping(false);
-        setAiLoading(false);
         addAI(AI_RESPONSES[step] + QUESTIONS[step+1].q);
       }
       setStep(s=>s+1);

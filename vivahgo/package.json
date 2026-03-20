@@ -4,15 +4,24 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
+    "dev": "concurrently \"npm:dev:client\" \"npm:dev:server\"",
+    "dev:client": "vite",
+    "dev:server": "node --watch server/index.js",
     "build": "vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "start:server": "node server/index.js"
   },
   "dependencies": {
     "@react-oauth/google": "^0.13.4",
+    "concurrently": "^9.2.1",
+    "cors": "^2.8.5",
+    "dotenv": "^16.6.1",
+    "express": "^5.1.0",
     "google-auth-library": "^10.6.2",
+    "jsonwebtoken": "^9.0.2",
     "jwt-decode": "^4.0.0",
+    "mongoose": "^8.19.3",
     "react": "^19.2.4",
     "react-dom": "^19.2.4"
   },

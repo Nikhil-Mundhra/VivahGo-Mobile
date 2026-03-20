@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { DEFAULT_TASKS } from "../data";
 
 function TasksScreen({ tasks, setTasks }) {
   const [showAdd, setShowAdd] = useState(false);

@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { VENDOR_TYPES } from "../constants";
-import { DEFAULT_VENDORS } from "../data";
 
 function VendorsScreen({ vendors, setVendors }) {
   const [activeTab, setActiveTab] = useState("All");
