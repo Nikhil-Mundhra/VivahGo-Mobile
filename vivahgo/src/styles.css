@@ -638,9 +638,12 @@ body { background: var(--color-deep-red); }
 .vendor-info { flex: 1; }
 .vendor-name { font-size: 15px; font-weight: 600; color: var(--color-dark-text); }
 .vendor-type { font-size: 12px; color: var(--color-light-text); }
+.vendor-facts-row { display: flex; justify-content: center; margin-top: 2px; }
+.vendor-facts-inline { font-size: 11px; color: var(--color-light-text); line-height: 1.35; text-align: center; }
 .vendor-stars { color: var(--color-gold); font-size: 12px; }
-.vendor-bottom { padding: 12px 16px; display: flex; justify-content: space-between; align-items: center; }
-.vendor-price { font-family: 'Cormorant Garamond', serif; font-size: 18px; font-weight: 700; color: var(--color-crimson); }
+.vendor-bottom { padding: 12px 16px; display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+.vendor-price-wrap { min-width: 0; text-align: left; }
+.vendor-price { font-family: 'Jost', 'Noto Sans', 'Segoe UI Symbol', sans-serif; font-size: 18px; font-weight: 700; color: var(--color-crimson); }
 .vendor-btn {
   background: linear-gradient(135deg, var(--color-crimson), var(--color-deep-red));
   border: none; border-radius: 20px;
@@ -682,10 +685,12 @@ body { background: var(--color-deep-red); }
 .vendor-detail-hero-info { flex: 1; }
 .vendor-detail-name { font-size: 18px; font-weight: 700; color: var(--color-dark-text); }
 .vendor-detail-meta { font-size: 13px; color: var(--color-light-text); }
+.vendor-detail-facts-row { display: flex; justify-content: center; margin-top: 4px; }
 .vendor-detail-price {
-  font-family: 'Cormorant Garamond', serif;
+  font-family: 'Jost', 'Noto Sans', 'Segoe UI Symbol', sans-serif;
   font-size: 20px; font-weight: 700; color: var(--color-crimson); margin-top: 2px;
 }
+.vendor-detail-meta-line { font-size: 12px; color: var(--color-light-text); line-height: 1.4; text-align: center; }
 .vendor-detail-booked-badge {
   background: #E8F5E9; color: #2E7D32;
   padding: 3px 10px; border-radius: 10px;

@@ -16,6 +16,26 @@ export function initials(name) {
   return name.split(" ").map(w=>w[0]).join("").toUpperCase().slice(0,2);
 }
 
+export function formatVendorPriceTier(priceLevel = 1) {
+  const normalizedLevel = Math.min(Math.max(Number(priceLevel) || 1, 1), 4);
+  return `${"₹".repeat(normalizedLevel)}`;
+}
+
+export function formatVendorGuestRange(vendor) {
+  const minGuests = vendor?.guestRange?.min;
+  const maxGuests = vendor?.guestRange?.max;
+
+  if (!Number.isFinite(minGuests) || !Number.isFinite(maxGuests)) {
+    return "";
+  }
+
+  return `${minGuests}-${maxGuests} guests`;
+}
+
+export function getVendorQuickFacts(vendor) {
+  return [formatVendorGuestRange(vendor), vendor?.typicalTiming].filter(Boolean);
+}
+
 // Validation functions for onboarding
 export function validateOnboardingAnswer(key, value) {
   const trimmedValue = value.trim();

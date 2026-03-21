@@ -1,6 +1,9 @@
 import { WHATSAPP_SUPPORT_NUMBER } from "../constants";
+import { formatVendorPriceTier, getVendorQuickFacts } from "../utils";
 
 function VendorDetailScreen({ vendor, onBack }) {
+  const quickFacts = getVendorQuickFacts(vendor);
+
   function handleRequestService() {
     const message = encodeURIComponent(
       `Hello! I found ${vendor.name} on VivahGo and would like to request their ${vendor.type} services. Could you please help me with availability and booking details?`
@@ -22,11 +25,16 @@ function VendorDetailScreen({ vendor, onBack }) {
         <div className="vendor-detail-hero-info">
           <div className="vendor-detail-name">{vendor.name}</div>
           <div className="vendor-detail-meta">{vendor.type} · {vendor.city}</div>
+          {quickFacts.length > 0 && (
+            <div className="vendor-detail-facts-row">
+              <div className="vendor-detail-meta-line">{quickFacts.join(" · ")}</div>
+            </div>
+          )}
           <div className="vendor-stars">
             {"★".repeat(vendor.rating)}{"☆".repeat(5 - vendor.rating)}
             <span style={{ color: "var(--color-light-text)", fontSize: 11 }}> {vendor.rating}.0</span>
           </div>
-          <div className="vendor-detail-price">{vendor.price}</div>
+          <div className="vendor-detail-price">{formatVendorPriceTier(vendor.priceLevel)}</div>
         </div>
         {vendor.booked && (
           <div className="vendor-detail-booked-badge">Booked ✓</div>

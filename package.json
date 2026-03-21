@@ -1,4 +1,9 @@
 {
+  "scripts": {
+    "build": "cd VivahGo && npm run build",
+    "dev": "cd VivahGo && npm run dev",
+    "lint": "cd VivahGo && npm run lint"
+  },
   "dependencies": {
     "@capacitor/core": "^8.2.0",
     "@capacitor/ios": "^8.2.0"
