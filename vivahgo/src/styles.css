@@ -900,9 +900,18 @@ body { background: var(--color-deep-red); }
 }
 
 .login-logo {
-  font-size: 48px;
+  display: flex;
+  justify-content: center;
   margin-bottom: 16px;
-  animation: pulse 3s ease infinite;
+}
+
+.login-logo-image {
+  width: 100%;
+  display: block;
+  height: auto;
+  border-radius: 14px;
+  border: 1px solid rgba(212, 175, 55, 0.35);
+  box-shadow: none;
 }
 
 .login-title {
@@ -1177,9 +1186,18 @@ body { background: var(--color-deep-red); }
 }
 
 .login-logo {
-  font-size: 48px;
+  display: flex;
+  justify-content: center;
   margin-bottom: 16px;
-  animation: pulse 3s ease infinite;
+}
+
+.login-logo-image {
+  width: 100%;
+  display: block;
+  height: auto;
+  border-radius: 14px;
+  border: 1px solid rgba(212, 175, 55, 0.35);
+  box-shadow: none;
 }
 
 .login-title {

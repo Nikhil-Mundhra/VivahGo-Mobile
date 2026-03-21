@@ -7,16 +7,16 @@ function LoginScreen({ onGoogleLogin, onDemoLogin, onLoginError, isLoggingIn, er
     <div className="login-screen">
       <div className="login-container">
         <div className="login-header">
-          <div className="login-logo">💍</div>
-          <h1 className="login-title">Welcome to VivahGo</h1>
-          <p className="login-subtitle">Your personal wedding planning assistant</p>
+          <div className="login-logo">
+            <img className="login-logo-image" src="/Thumbnail.png" alt="Vivah GO" />
+          </div>
         </div>
 
         <div className="login-content">
           <div className="login-benefits">
             <div className="benefit-item">
               <span className="benefit-icon">📅</span>
-              <span className="benefit-text">Plan your perfect wedding</span>
+              <span className="benefit-text">Track your wedding events and guests</span>
             </div>
             <div className="benefit-item">
               <span className="benefit-icon">💰</span>
@@ -24,11 +24,11 @@ function LoginScreen({ onGoogleLogin, onDemoLogin, onLoginError, isLoggingIn, er
             </div>
             <div className="benefit-item">
               <span className="benefit-icon">👥</span>
-              <span className="benefit-text">Manage guests & vendors</span>
+              <span className="benefit-text">Find and manage vendors seamlessly</span>
             </div>
             <div className="benefit-item">
               <span className="benefit-icon">✅</span>
-              <span className="benefit-text">Stay organized with tasks</span>
+              <span className="benefit-text">Stay organized with tasks and timelines</span>
             </div>
           </div>
 
