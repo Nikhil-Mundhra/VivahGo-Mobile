@@ -1,6 +1,6 @@
 import GoogleLoginButton from './GoogleLoginButton';
 
-function LoginScreen({ onGoogleLogin, onDemoLogin, onLoginError, isLoggingIn, errorMessage }) {
+function LoginScreen({ onGoogleLogin, onDemoLogin, onLoginError, isLoggingIn, errorMessage, showOauthHelp }) {
   const currentOrigin = typeof window !== 'undefined' ? window.location.origin : 'http://localhost:5173';
 
   return (
@@ -45,9 +45,11 @@ function LoginScreen({ onGoogleLogin, onDemoLogin, onLoginError, isLoggingIn, er
             </button>
           </div>
 
-          <div className="login-oauth-help">
-            Use a <strong>Web application</strong> OAuth client, then add <strong>{currentOrigin}</strong> to Authorized JavaScript origins. If you see <strong>invalid_client</strong> or <strong>no registered origin</strong>, the Google Cloud OAuth client is not configured for this local frontend yet.
-          </div>
+          {showOauthHelp && (
+            <div className="login-oauth-help">
+              Use a <strong>Web application</strong> OAuth client, then add <strong>{currentOrigin}</strong> to Authorized JavaScript origins. If you see <strong>invalid_client</strong> or <strong>no registered origin</strong>, the Google Cloud OAuth client is not configured for this frontend origin yet.
+            </div>
+          )}
 
           {isLoggingIn && <div className="login-status">Signing you in and loading your planner...</div>}
           {errorMessage && <div className="login-error">{errorMessage}</div>}

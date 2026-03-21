@@ -267,6 +267,7 @@ export default function VivahGoApp() {
   }
 
   const saveLabel = saveState === "saving" ? "Saving..." : saveState === "saved" ? "Saved" : saveState === "error" ? "Save failed" : "";
+  const showOauthHelp = /invalid_client|no registered origin|origin.*not.*allowed|idpiframe/i.test(loginError);
 
   return (
     <div className="app-shell">
@@ -277,6 +278,7 @@ export default function VivahGoApp() {
           onLoginError={handleLoginError}
           isLoggingIn={isLoggingIn}
           errorMessage={loginError}
+          showOauthHelp={showOauthHelp}
         />
       )}
       {screen === "splash" && <SplashScreen onStart={() => setScreen(hasWeddingProfile(wedding) ? "app" : "onboard")} />}
