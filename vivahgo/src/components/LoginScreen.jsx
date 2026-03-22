@@ -59,9 +59,7 @@ function LoginScreen({ onGoogleLogin, onDemoLogin, onLoginError, isLoggingIn, er
         </div>
 
         <div className="login-footer">
-          <p className="login-footer-text">
-            By signing in, you agree to our Terms of Service and Privacy Policy
-          </p>
+          <p className="login-footer-text">Sign in to continue your wedding planning journey.</p>
         </div>
       </div>
     </div>

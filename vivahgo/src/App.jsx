@@ -10,6 +10,10 @@ import GuestsScreen from "./components/GuestsScreen";
 import VendorsScreen from "./components/VendorsScreen";
 import TasksScreen from "./components/TasksScreen";
 import AccountScreen from "./components/AccountScreen";
+import TermsConditionsModal from "./components/TermsConditionsModal";
+import AboutModal from "./components/AboutModal";
+import FeedbackModal from "./components/FeedbackModal";
+import LegalFooter from "./components/LegalFooter";
 import NavIcon from "./components/NavIcon";
 import { NAV_ITEMS } from "./constants";
 import { fetchPlanner, loginWithGoogle, savePlanner } from "./api";
@@ -39,9 +43,18 @@ export default function VivahGoApp() {
   const [weddingDetailsForm, setWeddingDetailsForm] = useState({ date: "", venue: "" });
   const [eventToEditId, setEventToEditId] = useState(null);
   const [showAccountSettings, setShowAccountSettings] = useState(false);
+  const [showTermsModal, setShowTermsModal] = useState(false);
+  const [showAboutModal, setShowAboutModal] = useState(false);
+  const [showFeedbackModal, setShowFeedbackModal] = useState(false);
+  const [showDesktopFooter, setShowDesktopFooter] = useState(true);
+  const [isDesktopView, setIsDesktopView] = useState(() =>
+    typeof window !== "undefined" ? window.matchMedia("(min-width: 1024px)").matches : false
+  );
   const weddingSwipe = useSwipeDown(() => closeWeddingDetailsEditor());
 
   const saveTimerRef = useRef(null);
+  const contentAreaRef = useRef(null);
+  const previousScrollTopRef = useRef(0);
 
   function applyPlanner(nextPlanner) {
     const planner = normalizePlanner(nextPlanner);
@@ -61,6 +74,66 @@ export default function VivahGoApp() {
     localStorage.removeItem(SESSION_STORAGE_KEY);
     localStorage.removeItem(DEMO_PLANNER_STORAGE_KEY);
   }
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return undefined;
+    }
+
+    const mediaQuery = window.matchMedia("(min-width: 1024px)");
+    const handleViewportChange = (event) => {
+      setIsDesktopView(event.matches);
+      if (!event.matches) {
+        setShowDesktopFooter(true);
+      }
+    };
+
+    setIsDesktopView(mediaQuery.matches);
+    mediaQuery.addEventListener("change", handleViewportChange);
+
+    return () => {
+      mediaQuery.removeEventListener("change", handleViewportChange);
+    };
+  }, []);
+
+  useEffect(() => {
+    const scrollHost = contentAreaRef.current;
+
+    if (!scrollHost || screen !== "app" || !isDesktopView) {
+      return undefined;
+    }
+
+    previousScrollTopRef.current = scrollHost.scrollTop;
+
+    const handleContentScroll = () => {
+      const currentScrollTop = scrollHost.scrollTop;
+      const delta = currentScrollTop - previousScrollTopRef.current;
+
+      if (Math.abs(delta) < 2) {
+        return;
+      }
+
+      if (delta > 0) {
+        setShowDesktopFooter(true);
+      } else {
+        setShowDesktopFooter(false);
+      }
+
+      previousScrollTopRef.current = currentScrollTop;
+    };
+
+    scrollHost.addEventListener("scroll", handleContentScroll, { passive: true });
+
+    return () => {
+      scrollHost.removeEventListener("scroll", handleContentScroll);
+    };
+  }, [isDesktopView, screen]);
+
+  useEffect(() => {
+    if (screen !== "app") {
+      setShowDesktopFooter(true);
+    }
+  }, [screen]);
 
   useEffect(() => {
     let cancelled = false;
@@ -236,6 +309,30 @@ export default function VivahGoApp() {
     setShowAccountSettings(false);
   }
 
+  function openTermsModal() {
+    setShowTermsModal(true);
+  }
+
+  function closeTermsModal() {
+    setShowTermsModal(false);
+  }
+
+  function openAboutModal() {
+    setShowAboutModal(true);
+  }
+
+  function closeAboutModal() {
+    setShowAboutModal(false);
+  }
+
+  function openFeedbackModal() {
+    setShowFeedbackModal(true);
+  }
+
+  function closeFeedbackModal() {
+    setShowFeedbackModal(false);
+  }
+
   function saveWeddingDetails() {
     setWedding(current => ({
       ...current,
@@ -273,14 +370,22 @@ export default function VivahGoApp() {
   return (
     <div className="app-shell">
       {screen === "login" && (
-        <LoginScreen
-          onGoogleLogin={handleGoogleLoginSuccess}
-          onDemoLogin={handleDemoLogin}
-          onLoginError={handleLoginError}
-          isLoggingIn={isLoggingIn}
-          errorMessage={loginError}
-          showOauthHelp={showOauthHelp}
-        />
+        <>
+          <LoginScreen
+            onGoogleLogin={handleGoogleLoginSuccess}
+            onDemoLogin={handleDemoLogin}
+            onLoginError={handleLoginError}
+            isLoggingIn={isLoggingIn}
+            errorMessage={loginError}
+            showOauthHelp={showOauthHelp}
+          />
+          <LegalFooter
+            hasBottomNav={false}
+            onOpenTerms={openTermsModal}
+            onOpenAbout={openAboutModal}
+            onOpenFeedback={openFeedbackModal}
+          />
+        </>
       )}
       {screen === "splash" && <SplashScreen onStart={() => setScreen(hasWeddingProfile(wedding) ? "app" : "onboard")} />}
       {screen === "onboard" && <OnboardingScreen onComplete={handleOnboardComplete} />}
@@ -316,7 +421,7 @@ export default function VivahGoApp() {
           </div>
 
           {/* Content */}
-          <div className="content-area">
+          <div className="content-area" ref={contentAreaRef}>
             {tab==="home" && <Dashboard wedding={wedding} events={events} expenses={expenses} guests={guests} budget={wedding.budget} onTabChange={setTab} onEditEvent={openEventEditorFromCalendar}/>}
             {tab==="events" && <EventsScreen events={events} setEvents={setEvents} expenses={expenses} onOpenBudget={() => setTab("budget")} initialEditingEventId={eventToEditId}/>}
             {tab==="budget" && <BudgetScreen expenses={expenses} setExpenses={setExpenses} wedding={wedding} events={events}/>} 
@@ -336,6 +441,14 @@ export default function VivahGoApp() {
             ))}
           </div>
 
+          <LegalFooter
+            hasBottomNav={true}
+            isVisible={showDesktopFooter}
+            onOpenTerms={openTermsModal}
+            onOpenAbout={openAboutModal}
+            onOpenFeedback={openFeedbackModal}
+          />
+
           {showAccountSettings && (
             <AccountScreen
               user={user}
@@ -346,6 +459,9 @@ export default function VivahGoApp() {
               onLogout={() => { closeAccountSettings(); handleLogout(); }}
             />
           )}
+          {showTermsModal && <TermsConditionsModal onClose={closeTermsModal} />}
+          {showAboutModal && <AboutModal onClose={closeAboutModal} />}
+          {showFeedbackModal && <FeedbackModal onClose={closeFeedbackModal} />}
           {showWeddingDetailsEditor && (
             <div className="modal-overlay" onClick={closeWeddingDetailsEditor}>
               <div className="modal" {...weddingSwipe.modalProps} onClick={(event) => event.stopPropagation()}>

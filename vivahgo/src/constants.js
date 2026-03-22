@@ -37,6 +37,11 @@ export const VENDOR_TYPES = ["All","Venue","Photography","Catering","Decoration"
 // WhatsApp customer support number (country code + number, no + or spaces)
 export const WHATSAPP_SUPPORT_NUMBER = "917060410033";
 
+// Google Apps Script Web App endpoint for feedback collection in Google Sheets.
+export const FEEDBACK_WEBHOOK_URL = "https://script.google.com/macros/s/AKfycbx0LDVVfzTIfJ5nIirgAQMbug11JAeCcBgOY-AFS-zvDlrZcMEuxa6lgTjPtACIv0EP/exec";
+export const FEEDBACK_SECRET_KEY = "vivahgo_test_key_2026_abc123";
+export const FEEDBACK_APP_VERSION = "1.0.0";
+
 export const NAV_ITEMS = [
   {id:"home",icon:"home",label:"Home"},
   {id:"events",icon:"events",label:"Events"},
