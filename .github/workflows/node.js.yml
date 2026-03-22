@@ -42,19 +42,19 @@ jobs:
           cache: npm
           cache-dependency-path: |
             package-lock.json
-            VivahGo/package-lock.json
+            vivahgo/package-lock.json
 
       - name: Install root dependencies
         run: npm ci || npm install --no-audit --no-fund
 
       - name: Install app dependencies
-        run: npm ci --prefix VivahGo || npm install --prefix VivahGo --no-audit --no-fund
+        run: npm ci --prefix vivahgo || npm install --prefix vivahgo --no-audit --no-fund
 
       - name: Run root test suite
         run: npm test
 
       - name: Lint app
-        run: npm run lint --prefix VivahGo
+        run: npm run lint --prefix vivahgo
 
       - name: Build app
-        run: npm run build --prefix VivahGo
+        run: npm run build --prefix vivahgo
