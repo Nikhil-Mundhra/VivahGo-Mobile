@@ -1,4 +1,5 @@
 import GoogleLoginButton from './GoogleLoginButton';
+import NavIcon from './NavIcon';
 
 function LoginScreen({ onGoogleLogin, onDemoLogin, onLoginError, isLoggingIn, errorMessage, showOauthHelp }) {
   const currentOrigin = typeof window !== 'undefined' ? window.location.origin : 'http://localhost:5173';
@@ -15,19 +16,19 @@ function LoginScreen({ onGoogleLogin, onDemoLogin, onLoginError, isLoggingIn, er
         <div className="login-content">
           <div className="login-benefits">
             <div className="benefit-item">
-              <span className="benefit-icon">📅</span>
+              <span className="benefit-icon"><NavIcon name="events" size={20} /></span>
               <span className="benefit-text">Track your wedding events and guests</span>
             </div>
             <div className="benefit-item">
-              <span className="benefit-icon">💰</span>
+              <span className="benefit-icon"><NavIcon name="budget" size={20} /></span>
               <span className="benefit-text">Track budget & expenses</span>
             </div>
             <div className="benefit-item">
-              <span className="benefit-icon">👥</span>
+              <span className="benefit-icon"><NavIcon name="guests" size={20} /></span>
               <span className="benefit-text">Find and manage vendors seamlessly</span>
             </div>
             <div className="benefit-item">
-              <span className="benefit-icon">✅</span>
+              <span className="benefit-icon"><NavIcon name="tasks" size={20} /></span>
               <span className="benefit-text">Stay organized with tasks and timelines</span>
             </div>
           </div>

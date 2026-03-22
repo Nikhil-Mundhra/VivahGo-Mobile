@@ -1037,14 +1037,37 @@ body { background: var(--color-deep-red); }
 }
 
 .benefit-icon {
-  font-size: 20px;
   min-width: 24px;
+  width: 24px;
+  height: 24px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-crimson);
 }
 
 .benefit-text {
   font-size: 14px;
   color: var(--color-dark-text);
   font-weight: 500;
+}
+
+@media (max-width: 380px) {
+  .benefit-item {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+  }
+
+  .benefit-icon {
+    min-width: 0;
+    align-self: flex-start;
+  }
+
+  .benefit-text {
+    width: 100%;
+    text-align: left;
+  }
 }
 
 .login-divider {
