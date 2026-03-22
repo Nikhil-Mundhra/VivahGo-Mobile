@@ -135,6 +135,12 @@ Run root test suite:
 npm test
 ```
 
+Run test suite with Istanbul coverage (includes statement coverage in the summary):
+
+```bash
+npm run test:coverage
+```
+
 Run frontend/backend linting:
 
 ```bash

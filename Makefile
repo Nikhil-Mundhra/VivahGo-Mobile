@@ -1,6 +1,6 @@
 SHELL := /bin/bash
 
-.PHONY: build build_frontend build_backend test run run_local
+.PHONY: build build_frontend build_backend test test_coverage coverage_check clean run run_local
 
 build: build_frontend build_backend
 
@@ -11,9 +11,19 @@ build_backend:
 	@echo "No backend build step is configured; skipping backend build."
 
 test:
-	npm test
+	$(MAKE) test_coverage
+	$(MAKE) coverage_check
 
-run: build test
+test_coverage:
+	npm run test:coverage
+
+coverage_check:
+	npm run coverage:check
+
+clean:
+	rm -rf coverage .nyc_output VivahGo/dist
+
+run: build
 	cd VivahGo && npm run dev
 
 run_local: test build

@@ -3,7 +3,9 @@
     "build": "cd vivahgo && npm run build",
     "dev": "cd vivahgo && npm run dev",
     "lint": "cd vivahgo && npm run lint",
-    "test": "mocha \"test/**/*.test.cjs\""
+    "test": "mocha \"test/**/*.test.cjs\"",
+    "test:coverage": "nyc --reporter=text-summary --reporter=lcov --reporter=html mocha \"test/**/*.test.cjs\"",
+    "coverage:check": "nyc --check-coverage --statements 1 --branches 0 --functions 0 --lines 0 mocha \"test/**/*.test.cjs\""
   },
   "dependencies": {
     "@capacitor/core": "^8.2.0",
@@ -14,6 +16,29 @@
     "mongoose": "^8.19.3"
   },
   "devDependencies": {
-    "mocha": "^11.7.4"
+    "mocha": "^11.7.4",
+    "nyc": "^18.0.0"
+  },
+  "nyc": {
+    "all": true,
+    "extension": [
+      ".js",
+      ".cjs"
+    ],
+    "include": [
+      "api/**/*.js",
+      "VivahGo/server/**/*.js",
+      "VivahGo/src/**/*.js"
+    ],
+    "exclude": [
+      "test/**",
+      "**/*.test.cjs",
+      "**/node_modules/**"
+    ],
+    "report-dir": "coverage",
+    "temp-dir": ".nyc_output",
+    "cache": true,
+    "sourceMap": true,
+    "instrument": true
   }
 }
