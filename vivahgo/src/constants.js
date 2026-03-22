@@ -38,8 +38,16 @@ export const VENDOR_TYPES = ["All","Venue","Photography","Catering","Decoration"
 export const WHATSAPP_SUPPORT_NUMBER = "917060410033";
 
 // Google Apps Script Web App endpoint for feedback collection in Google Sheets.
-export const FEEDBACK_WEBHOOK_URL = "https://script.google.com/macros/s/AKfycbx0LDVVfzTIfJ5nIirgAQMbug11JAeCcBgOY-AFS-zvDlrZcMEuxa6lgTjPtACIv0EP/exec";
-export const FEEDBACK_SECRET_KEY = "vivahgo_test_key_2026_abc123";
+const feedbackUrl = typeof import.meta !== 'undefined' && import.meta.env?.VITE_FEEDBACK_WEBHOOK_URL
+  ? import.meta.env.VITE_FEEDBACK_WEBHOOK_URL
+  : "https://script.google.com/macros/s/your-script-id/exec";
+
+const feedbackSecret = typeof import.meta !== 'undefined' && import.meta.env?.VITE_FEEDBACK_SECRET_KEY
+  ? import.meta.env.VITE_FEEDBACK_SECRET_KEY
+  : "your-secret-key";
+
+export const FEEDBACK_WEBHOOK_URL = feedbackUrl;
+export const FEEDBACK_SECRET_KEY = feedbackSecret;
 export const FEEDBACK_APP_VERSION = "1.0.0";
 
 export const NAV_ITEMS = [
