@@ -3,9 +3,20 @@ const path = require('node:path');
 const { pathToFileURL } = require('node:url');
 
 const ROOT = path.resolve(__dirname, '..', '..');
+const APP_DIR = fs.existsSync(path.join(ROOT, 'VivahGo')) ? 'VivahGo' : 'vivahgo';
+
+function normalizeRelativePath(relativePath) {
+  if (relativePath.startsWith('VivahGo/')) {
+    return `${APP_DIR}/${relativePath.slice('VivahGo/'.length)}`;
+  }
+  if (relativePath.startsWith('vivahgo/')) {
+    return `${APP_DIR}/${relativePath.slice('vivahgo/'.length)}`;
+  }
+  return relativePath;
+}
 
 function toAbs(relativePath) {
-  return path.join(ROOT, relativePath);
+  return path.join(ROOT, normalizeRelativePath(relativePath));
 }
 
 function readText(relativePath) {
