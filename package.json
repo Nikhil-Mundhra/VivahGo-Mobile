@@ -2,7 +2,8 @@
   "scripts": {
     "build": "cd vivahgo && npm run build",
     "dev": "cd vivahgo && npm run dev",
-    "lint": "cd vivahgo && npm run lint"
+    "lint": "cd vivahgo && npm run lint",
+    "test": "mocha \"test/**/*.test.cjs\""
   },
   "dependencies": {
     "@capacitor/core": "^8.2.0",
@@ -11,5 +12,8 @@
     "google-auth-library": "^10.6.2",
     "jsonwebtoken": "^9.0.2",
     "mongoose": "^8.19.3"
+  },
+  "devDependencies": {
+    "mocha": "^11.7.4"
   }
 }
