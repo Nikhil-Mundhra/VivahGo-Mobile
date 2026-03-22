@@ -72,3 +72,10 @@ export function savePlanner(token, planner) {
     body: { planner },
   });
 }
+
+export function submitFeedback(payload) {
+  return request('/feedback', {
+    method: 'POST',
+    body: payload,
+  });
+}

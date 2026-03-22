@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { FEEDBACK_APP_VERSION, FEEDBACK_SECRET_KEY, FEEDBACK_WEBHOOK_URL } from "../constants";
+import { FEEDBACK_APP_VERSION } from "../constants";
+import { submitFeedback } from "../api";
 
 function FeedbackModal({ onClose }) {
   const [form, setForm] = useState({ name: "", email: "", message: "" });
@@ -40,7 +41,6 @@ function FeedbackModal({ onClose }) {
     }
 
     const payload = {
-      key: FEEDBACK_SECRET_KEY,
       name: form.name.trim() || "Anonymous",
       email: form.email.trim() || "Not provided",
       message: form.message.trim(),
@@ -53,15 +53,7 @@ function FeedbackModal({ onClose }) {
     setError("");
 
     try {
-      // no-cors + text/plain avoids preflight issues with Apps Script from browser clients.
-      await fetch(FEEDBACK_WEBHOOK_URL, {
-        method: "POST",
-        mode: "no-cors",
-        headers: {
-          "Content-Type": "text/plain;charset=utf-8",
-        },
-        body: JSON.stringify(payload),
-      });
+      await submitFeedback(payload);
 
       setSuccessMessage("Thank you! Your feedback was submitted.");
       setForm({ name: "", email: "", message: "" });
