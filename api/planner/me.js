@@ -1,12 +1,51 @@
 const {
   buildEmptyPlanner,
   connectDb,
+  getCollaboratorRoleForPlan,
   getPlannerModel,
+  getPlanFromPlanner,
   handlePreflight,
+  hasPlanRole,
+  normalizeEmail,
+  normalizePlannerOwnership,
   sanitizePlanner,
   setCorsHeaders,
   verifySession,
 } = require('../_lib/core');
+
+async function resolvePlannerForSession(Planner, auth) {
+  const email = normalizeEmail(auth.email);
+  const requestedOwnerId = typeof auth.plannerOwnerId === 'string' ? auth.plannerOwnerId : '';
+
+  if (!requestedOwnerId || requestedOwnerId === auth.sub) {
+    return Planner.findOneAndUpdate(
+      { googleId: auth.sub },
+      {
+        $setOnInsert: {
+          googleId: auth.sub,
+          ...buildEmptyPlanner({ ownerEmail: email, ownerId: auth.sub }),
+        },
+      },
+      { new: true, upsert: true, setDefaultsOnInsert: true }
+    );
+  }
+
+  if (!email) {
+    return null;
+  }
+
+  return Planner.findOne({
+    googleId: requestedOwnerId,
+    'marriages.collaborators.email': email,
+  });
+}
+
+function findOwnerEmail(plan, fallback) {
+  if (!plan || !Array.isArray(plan.collaborators)) {
+    return fallback;
+  }
+  return plan.collaborators.find(item => item.role === 'owner')?.email || fallback;
+}
 
 module.exports = async function handler(req, res) {
   if (handlePreflight(req, res)) {
@@ -25,29 +64,47 @@ module.exports = async function handler(req, res) {
     return res.status(401).json({ error });
   }
 
+  auth.plannerOwnerId = req.query?.plannerOwnerId || req.body?.plannerOwnerId || '';
+
   try {
     await connectDb();
     const Planner = getPlannerModel();
-    const googleId = auth.sub;
+    const email = normalizeEmail(auth.email);
+
+    const plannerDoc = await resolvePlannerForSession(Planner, auth);
+    if (!plannerDoc) {
+      return res.status(404).json({ error: 'Planner not found.' });
+    }
+    const ownerId = plannerDoc.googleId || auth.sub;
+    const normalized = normalizePlannerOwnership(plannerDoc.toObject(), email, ownerId);
+    const activePlan = getPlanFromPlanner(normalized, normalized.activePlanId);
+    const activeRole = getCollaboratorRoleForPlan(activePlan, email) || (ownerId === auth.sub ? 'owner' : null);
 
     if (req.method === 'GET') {
-      const planner = await Planner.findOneAndUpdate(
-        { googleId },
-        {
-          $setOnInsert: {
-            googleId,
-            ...buildEmptyPlanner(),
-          },
-        },
-        { new: true, upsert: true, setDefaultsOnInsert: true }
-      );
+      if (!activeRole) {
+        return res.status(403).json({ error: 'You do not have access to this plan.' });
+      }
 
-      return res.status(200).json({ planner: sanitizePlanner(planner.toObject()) });
+      return res.status(200).json({
+        planner: sanitizePlanner(normalized, { ownerEmail: findOwnerEmail(activePlan, email), ownerId }),
+        plannerOwnerId: ownerId,
+        access: {
+          role: activeRole,
+          canManageSharing: activeRole === 'owner',
+          canEdit: activeRole === 'owner' || activeRole === 'editor',
+        },
+      });
     }
 
-    const nextPlanner = sanitizePlanner(req.body?.planner);
+    const nextPlanner = sanitizePlanner(req.body?.planner, { ownerEmail: findOwnerEmail(activePlan, email), ownerId });
+    const nextPlan = getPlanFromPlanner(nextPlanner, nextPlanner.activePlanId);
+    const ownerFallback = !email && ownerId === auth.sub;
+    if (!ownerFallback && !hasPlanRole(nextPlan, email, 'editor')) {
+      return res.status(403).json({ error: 'You have view-only access to this plan.' });
+    }
+
     const updated = await Planner.findOneAndUpdate(
-      { googleId },
+      { _id: plannerDoc._id || ownerId },
       {
         $set: {
           ...nextPlanner,
@@ -56,7 +113,12 @@ module.exports = async function handler(req, res) {
       { new: true, upsert: true, setDefaultsOnInsert: true }
     );
 
-    return res.status(200).json({ planner: sanitizePlanner(updated.toObject()) });
+    const updatedOwnerId = updated.googleId || ownerId;
+    const updatedNormalized = normalizePlannerOwnership(updated.toObject(), email, updatedOwnerId);
+    return res.status(200).json({
+      planner: sanitizePlanner(updatedNormalized, { ownerEmail: email, ownerId: updatedOwnerId }),
+      plannerOwnerId: updatedOwnerId,
+    });
   } catch (err) {
     console.error('Planner API failed:', err);
     return res.status(500).json({ error: 'Failed to process planner data.' });

@@ -1,5 +1,30 @@
 import mongoose from 'mongoose';
 
+const collaboratorSchema = new mongoose.Schema(
+  {
+    email: {
+      type: String,
+      required: true,
+      trim: true,
+      lowercase: true,
+    },
+    role: {
+      type: String,
+      enum: ['owner', 'editor', 'viewer'],
+      default: 'viewer',
+    },
+    addedBy: {
+      type: String,
+      default: '',
+    },
+    addedAt: {
+      type: Date,
+      default: () => new Date(),
+    },
+  },
+  { _id: false }
+);
+
 const plannerSchema = new mongoose.Schema(
   {
     googleId: {
@@ -8,10 +33,41 @@ const plannerSchema = new mongoose.Schema(
       unique: true,
       index: true,
     },
+    // Array of marriage plans with metadata
+    marriages: {
+      type: [
+        {
+          id: String, // UUID or timestamp
+          bride: String,
+          groom: String,
+          date: String,
+          venue: String,
+          budget: String,
+          guests: String,
+          template: String, // 'blank', 'traditional', 'modern', 'minimalist', 'adventure'
+          collaborators: {
+            type: [collaboratorSchema],
+            default: [],
+          },
+          createdAt: {
+            type: Date,
+            default: () => new Date(),
+          },
+        },
+      ],
+      default: [],
+    },
+    // ID of the currently active marriage plan
+    activePlanId: {
+      type: String,
+      default: null,
+    },
+    // Legacy wedding field for backward compatibility
     wedding: {
       type: mongoose.Schema.Types.Mixed,
       default: () => ({}),
     },
+    // All data items now include planId field for filtering
     events: {
       type: [mongoose.Schema.Types.Mixed],
       default: [],

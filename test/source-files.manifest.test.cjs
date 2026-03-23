@@ -8,6 +8,7 @@ const SOURCE_JS_FILES = [
   'api/auth/google.js',
   'api/feedback.js',
   'api/health.js',
+  'api/planner/access.js',
   'api/planner/me.js',
   appPath('eslint.config.js'),
   appPath('server/index.js'),

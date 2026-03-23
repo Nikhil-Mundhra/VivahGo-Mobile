@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import "./styles.css";
 import SplashScreen from "./components/SplashScreen";
 import OnboardingScreen from "./components/OnboardingScreen";
@@ -15,9 +15,21 @@ import AboutModal from "./components/AboutModal";
 import FeedbackModal from "./components/FeedbackModal";
 import LegalFooter from "./components/LegalFooter";
 import NavIcon from "./components/NavIcon";
+import MarriagePlanSelector from "./components/MarriagePlanSelector";
+import NewMarriagePlanModal from "./components/NewMarriagePlanModal";
+import PlanShareModal from "./components/PlanShareModal";
 import { NAV_ITEMS } from "./constants";
-import { fetchPlanner, loginWithGoogle, savePlanner } from "./api";
-import { createBlankPlanner, createDemoPlanner, hasWeddingProfile, normalizePlanner } from "./plannerDefaults";
+import {
+  addPlanCollaborator,
+  fetchAccessiblePlanners,
+  fetchPlanCollaborators,
+  fetchPlanner,
+  loginWithGoogle,
+  removePlanCollaborator,
+  savePlanner,
+  updatePlanCollaboratorRole,
+} from "./api";
+import { createBlankPlanner, createDemoPlanner, hasWeddingProfile, normalizePlanner, generatePlanId, createTemplatePlanCollections } from "./plannerDefaults";
 import { useSwipeDown } from "./hooks/useSwipeDown";
 
 const SESSION_STORAGE_KEY = "vivahgo.session";
@@ -50,21 +62,116 @@ export default function VivahGoApp() {
   const [isDesktopView, setIsDesktopView] = useState(() =>
     typeof window !== "undefined" ? window.matchMedia("(min-width: 1024px)").matches : false
   );
+  // Multi-marriage management
+  const [marriages, setMarriages] = useState([]);
+  const [activePlanId, setActivePlanId] = useState(null);
+  const [showMarriagePlanSelector, setShowMarriagePlanSelector] = useState(false);
+  const [showNewPlanModal, setShowNewPlanModal] = useState(false);
+  const [configuringPlanId, setConfiguringPlanId] = useState(null);
+  const [showShareModal, setShowShareModal] = useState(false);
+  const [collaborators, setCollaborators] = useState([]);
+  const [planAccess, setPlanAccess] = useState({ role: "owner", canEdit: true, canManageSharing: true });
+  const [plannerOwnerId, setPlannerOwnerId] = useState("");
+  const [accessibleWorkspaces, setAccessibleWorkspaces] = useState([]);
+  const [isSwitchingWorkspace, setIsSwitchingWorkspace] = useState(false);
   const weddingSwipe = useSwipeDown(() => closeWeddingDetailsEditor());
 
   const saveTimerRef = useRef(null);
   const contentAreaRef = useRef(null);
   const previousScrollTopRef = useRef(0);
 
-  function applyPlanner(nextPlanner) {
+  function mergeActivePlanCollection(currentItems, nextPlanItems, planId) {
+    const nextItems = Array.isArray(nextPlanItems) ? nextPlanItems : [];
+    const preserved = (Array.isArray(currentItems) ? currentItems : []).filter(item => item?.planId !== planId);
+    const normalizedPlanItems = nextItems
+      .filter(item => item && typeof item === "object")
+      .map(item => ({ ...item, planId }));
+    return [...preserved, ...normalizedPlanItems];
+  }
+
+  function normalizeEmail(value) {
+    return typeof value === "string" ? value.trim().toLowerCase() : "";
+  }
+
+  function getRoleForPlan(planId, fallbackRole = "owner") {
+    const plan = marriages.find(item => item.id === planId);
+    const email = normalizeEmail(user?.email);
+
+    if (!plan || !email || !Array.isArray(plan.collaborators)) {
+      return fallbackRole;
+    }
+
+    return plan.collaborators.find(item => normalizeEmail(item.email) === email)?.role || fallbackRole;
+  }
+
+  function roleToAccess(role) {
+    return {
+      role,
+      canEdit: role === "owner" || role === "editor",
+      canManageSharing: role === "owner",
+    };
+  }
+
+  function createPlanScopedSetter(setCollection, planId) {
+    return (updater) => {
+      if (!planId) {
+        return;
+      }
+      if (!planAccess.canEdit) {
+        return;
+      }
+      setCollection(previous => {
+        const currentPlanItems = (Array.isArray(previous) ? previous : []).filter(item => item?.planId === planId);
+        const nextPlanItems = typeof updater === "function" ? updater(currentPlanItems) : updater;
+        return mergeActivePlanCollection(previous, nextPlanItems, planId);
+      });
+    };
+  }
+
+  const activeEvents = (events || []).filter(item => item?.planId === activePlanId);
+  const activeExpenses = (expenses || []).filter(item => item?.planId === activePlanId);
+  const activeGuests = (guests || []).filter(item => item?.planId === activePlanId);
+  const activeVendors = (vendors || []).filter(item => item?.planId === activePlanId);
+  const activeTasks = (tasks || []).filter(item => item?.planId === activePlanId);
+
+  const setActiveEvents = createPlanScopedSetter(setEvents, activePlanId);
+  const setActiveExpenses = createPlanScopedSetter(setExpenses, activePlanId);
+  const setActiveGuests = createPlanScopedSetter(setGuests, activePlanId);
+  const setActiveTasks = createPlanScopedSetter(setTasks, activePlanId);
+
+  const applyPlanner = useCallback((nextPlanner, nextAccess) => {
     const planner = normalizePlanner(nextPlanner);
+    setMarriages(planner.marriages || []);
+    setActivePlanId(planner.activePlanId);
     setWedding(planner.wedding);
     setEvents(planner.events);
     setExpenses(planner.expenses);
     setGuests(planner.guests);
     setVendors(planner.vendors);
     setTasks(planner.tasks);
-  }
+
+    const activePlan = (planner.marriages || []).find(item => item.id === planner.activePlanId);
+    setCollaborators(Array.isArray(activePlan?.collaborators) ? activePlan.collaborators : []);
+
+    if (nextAccess && typeof nextAccess === "object") {
+      setPlanAccess({
+        role: nextAccess.role || "owner",
+        canEdit: Boolean(nextAccess.canEdit ?? true),
+        canManageSharing: Boolean(nextAccess.canManageSharing ?? true),
+      });
+      return;
+    }
+
+    const email = typeof user?.email === "string" ? user.email.trim().toLowerCase() : "";
+    const derivedRole = activePlan?.collaborators?.find(item => (
+      typeof item?.email === "string" ? item.email.trim().toLowerCase() : ""
+    ) === email)?.role || "owner";
+    setPlanAccess({
+      role: derivedRole,
+      canEdit: derivedRole === "owner" || derivedRole === "editor",
+      canManageSharing: derivedRole === "owner",
+    });
+  }, [user?.email]);
 
   function persistSession(session) {
     localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(session));
@@ -73,6 +180,251 @@ export default function VivahGoApp() {
   function clearStoredSession() {
     localStorage.removeItem(SESSION_STORAGE_KEY);
     localStorage.removeItem(DEMO_PLANNER_STORAGE_KEY);
+  }
+
+  async function refreshAccessibleWorkspaces(token) {
+    if (!token) {
+      setAccessibleWorkspaces([]);
+      return;
+    }
+
+    try {
+      const response = await fetchAccessiblePlanners(token);
+      const next = Array.isArray(response.planners) ? response.planners : [];
+      setAccessibleWorkspaces(next);
+    } catch (error) {
+      console.error("Failed to load accessible workspaces:", error);
+      setAccessibleWorkspaces([]);
+    }
+  }
+
+  async function handleWorkspaceSwitch(nextOwnerId) {
+    if (!nextOwnerId || !authToken || nextOwnerId === plannerOwnerId) {
+      return;
+    }
+
+    try {
+      setIsSwitchingWorkspace(true);
+      const { planner, access, plannerOwnerId: resolvedOwnerId } = await fetchPlanner(authToken, nextOwnerId);
+      applyPlanner(planner, access);
+      setPlannerOwnerId(resolvedOwnerId || nextOwnerId);
+      setConfiguringPlanId(null);
+      persistSession({ mode: "google", token: authToken, user, plannerOwnerId: resolvedOwnerId || nextOwnerId });
+    } catch (error) {
+      console.error("Workspace switch failed:", error);
+      setLoginError(error.message || "Could not switch workspace.");
+    } finally {
+      setIsSwitchingWorkspace(false);
+    }
+  }
+
+  // Multi-marriage management functions
+  function switchToMarriage(planId) {
+    if (!planId || planId === activePlanId) {
+      return;
+    }
+
+    const targetPlan = marriages.find(m => m.id === planId);
+    if (!targetPlan) return;
+
+    setActivePlanId(planId);
+
+    // Update wedding metadata from the selected plan.
+    setWedding({
+      bride: targetPlan.bride || "",
+      groom: targetPlan.groom || "",
+      date: targetPlan.date || "",
+      venue: targetPlan.venue || "",
+      guests: targetPlan.guests || "",
+      budget: targetPlan.budget || "",
+    });
+    setCollaborators(Array.isArray(targetPlan.collaborators) ? targetPlan.collaborators : []);
+    setPlanAccess(roleToAccess(getRoleForPlan(planId, "owner")));
+  }
+
+  function createNewMarriage(formData) {
+    if (!planAccess.canEdit) {
+      return;
+    }
+
+    const newPlanId = generatePlanId();
+    const seededCollections = createTemplatePlanCollections(formData.template, newPlanId);
+    const newMarriage = {
+      id: newPlanId,
+      bride: formData.bride,
+      groom: formData.groom,
+      date: formData.date,
+      venue: formData.venue,
+      guests: formData.guests,
+      budget: formData.budget,
+      template: formData.template,
+      collaborators: user?.email
+        ? [{ email: normalizeEmail(user.email), role: "owner", addedBy: user.id || "", addedAt: new Date() }]
+        : [],
+      createdAt: new Date(),
+    };
+
+    setMarriages(current => [...current, newMarriage]);
+    setEvents(current => [...current, ...seededCollections.events]);
+    setExpenses(current => [...current, ...seededCollections.expenses]);
+    setGuests(current => [...current, ...seededCollections.guests]);
+    setVendors(current => [...current, ...seededCollections.vendors]);
+    setTasks(current => [...current, ...seededCollections.tasks]);
+    setActivePlanId(newPlanId);
+    setWedding({
+      bride: newMarriage.bride || "",
+      groom: newMarriage.groom || "",
+      date: newMarriage.date || "",
+      venue: newMarriage.venue || "",
+      guests: newMarriage.guests || "",
+      budget: newMarriage.budget || "",
+    });
+    setCollaborators(newMarriage.collaborators || []);
+    setPlanAccess({ role: "owner", canEdit: true, canManageSharing: true });
+    setShowNewPlanModal(false);
+  }
+
+  function deleteMarriage(planId) {
+    if (!planAccess.canEdit) {
+      return;
+    }
+
+    if (marriages.length <= 1) {
+      alert("You must have at least one marriage plan");
+      return;
+    }
+
+    const updatedMarriages = marriages.filter(m => m.id !== planId);
+    const deletedPlanWasActive = activePlanId === planId;
+    const fallbackPlan = updatedMarriages[0] || null;
+
+    setMarriages(updatedMarriages);
+
+    if (deletedPlanWasActive && fallbackPlan) {
+      setActivePlanId(fallbackPlan.id);
+      setWedding({
+        bride: fallbackPlan.bride || "",
+        groom: fallbackPlan.groom || "",
+        date: fallbackPlan.date || "",
+        venue: fallbackPlan.venue || "",
+        guests: fallbackPlan.guests || "",
+        budget: fallbackPlan.budget || "",
+      });
+      setCollaborators(Array.isArray(fallbackPlan.collaborators) ? fallbackPlan.collaborators : []);
+      setPlanAccess(roleToAccess(getRoleForPlan(fallbackPlan.id, "owner")));
+    }
+
+    // Remove all data for this plan
+    setEvents(current => current.filter(e => e.planId !== planId));
+    setExpenses(current => current.filter(e => e.planId !== planId));
+    setGuests(current => current.filter(g => g.planId !== planId));
+    setVendors(current => current.filter(v => v.planId !== planId));
+    setTasks(current => current.filter(t => t.planId !== planId));
+  }
+
+  function openConfigurePlan(planId) {
+    setConfiguringPlanId(planId);
+  }
+
+  function closeConfigurePlan() {
+    setConfiguringPlanId(null);
+  }
+
+  async function openShareModal(planId) {
+    const targetPlanId = planId || activePlanId;
+    if (!targetPlanId) {
+      return;
+    }
+
+    setConfiguringPlanId(targetPlanId);
+    const currentPlan = marriages.find(item => item.id === targetPlanId);
+    setCollaborators(Array.isArray(currentPlan?.collaborators) ? currentPlan.collaborators : []);
+
+    if (authMode === "google" && authToken) {
+      try {
+        const response = await fetchPlanCollaborators(authToken, targetPlanId, plannerOwnerId);
+        setCollaborators(Array.isArray(response.collaborators) ? response.collaborators : []);
+      } catch (error) {
+        console.error("Failed to fetch collaborators:", error);
+      }
+    }
+
+    setShowShareModal(true);
+  }
+
+  function closeShareModal() {
+    setShowShareModal(false);
+  }
+
+  function syncPlanCollaborators(planId, nextCollaborators) {
+    setMarriages(current => current.map(plan => (
+      plan.id === planId
+        ? { ...plan, collaborators: nextCollaborators }
+        : plan
+    )));
+    if (planId === activePlanId) {
+      setCollaborators(nextCollaborators);
+      const nextRole = nextCollaborators.find(item => normalizeEmail(item.email) === normalizeEmail(user?.email))?.role || "viewer";
+      setPlanAccess(roleToAccess(nextRole));
+    }
+  }
+
+  async function handleAddCollaborator({ email, role }) {
+    const targetPlanId = configuringPlanId || activePlanId;
+    if (!targetPlanId) {
+      return;
+    }
+
+    if (authMode === "google" && authToken) {
+      const response = await addPlanCollaborator(authToken, { planId: targetPlanId, email, role, plannerOwnerId });
+      const next = Array.isArray(response.collaborators) ? response.collaborators : [];
+      syncPlanCollaborators(targetPlanId, next);
+      await refreshAccessibleWorkspaces(authToken);
+      return;
+    }
+
+    const next = [...collaborators, { email, role, addedBy: user?.id || "", addedAt: new Date() }];
+    syncPlanCollaborators(targetPlanId, next);
+  }
+
+  async function handleUpdateCollaboratorRole({ email, role }) {
+    const targetPlanId = configuringPlanId || activePlanId;
+    if (!targetPlanId) {
+      return;
+    }
+
+    if (authMode === "google" && authToken) {
+      const response = await updatePlanCollaboratorRole(authToken, { planId: targetPlanId, email, role, plannerOwnerId });
+      const next = Array.isArray(response.collaborators) ? response.collaborators : [];
+      syncPlanCollaborators(targetPlanId, next);
+      await refreshAccessibleWorkspaces(authToken);
+      return;
+    }
+
+    const next = collaborators.map(item => (
+      normalizeEmail(item.email) === normalizeEmail(email)
+        ? { ...item, role }
+        : item
+    ));
+    syncPlanCollaborators(targetPlanId, next);
+  }
+
+  async function handleRemoveCollaborator({ email }) {
+    const targetPlanId = configuringPlanId || activePlanId;
+    if (!targetPlanId) {
+      return;
+    }
+
+    if (authMode === "google" && authToken) {
+      const response = await removePlanCollaborator(authToken, { planId: targetPlanId, email, plannerOwnerId });
+      const next = Array.isArray(response.collaborators) ? response.collaborators : [];
+      syncPlanCollaborators(targetPlanId, next);
+      await refreshAccessibleWorkspaces(authToken);
+      return;
+    }
+
+    const next = collaborators.filter(item => normalizeEmail(item.email) !== normalizeEmail(email));
+    syncPlanCollaborators(targetPlanId, next);
   }
 
   useEffect(() => {
@@ -136,6 +488,47 @@ export default function VivahGoApp() {
   }, [screen]);
 
   useEffect(() => {
+    if (!activePlanId) {
+      return;
+    }
+
+    setMarriages(current => {
+      let didChange = false;
+      const updated = current.map(plan => {
+        if (plan.id !== activePlanId) {
+          return plan;
+        }
+
+        const nextPlan = {
+          ...plan,
+          bride: wedding.bride || "",
+          groom: wedding.groom || "",
+          date: wedding.date || "",
+          venue: wedding.venue || "",
+          guests: wedding.guests || "",
+          budget: wedding.budget || "",
+        };
+
+        if (
+          nextPlan.bride !== plan.bride ||
+          nextPlan.groom !== plan.groom ||
+          nextPlan.date !== plan.date ||
+          nextPlan.venue !== plan.venue ||
+          nextPlan.guests !== plan.guests ||
+          nextPlan.budget !== plan.budget
+        ) {
+          didChange = true;
+          return nextPlan;
+        }
+
+        return plan;
+      });
+
+      return didChange ? updated : current;
+    });
+  }, [activePlanId, wedding]);
+
+  useEffect(() => {
     let cancelled = false;
 
     async function restoreSession() {
@@ -163,12 +556,14 @@ export default function VivahGoApp() {
         }
 
         if (session.mode === "google" && session.token) {
-          const { planner } = await fetchPlanner(session.token);
+          const { planner, access, plannerOwnerId: resolvedOwnerId } = await fetchPlanner(session.token, session.plannerOwnerId);
           if (!cancelled) {
             setAuthMode("google");
             setAuthToken(session.token);
             setUser(session.user || null);
-            applyPlanner(planner);
+            applyPlanner(planner, access);
+            setPlannerOwnerId(resolvedOwnerId || session.plannerOwnerId || session.user?.id || "");
+            await refreshAccessibleWorkspaces(session.token);
             setScreen("splash");
           }
           return;
@@ -191,14 +586,23 @@ export default function VivahGoApp() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [applyPlanner]);
 
   useEffect(() => {
-    if (isBootstrapping) {
+    if (isBootstrapping || !authToken) {
       return undefined;
     }
 
-    const planner = normalizePlanner({ wedding, events, expenses, guests, vendors, tasks });
+    const planner = {
+      marriages,
+      activePlanId,
+      wedding,
+      events,
+      expenses,
+      guests,
+      vendors,
+      tasks,
+    };
 
     if (authMode === "demo") {
       localStorage.setItem(DEMO_PLANNER_STORAGE_KEY, JSON.stringify(planner));
@@ -209,11 +613,15 @@ export default function VivahGoApp() {
       return undefined;
     }
 
+    if (!planAccess.canEdit) {
+      return undefined;
+    }
+
     clearTimeout(saveTimerRef.current);
     saveTimerRef.current = setTimeout(async () => {
       try {
         setSaveState("saving");
-        await savePlanner(authToken, planner);
+        await savePlanner(authToken, planner, plannerOwnerId);
         setSaveState("saved");
       } catch (error) {
         console.error("Auto-save failed:", error);
@@ -224,7 +632,7 @@ export default function VivahGoApp() {
     return () => {
       clearTimeout(saveTimerRef.current);
     };
-  }, [authMode, authToken, expenses, events, guests, isBootstrapping, tasks, vendors, wedding]);
+  }, [authMode, authToken, expenses, events, guests, isBootstrapping, tasks, vendors, wedding, marriages, activePlanId, planAccess.canEdit, plannerOwnerId]);
 
   function handleDemoLogin() {
     const demoUser = {
@@ -239,6 +647,9 @@ export default function VivahGoApp() {
     setAuthToken("");
     setUser(demoUser);
     applyPlanner(demoPlanner);
+    setPlannerOwnerId(demoUser.id);
+    setAccessibleWorkspaces([]);
+    setPlanAccess({ role: "owner", canEdit: true, canManageSharing: true });
     persistSession({ mode: "demo", user: demoUser });
     localStorage.setItem(DEMO_PLANNER_STORAGE_KEY, JSON.stringify(demoPlanner));
     setLoginError("");
@@ -250,13 +661,15 @@ export default function VivahGoApp() {
     try {
       setIsLoggingIn(true);
       setLoginError("");
-      const { token, user: authenticatedUser, planner } = await loginWithGoogle(credentialResponse.credential);
+      const { token, user: authenticatedUser, planner, access, plannerOwnerId: resolvedOwnerId } = await loginWithGoogle(credentialResponse.credential);
 
       setAuthMode("google");
       setAuthToken(token);
       setUser(authenticatedUser);
-      applyPlanner(planner);
-      persistSession({ mode: "google", token, user: authenticatedUser });
+      applyPlanner(planner, access);
+      setPlannerOwnerId(resolvedOwnerId || authenticatedUser.id || "");
+      persistSession({ mode: "google", token, user: authenticatedUser, plannerOwnerId: resolvedOwnerId || authenticatedUser.id || "" });
+      await refreshAccessibleWorkspaces(token);
       setTab("home");
       setSaveState("idle");
       setScreen("splash");
@@ -278,6 +691,8 @@ export default function VivahGoApp() {
     setUser(null);
     setAuthMode(null);
     setAuthToken("");
+    setPlannerOwnerId("");
+    setAccessibleWorkspaces([]);
     applyPlanner(createBlankPlanner());
     setTab("home");
     setSaveState("idle");
@@ -334,11 +749,26 @@ export default function VivahGoApp() {
   }
 
   function saveWeddingDetails() {
+    if (!planAccess.canEdit) {
+      return;
+    }
+
+    const nextWedding = {
+      ...wedding,
+      date: weddingDetailsForm.date,
+      venue: weddingDetailsForm.venue,
+    };
+
     setWedding(current => ({
       ...current,
       date: weddingDetailsForm.date,
       venue: weddingDetailsForm.venue,
     }));
+    setMarriages(current => current.map(plan => (
+      plan.id === activePlanId
+        ? { ...plan, date: nextWedding.date, venue: nextWedding.venue }
+        : plan
+    )));
     closeWeddingDetailsEditor();
   }
 
@@ -395,13 +825,44 @@ export default function VivahGoApp() {
           <div className="top-bar">
             <div className="top-bar-pattern">🪔</div>
             <div className="top-bar-greeting">Your Wedding</div>
-            <div className="top-bar-names">
-              {wedding.bride || "Bride"} & {wedding.groom || "Groom"}
+            <div className="top-bar-names" style={{ display: "flex", justifyContent: "center", width: "100%" }}>
+              <button
+                type="button"
+                onClick={() => setShowMarriagePlanSelector(true)}
+                style={{
+                  background: "none",
+                  border: "none",
+                  cursor: "pointer",
+                  padding: "0 8px",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: "6px",
+                  fontFamily: "'Cormorant Garamond', serif",
+                  fontSize: 28,
+                  fontWeight: 700,
+                  color: "var(--color-gold)",
+                }}
+                title="Manage marriage plans"
+              >
+                <span>
+                  {marriages.find(m => m.id === activePlanId)?.bride || "Bride"} & {marriages.find(m => m.id === activePlanId)?.groom || "Groom"}
+                </span>
+                <span style={{
+                  fontSize: 12,
+                  display: "inline-flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  color: "var(--color-gold)",
+                  fontWeight: 700,
+                }}></span>
+              </button>
             </div>
             <div className="top-bar-meta">
               {wedding.date && <button type="button" className="top-bar-chip top-bar-chip-button" onClick={openWeddingDetailsEditor}>📅 {wedding.date}</button>}
               {wedding.venue && <button type="button" className="top-bar-chip top-bar-chip-button" onClick={openWeddingDetailsEditor}>📍 {wedding.venue}</button>}
               {authMode === "google" && saveLabel && <div className="top-bar-chip">☁️ {saveLabel}</div>}
+              {authMode === "google" && !planAccess.canEdit && <div className="top-bar-chip">View only</div>}
             </div>
             <div className="top-bar-user">
               {user?.picture ? (
@@ -421,13 +882,13 @@ export default function VivahGoApp() {
           </div>
 
           {/* Content */}
-          <div className="content-area" ref={contentAreaRef}>
-            {tab==="home" && <Dashboard wedding={wedding} events={events} expenses={expenses} guests={guests} budget={wedding.budget} onTabChange={setTab} onEditEvent={openEventEditorFromCalendar}/>}
-            {tab==="events" && <EventsScreen events={events} setEvents={setEvents} expenses={expenses} onOpenBudget={() => setTab("budget")} initialEditingEventId={eventToEditId}/>}
-            {tab==="budget" && <BudgetScreen expenses={expenses} setExpenses={setExpenses} wedding={wedding} events={events}/>} 
-            {tab==="guests" && <GuestsScreen guests={guests} setGuests={setGuests}/>}
-            {tab==="vendors" && <VendorsScreen vendors={vendors} setVendors={setVendors}/>}
-            {tab==="tasks" && <TasksScreen tasks={tasks} setTasks={setTasks} events={events}/>}
+          <div className={`content-area ${!planAccess.canEdit ? "content-area-readonly" : ""}`} ref={contentAreaRef}>
+            {tab==="home" && <Dashboard wedding={wedding} events={activeEvents} expenses={activeExpenses} guests={activeGuests} budget={wedding.budget} onTabChange={setTab} onEditEvent={openEventEditorFromCalendar}/>}
+            {tab==="events" && <EventsScreen events={activeEvents} setEvents={setActiveEvents} expenses={activeExpenses} planId={activePlanId} onOpenBudget={() => setTab("budget")} initialEditingEventId={eventToEditId}/>}
+            {tab==="budget" && <BudgetScreen expenses={activeExpenses} setExpenses={setActiveExpenses} wedding={wedding} events={activeEvents} planId={activePlanId}/>} 
+            {tab==="guests" && <GuestsScreen guests={activeGuests} setGuests={setActiveGuests} planId={activePlanId}/>} 
+            {tab==="vendors" && <VendorsScreen vendors={activeVendors}/>} 
+            {tab==="tasks" && <TasksScreen tasks={activeTasks} setTasks={setActiveTasks} events={activeEvents} planId={activePlanId}/>} 
           </div>
 
           {/* Bottom Nav */}
@@ -462,6 +923,67 @@ export default function VivahGoApp() {
           {showTermsModal && <TermsConditionsModal onClose={closeTermsModal} />}
           {showAboutModal && <AboutModal onClose={closeAboutModal} />}
           {showFeedbackModal && <FeedbackModal onClose={closeFeedbackModal} />}
+          {showMarriagePlanSelector && (
+            <MarriagePlanSelector
+              marriages={marriages}
+              activePlanId={activePlanId}
+              onSwitchPlan={switchToMarriage}
+              onCreatePlan={() => setShowNewPlanModal(true)}
+              onDeletePlan={deleteMarriage}
+              onConfigurePlan={openConfigurePlan}
+              onClose={() => setShowMarriagePlanSelector(false)}
+            />
+          )}
+          {showNewPlanModal && (
+            <NewMarriagePlanModal
+              onClose={() => setShowNewPlanModal(false)}
+              onCreate={createNewMarriage}
+            />
+          )}
+          {configuringPlanId && (
+            <div className="modal-overlay" onClick={closeConfigurePlan}>
+              <div className="modal" {...weddingSwipe.modalProps} onClick={(event) => event.stopPropagation()}>
+                <div className="modal-handle" />
+                <div className="modal-title">Configure Plan</div>
+                <div style={{ color: "var(--color-light-text)", fontSize: 13, marginBottom: 12 }}>
+                  {(marriages.find(item => item.id === configuringPlanId)?.bride || "Bride")} &amp; {(marriages.find(item => item.id === configuringPlanId)?.groom || "Groom")}
+                </div>
+                {authMode === "google" && accessibleWorkspaces.length > 1 && (
+                  <div className="input-group">
+                    <div className="input-label">Workspace</div>
+                    <select
+                      className="input-field"
+                      value={plannerOwnerId}
+                      onChange={(event) => handleWorkspaceSwitch(event.target.value)}
+                      disabled={isSwitchingWorkspace}
+                    >
+                      {accessibleWorkspaces.map(workspace => (
+                        <option key={workspace.plannerOwnerId} value={workspace.plannerOwnerId}>
+                          {workspace.plannerOwnerId === user?.id ? "My Plans" : "Shared"} - {workspace.activePlanName} ({workspace.role})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+                <button className="btn-primary" onClick={() => openShareModal(configuringPlanId)}>
+                  Share
+                </button>
+                <button className="btn-secondary" onClick={closeConfigurePlan}>Close</button>
+              </div>
+            </div>
+          )}
+          {showShareModal && (
+            <PlanShareModal
+              plan={marriages.find(item => item.id === (configuringPlanId || activePlanId))}
+              collaborators={collaborators}
+              canManageSharing={planAccess.canManageSharing}
+              currentUserEmail={user?.email}
+              onAdd={handleAddCollaborator}
+              onUpdateRole={handleUpdateCollaboratorRole}
+              onRemove={handleRemoveCollaborator}
+              onClose={closeShareModal}
+            />
+          )}
           {showWeddingDetailsEditor && (
             <div className="modal-overlay" onClick={closeWeddingDetailsEditor}>
               <div className="modal" {...weddingSwipe.modalProps} onClick={(event) => event.stopPropagation()}>

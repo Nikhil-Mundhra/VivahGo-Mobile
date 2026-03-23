@@ -25,8 +25,52 @@ const emptyWedding = {
   budget: '',
 };
 
-export function buildEmptyPlanner() {
+const ROLE_LEVEL = {
+  viewer: 1,
+  editor: 2,
+  owner: 3,
+};
+
+export function normalizeEmail(value) {
+  return typeof value === 'string' ? value.trim().toLowerCase() : '';
+}
+
+export function normalizeRole(value) {
+  if (value === 'owner' || value === 'editor' || value === 'viewer') {
+    return value;
+  }
+  return 'viewer';
+}
+
+export function buildEmptyPlanner(options = {}) {
+  const planId = `plan_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+  const ownerEmail = normalizeEmail(options.ownerEmail);
+
   return {
+    marriages: [
+      {
+        id: planId,
+        bride: '',
+        groom: '',
+        date: '',
+        venue: '',
+        budget: '',
+        guests: '',
+        template: 'blank',
+        collaborators: ownerEmail
+          ? [
+            {
+              email: ownerEmail,
+              role: 'owner',
+              addedBy: options.ownerId || '',
+              addedAt: new Date(),
+            },
+          ]
+          : [],
+        createdAt: new Date(),
+      },
+    ],
+    activePlanId: planId,
     wedding: { ...emptyWedding },
     events: [],
     expenses: [],
@@ -48,19 +92,143 @@ export function sanitizeCollection(value) {
   return value.filter(isRecord);
 }
 
-export function sanitizePlanner(payload = {}) {
+function sanitizeCollaborators(value, ownerEmail, ownerId) {
+  const normalizedOwner = normalizeEmail(ownerEmail);
+  const byEmail = new Map();
+
+  if (Array.isArray(value)) {
+    value
+      .filter(isRecord)
+      .forEach(collaborator => {
+        const email = normalizeEmail(collaborator.email);
+        if (!email) {
+          return;
+        }
+
+        const requestedRole = normalizeRole(collaborator.role);
+        const role = email === normalizedOwner ? 'owner' : requestedRole === 'owner' ? 'viewer' : requestedRole;
+        byEmail.set(email, {
+          email,
+          role,
+          addedBy: typeof collaborator.addedBy === 'string' ? collaborator.addedBy : '',
+          addedAt: collaborator.addedAt || new Date(),
+        });
+      });
+  }
+
+  if (normalizedOwner) {
+    byEmail.set(normalizedOwner, {
+      email: normalizedOwner,
+      role: 'owner',
+      addedBy: ownerId || normalizedOwner,
+      addedAt: byEmail.get(normalizedOwner)?.addedAt || new Date(),
+    });
+  }
+
+  return [...byEmail.values()];
+}
+
+function sanitizeMarriages(value, ownerEmail, ownerId) {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value
+    .filter(isRecord)
+    .map(marriage => ({
+      id: typeof marriage.id === 'string' && marriage.id.trim() ? marriage.id : null,
+      bride: marriage.bride || '',
+      groom: marriage.groom || '',
+      date: marriage.date || '',
+      venue: marriage.venue || '',
+      budget: marriage.budget || '',
+      guests: marriage.guests || '',
+      template: marriage.template || 'blank',
+      collaborators: sanitizeCollaborators(marriage.collaborators, ownerEmail, ownerId),
+      createdAt: marriage.createdAt || new Date(),
+    }))
+    .filter(marriage => Boolean(marriage.id));
+}
+
+function sanitizePlanScopedCollection(items, validPlanIds, activePlanId) {
+  return sanitizeCollection(items).map(item => {
+    if (typeof item.planId === 'string' && validPlanIds.has(item.planId)) {
+      return { ...item };
+    }
+
+    return {
+      ...item,
+      planId: activePlanId,
+    };
+  });
+}
+
+export function sanitizePlanner(payload = {}, options = {}) {
+  const ownerEmail = normalizeEmail(options.ownerEmail || payload.ownerEmail || '');
+  const ownerId = typeof options.ownerId === 'string' ? options.ownerId : '';
+  const marriages = sanitizeMarriages(payload.marriages, ownerEmail, ownerId);
+  const fallbackPlanId = `plan_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+
+  if (marriages.length === 0) {
+    marriages.push({
+      id: fallbackPlanId,
+      bride: '',
+      groom: '',
+      date: '',
+      venue: '',
+      budget: '',
+      guests: '',
+      template: 'blank',
+      collaborators: sanitizeCollaborators([], ownerEmail, ownerId),
+      createdAt: new Date(),
+    });
+  }
+
+  const validPlanIds = new Set(marriages.map(marriage => marriage.id));
+  const activePlanId = typeof payload.activePlanId === 'string' && validPlanIds.has(payload.activePlanId)
+    ? payload.activePlanId
+    : marriages[0].id;
   const wedding = isRecord(payload.wedding)
     ? { ...emptyWedding, ...payload.wedding }
     : { ...emptyWedding };
 
   return {
+    marriages,
+    activePlanId,
     wedding,
-    events: sanitizeCollection(payload.events),
-    expenses: sanitizeCollection(payload.expenses),
-    guests: sanitizeCollection(payload.guests),
-    vendors: sanitizeCollection(payload.vendors),
-    tasks: sanitizeCollection(payload.tasks),
+    events: sanitizePlanScopedCollection(payload.events, validPlanIds, activePlanId),
+    expenses: sanitizePlanScopedCollection(payload.expenses, validPlanIds, activePlanId),
+    guests: sanitizePlanScopedCollection(payload.guests, validPlanIds, activePlanId),
+    vendors: sanitizePlanScopedCollection(payload.vendors, validPlanIds, activePlanId),
+    tasks: sanitizePlanScopedCollection(payload.tasks, validPlanIds, activePlanId),
   };
+}
+
+export function getPlanFromPlanner(planner, planId) {
+  if (!planner || !Array.isArray(planner.marriages)) {
+    return null;
+  }
+
+  const targetPlanId = typeof planId === 'string' && planId ? planId : planner.activePlanId;
+  return planner.marriages.find(marriage => marriage?.id === targetPlanId) || null;
+}
+
+export function getCollaboratorRoleForPlan(plan, email) {
+  const normalized = normalizeEmail(email);
+  if (!plan || !Array.isArray(plan.collaborators) || !normalized) {
+    return null;
+  }
+
+  return plan.collaborators.find(item => normalizeEmail(item.email) === normalized)?.role || null;
+}
+
+export function hasPlanRole(plan, email, minimumRole) {
+  const role = getCollaboratorRoleForPlan(plan, email);
+  if (!role) {
+    return false;
+  }
+
+  return (ROLE_LEVEL[role] || 0) >= (ROLE_LEVEL[minimumRole] || 0);
 }
 
 export function createSessionToken(user, secret = jwtSecret) {
@@ -97,6 +265,179 @@ export function authMiddleware(req, res, next, secret = jwtSecret) {
   } catch {
     return res.status(401).json({ error: 'Session expired. Please sign in again.' });
   }
+}
+
+function hasPlannerContent(planner) {
+  if (!planner) {
+    return false;
+  }
+
+  if (Array.isArray(planner.events) && planner.events.length > 0) {
+    return true;
+  }
+  if (Array.isArray(planner.expenses) && planner.expenses.length > 0) {
+    return true;
+  }
+  if (Array.isArray(planner.guests) && planner.guests.length > 0) {
+    return true;
+  }
+  if (Array.isArray(planner.vendors) && planner.vendors.length > 0) {
+    return true;
+  }
+  if (Array.isArray(planner.tasks) && planner.tasks.length > 0) {
+    return true;
+  }
+
+  if (!Array.isArray(planner.marriages)) {
+    return false;
+  }
+
+  return planner.marriages.some(item => (
+    Boolean(item?.bride) ||
+    Boolean(item?.groom) ||
+    Boolean(item?.date) ||
+    Boolean(item?.venue) ||
+    Boolean(item?.budget) ||
+    Boolean(item?.guests)
+  ));
+}
+
+function normalizePlannerOwnership(planner, ownerEmail, ownerId) {
+  if (!planner || !Array.isArray(planner.marriages)) {
+    return planner;
+  }
+
+  planner.marriages = planner.marriages.map(marriage => ({
+    ...marriage,
+    collaborators: sanitizeCollaborators(marriage.collaborators, ownerEmail, ownerId),
+  }));
+
+  return planner;
+}
+
+function findOwnerEmail(plan) {
+  if (!plan || !Array.isArray(plan.collaborators)) {
+    return '';
+  }
+  return plan.collaborators.find(item => item.role === 'owner')?.email || '';
+}
+
+async function resolvePlannerForSession(PlannerModel, auth) {
+  const email = normalizeEmail(auth.email);
+  const requestedOwnerId = typeof auth.plannerOwnerId === 'string' ? auth.plannerOwnerId : '';
+
+  if (requestedOwnerId && requestedOwnerId !== auth.sub && typeof PlannerModel.findOne === 'function') {
+    if (!email) {
+      return null;
+    }
+
+    return PlannerModel.findOne({
+      googleId: requestedOwnerId,
+      'marriages.collaborators.email': email,
+    });
+  }
+
+  if (typeof PlannerModel.findOne !== 'function') {
+    return PlannerModel.findOneAndUpdate(
+      { googleId: auth.sub },
+      {
+        $setOnInsert: {
+          googleId: auth.sub,
+          ...buildEmptyPlanner({ ownerEmail: email, ownerId: auth.sub }),
+        },
+      },
+      {
+        new: true,
+        upsert: true,
+        setDefaultsOnInsert: true,
+      }
+    );
+  }
+
+  const ownPlanner = await PlannerModel.findOne({ googleId: auth.sub });
+  const sharedPlanner = email
+    ? await PlannerModel.findOne({
+      googleId: { $ne: auth.sub },
+      'marriages.collaborators.email': email,
+    })
+    : null;
+
+  if (ownPlanner && (!sharedPlanner || hasPlannerContent(ownPlanner))) {
+    return ownPlanner;
+  }
+
+  if (sharedPlanner) {
+    return sharedPlanner;
+  }
+
+  if (ownPlanner) {
+    return ownPlanner;
+  }
+
+  return PlannerModel.findOneAndUpdate(
+    { googleId: auth.sub },
+    {
+      $setOnInsert: {
+        googleId: auth.sub,
+        ...buildEmptyPlanner({ ownerEmail: email, ownerId: auth.sub }),
+      },
+    },
+    {
+      new: true,
+      upsert: true,
+      setDefaultsOnInsert: true,
+    }
+  );
+}
+
+async function listAccessiblePlanners(PlannerModel, auth) {
+  const email = normalizeEmail(auth.email);
+  const ownPlanner = await PlannerModel.findOneAndUpdate(
+    { googleId: auth.sub },
+    {
+      $setOnInsert: {
+        googleId: auth.sub,
+        ...buildEmptyPlanner({ ownerEmail: email, ownerId: auth.sub }),
+      },
+    },
+    {
+      new: true,
+      upsert: true,
+      setDefaultsOnInsert: true,
+    }
+  );
+
+  const shared = email && typeof PlannerModel.find === 'function'
+    ? await PlannerModel.find({ googleId: { $ne: auth.sub }, 'marriages.collaborators.email': email })
+    : [];
+
+  const docs = [ownPlanner, ...shared].filter(Boolean);
+  const seen = new Set();
+  const planners = [];
+
+  docs.forEach(doc => {
+    const ownerId = doc.googleId;
+    if (!ownerId || seen.has(ownerId)) {
+      return;
+    }
+    seen.add(ownerId);
+
+    const normalized = sanitizePlanner(normalizePlannerOwnership(doc.toObject(), email, ownerId), {
+      ownerEmail: email,
+      ownerId,
+    });
+    const activePlan = getPlanFromPlanner(normalized, normalized.activePlanId);
+    const role = getCollaboratorRoleForPlan(activePlan, email) || 'owner';
+
+    planners.push({
+      plannerOwnerId: ownerId,
+      activePlanId: normalized.activePlanId,
+      activePlanName: activePlan ? `${activePlan.bride || 'Bride'} & ${activePlan.groom || 'Groom'}` : 'Wedding Plan',
+      role,
+    });
+  });
+
+  return planners;
 }
 
 export function createApp(options = {}) {
@@ -172,7 +513,7 @@ export function createApp(options = {}) {
         {
           $setOnInsert: {
             googleId: payload.sub,
-            ...buildEmptyPlanner(),
+            ...buildEmptyPlanner({ ownerEmail: payload.email, ownerId: payload.sub }),
           },
         },
         {
@@ -190,7 +531,8 @@ export function createApp(options = {}) {
           name: user.name,
           picture: user.picture,
         },
-        planner: sanitizePlanner(planner.toObject()),
+        planner: sanitizePlanner(planner.toObject(), { ownerEmail: user.email, ownerId: user.googleId }),
+        plannerOwnerId: user.googleId,
       });
     } catch (error) {
       console.error('Google auth failed:', error);
@@ -200,23 +542,30 @@ export function createApp(options = {}) {
 
   app.get('/api/planner/me', (req, res, next) => authMiddleware(req, res, next, injectedJwtSecret), async (req, res) => {
     try {
-      const googleId = req.auth.sub;
-      const planner = await PlannerModel.findOneAndUpdate(
-        { googleId },
-        {
-          $setOnInsert: {
-            googleId,
-            ...buildEmptyPlanner(),
-          },
-        },
-        {
-          new: true,
-          upsert: true,
-          setDefaultsOnInsert: true,
-        }
-      );
+      req.auth.plannerOwnerId = req.query?.plannerOwnerId || '';
+      const plannerDoc = await resolvePlannerForSession(PlannerModel, req.auth);
+      if (!plannerDoc) {
+        return res.status(404).json({ error: 'Planner not found.' });
+      }
+      const email = normalizeEmail(req.auth.email);
+      const ownerId = plannerDoc.googleId || req.auth.sub;
+      const normalized = normalizePlannerOwnership(plannerDoc.toObject(), email, ownerId);
+      const activePlan = getPlanFromPlanner(normalized, normalized.activePlanId);
+      const role = getCollaboratorRoleForPlan(activePlan, email) || (ownerId === req.auth.sub ? 'owner' : null);
 
-      return res.json({ planner: sanitizePlanner(planner.toObject()) });
+      if (!role) {
+        return res.status(403).json({ error: 'You do not have access to this plan.' });
+      }
+
+      return res.json({
+        planner: sanitizePlanner(normalized, { ownerEmail: findOwnerEmail(activePlan) || email, ownerId }),
+        plannerOwnerId: ownerId,
+        access: {
+          role,
+          canManageSharing: role === 'owner',
+          canEdit: role === 'owner' || role === 'editor',
+        },
+      });
     } catch (error) {
       console.error('Failed to load planner:', error);
       return res.status(500).json({ error: 'Failed to load planner data.' });
@@ -225,10 +574,26 @@ export function createApp(options = {}) {
 
   app.put('/api/planner/me', (req, res, next) => authMiddleware(req, res, next, injectedJwtSecret), async (req, res) => {
     try {
-      const googleId = req.auth.sub;
-      const planner = sanitizePlanner(req.body?.planner);
+      req.auth.plannerOwnerId = req.query?.plannerOwnerId || req.body?.plannerOwnerId || '';
+      const plannerDoc = await resolvePlannerForSession(PlannerModel, req.auth);
+      if (!plannerDoc) {
+        return res.status(404).json({ error: 'Planner not found.' });
+      }
+      const email = normalizeEmail(req.auth.email);
+      const ownerId = plannerDoc.googleId || req.auth.sub;
+      const normalizedCurrent = normalizePlannerOwnership(plannerDoc.toObject(), email, ownerId);
+      const currentPlan = getPlanFromPlanner(normalizedCurrent, normalizedCurrent.activePlanId);
+      const ownerEmail = findOwnerEmail(currentPlan) || email;
+      const planner = sanitizePlanner(req.body?.planner, { ownerEmail, ownerId });
+      const nextPlan = getPlanFromPlanner(planner, planner.activePlanId);
+
+      const ownerFallback = !email && ownerId === req.auth.sub;
+      if (!ownerFallback && !hasPlanRole(nextPlan, email, 'editor')) {
+        return res.status(403).json({ error: 'You have view-only access to this plan.' });
+      }
+
       const updatedPlanner = await PlannerModel.findOneAndUpdate(
-        { googleId },
+        { _id: plannerDoc._id || ownerId },
         {
           $set: {
             ...planner,
@@ -241,10 +606,250 @@ export function createApp(options = {}) {
         }
       );
 
-      return res.json({ planner: sanitizePlanner(updatedPlanner.toObject()) });
+      return res.json({
+        planner: sanitizePlanner(updatedPlanner.toObject(), { ownerEmail, ownerId }),
+        plannerOwnerId: ownerId,
+      });
     } catch (error) {
       console.error('Failed to save planner:', error);
       return res.status(500).json({ error: 'Failed to save planner data.' });
+    }
+  });
+
+  app.get('/api/planner/access', (req, res, next) => authMiddleware(req, res, next, injectedJwtSecret), async (req, res) => {
+    try {
+      const planners = await listAccessiblePlanners(PlannerModel, req.auth);
+      return res.json({ planners });
+    } catch (error) {
+      console.error('Failed to list accessible planners:', error);
+      return res.status(500).json({ error: 'Failed to load accessible planners.' });
+    }
+  });
+
+  app.get('/api/planner/me/collaborators', (req, res, next) => authMiddleware(req, res, next, injectedJwtSecret), async (req, res) => {
+    try {
+      req.auth.plannerOwnerId = req.query?.plannerOwnerId || '';
+      const plannerDoc = await resolvePlannerForSession(PlannerModel, req.auth);
+      if (!plannerDoc) {
+        return res.status(404).json({ error: 'Planner not found.' });
+      }
+      const email = normalizeEmail(req.auth.email);
+      const ownerId = plannerDoc.googleId || req.auth.sub;
+      const normalized = normalizePlannerOwnership(plannerDoc.toObject(), email, ownerId);
+      const plan = getPlanFromPlanner(normalized, req.query?.planId || normalized.activePlanId);
+
+      if (!plan) {
+        return res.status(404).json({ error: 'Plan not found.' });
+      }
+
+      if (!hasPlanRole(plan, email, 'viewer')) {
+        return res.status(403).json({ error: 'You do not have access to this plan.' });
+      }
+
+      return res.json({ collaborators: plan.collaborators || [], plannerOwnerId: ownerId });
+    } catch (error) {
+      console.error('Failed to load collaborators:', error);
+      return res.status(500).json({ error: 'Failed to load sharing settings.' });
+    }
+  });
+
+  app.post('/api/planner/me/collaborators', (req, res, next) => authMiddleware(req, res, next, injectedJwtSecret), async (req, res) => {
+    try {
+      const plannerOwnerId = req.query?.plannerOwnerId || req.body?.plannerOwnerId || req.auth.sub;
+      const plannerDoc = await PlannerModel.findOne({ googleId: plannerOwnerId });
+      if (!plannerDoc) {
+        return res.status(404).json({ error: 'Planner not found.' });
+      }
+
+      const email = normalizeEmail(req.auth.email);
+      const ownerId = plannerDoc.googleId || req.auth.sub;
+      const normalized = normalizePlannerOwnership(plannerDoc.toObject(), email, ownerId);
+      const plan = getPlanFromPlanner(normalized, req.body?.planId || normalized.activePlanId);
+
+      if (!plan) {
+        return res.status(404).json({ error: 'Plan not found.' });
+      }
+
+      if (!( (!email && ownerId === req.auth.sub) || hasPlanRole(plan, email, 'owner') )) {
+        return res.status(403).json({ error: 'Only owners can manage sharing.' });
+      }
+
+      const collaboratorEmail = normalizeEmail(req.body?.email);
+      const role = normalizeRole(req.body?.role);
+
+      if (!collaboratorEmail) {
+        return res.status(400).json({ error: 'Email is required.' });
+      }
+
+      if ((plan.collaborators || []).some(item => normalizeEmail(item.email) === collaboratorEmail)) {
+        return res.status(409).json({ error: 'This person already has access.' });
+      }
+
+      const nextCollaborators = [
+        ...(plan.collaborators || []),
+        {
+          email: collaboratorEmail,
+          role,
+          addedBy: req.auth.sub,
+          addedAt: new Date(),
+        },
+      ];
+
+      const marriages = (normalized.marriages || []).map(item => {
+        if (item.id !== plan.id) {
+          return item;
+        }
+        return {
+          ...item,
+          collaborators: nextCollaborators,
+        };
+      });
+
+      const updated = await PlannerModel.findOneAndUpdate(
+        { _id: plannerDoc._id },
+        { $set: { marriages } },
+        { new: true }
+      );
+
+      const updatedPlanner = sanitizePlanner(updated.toObject(), {
+        ownerEmail: findOwnerEmail({ collaborators: nextCollaborators }) || email,
+        ownerId,
+      });
+      const updatedPlan = getPlanFromPlanner(updatedPlanner, plan.id);
+      return res.json({ collaborators: updatedPlan?.collaborators || [], plannerOwnerId: ownerId });
+    } catch (error) {
+      console.error('Failed to add collaborator:', error);
+      return res.status(500).json({ error: 'Failed to update sharing settings.' });
+    }
+  });
+
+  app.put('/api/planner/me/collaborators', (req, res, next) => authMiddleware(req, res, next, injectedJwtSecret), async (req, res) => {
+    try {
+      const plannerOwnerId = req.query?.plannerOwnerId || req.body?.plannerOwnerId || req.auth.sub;
+      const plannerDoc = await PlannerModel.findOne({ googleId: plannerOwnerId });
+      if (!plannerDoc) {
+        return res.status(404).json({ error: 'Planner not found.' });
+      }
+
+      const email = normalizeEmail(req.auth.email);
+      const ownerId = plannerDoc.googleId || req.auth.sub;
+      const normalized = normalizePlannerOwnership(plannerDoc.toObject(), email, ownerId);
+      const plan = getPlanFromPlanner(normalized, req.body?.planId || normalized.activePlanId);
+
+      if (!plan) {
+        return res.status(404).json({ error: 'Plan not found.' });
+      }
+
+      if (!( (!email && ownerId === req.auth.sub) || hasPlanRole(plan, email, 'owner') )) {
+        return res.status(403).json({ error: 'Only owners can manage sharing.' });
+      }
+
+      const collaboratorEmail = normalizeEmail(req.body?.email);
+      const role = normalizeRole(req.body?.role);
+      const nextCollaborators = [...(plan.collaborators || [])];
+      const index = nextCollaborators.findIndex(item => normalizeEmail(item.email) === collaboratorEmail);
+
+      if (index < 0) {
+        return res.status(404).json({ error: 'Collaborator not found.' });
+      }
+
+      if (nextCollaborators[index].role === 'owner') {
+        return res.status(400).json({ error: 'Owner role cannot be changed.' });
+      }
+
+      nextCollaborators[index] = {
+        ...nextCollaborators[index],
+        role,
+      };
+
+      const marriages = (normalized.marriages || []).map(item => {
+        if (item.id !== plan.id) {
+          return item;
+        }
+        return {
+          ...item,
+          collaborators: nextCollaborators,
+        };
+      });
+
+      const updated = await PlannerModel.findOneAndUpdate(
+        { _id: plannerDoc._id },
+        { $set: { marriages } },
+        { new: true }
+      );
+
+      const updatedPlanner = sanitizePlanner(updated.toObject(), {
+        ownerEmail: findOwnerEmail({ collaborators: nextCollaborators }) || email,
+        ownerId,
+      });
+      const updatedPlan = getPlanFromPlanner(updatedPlanner, plan.id);
+      return res.json({ collaborators: updatedPlan?.collaborators || [], plannerOwnerId: ownerId });
+    } catch (error) {
+      console.error('Failed to change collaborator role:', error);
+      return res.status(500).json({ error: 'Failed to update sharing settings.' });
+    }
+  });
+
+  app.delete('/api/planner/me/collaborators', (req, res, next) => authMiddleware(req, res, next, injectedJwtSecret), async (req, res) => {
+    try {
+      const plannerOwnerId = req.query?.plannerOwnerId || req.body?.plannerOwnerId || req.auth.sub;
+      const plannerDoc = await PlannerModel.findOne({ googleId: plannerOwnerId });
+      if (!plannerDoc) {
+        return res.status(404).json({ error: 'Planner not found.' });
+      }
+
+      const email = normalizeEmail(req.auth.email);
+      const ownerId = plannerDoc.googleId || req.auth.sub;
+      const normalized = normalizePlannerOwnership(plannerDoc.toObject(), email, ownerId);
+      const plan = getPlanFromPlanner(normalized, req.body?.planId || req.query?.planId || normalized.activePlanId);
+
+      if (!plan) {
+        return res.status(404).json({ error: 'Plan not found.' });
+      }
+
+      if (!( (!email && ownerId === req.auth.sub) || hasPlanRole(plan, email, 'owner') )) {
+        return res.status(403).json({ error: 'Only owners can manage sharing.' });
+      }
+
+      const collaboratorEmail = normalizeEmail(req.body?.email || req.query?.email);
+      const nextCollaborators = [...(plan.collaborators || [])];
+      const index = nextCollaborators.findIndex(item => normalizeEmail(item.email) === collaboratorEmail);
+
+      if (index < 0) {
+        return res.status(404).json({ error: 'Collaborator not found.' });
+      }
+
+      if (nextCollaborators[index].role === 'owner') {
+        return res.status(400).json({ error: 'Owner cannot be removed.' });
+      }
+
+      nextCollaborators.splice(index, 1);
+
+      const marriages = (normalized.marriages || []).map(item => {
+        if (item.id !== plan.id) {
+          return item;
+        }
+        return {
+          ...item,
+          collaborators: nextCollaborators,
+        };
+      });
+
+      const updated = await PlannerModel.findOneAndUpdate(
+        { _id: plannerDoc._id },
+        { $set: { marriages } },
+        { new: true }
+      );
+
+      const updatedPlanner = sanitizePlanner(updated.toObject(), {
+        ownerEmail: findOwnerEmail({ collaborators: nextCollaborators }) || email,
+        ownerId,
+      });
+      const updatedPlan = getPlanFromPlanner(updatedPlanner, plan.id);
+      return res.json({ collaborators: updatedPlan?.collaborators || [], plannerOwnerId: ownerId });
+    } catch (error) {
+      console.error('Failed to remove collaborator:', error);
+      return res.status(500).json({ error: 'Failed to update sharing settings.' });
     }
   });
 
