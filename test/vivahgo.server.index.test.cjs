@@ -12,14 +12,16 @@ describe('VivahGo/server/index.js', function () {
   it('exports sanitizer/helper functions with expected behavior', async function () {
     const mod = await loadServerModule();
 
-    assert.deepEqual(mod.buildEmptyPlanner(), {
-      wedding: { bride: '', groom: '', date: '', venue: '', guests: '', budget: '' },
-      events: [],
-      expenses: [],
-      guests: [],
-      vendors: [],
-      tasks: [],
-    });
+    const emptyPlanner = mod.buildEmptyPlanner();
+    assert.equal(Array.isArray(emptyPlanner.marriages), true);
+    assert.equal(emptyPlanner.marriages.length, 1);
+    assert.ok(emptyPlanner.activePlanId);
+    assert.deepEqual(emptyPlanner.wedding, { bride: '', groom: '', date: '', venue: '', guests: '', budget: '' });
+    assert.deepEqual(emptyPlanner.events, []);
+    assert.deepEqual(emptyPlanner.expenses, []);
+    assert.deepEqual(emptyPlanner.guests, []);
+    assert.deepEqual(emptyPlanner.vendors, []);
+    assert.deepEqual(emptyPlanner.tasks, []);
 
     assert.equal(mod.isRecord({}), true);
     assert.equal(mod.isRecord([]), false);
@@ -35,8 +37,35 @@ describe('VivahGo/server/index.js', function () {
 
     assert.equal(sanitized.wedding.bride, 'Aarohi');
     assert.equal(sanitized.wedding.groom, '');
-    assert.deepEqual(sanitized.events, [{ id: 1 }]);
-    assert.deepEqual(sanitized.tasks, [{ id: 2 }]);
+    assert.equal(sanitized.events.length, 1);
+    assert.equal(sanitized.tasks.length, 1);
+    assert.equal(sanitized.events[0].id, 1);
+    assert.equal(sanitized.events[0].planId, sanitized.activePlanId);
+    assert.equal(sanitized.tasks[0].id, 2);
+    assert.equal(sanitized.tasks[0].planId, sanitized.activePlanId);
+
+    const normalizedCollaborators = mod.sanitizePlanner(
+      {
+        marriages: [
+          {
+            id: 'plan-owner',
+            collaborators: [
+              { email: 'owner@test.com', role: 'owner' },
+              { email: 'duplicate@test.com', role: 'owner' },
+            ],
+          },
+        ],
+        activePlanId: 'plan-owner',
+      },
+      { ownerEmail: 'owner@test.com', ownerId: 'owner-sub' }
+    );
+    const owners = normalizedCollaborators.marriages[0].collaborators.filter(item => item.role === 'owner');
+    assert.equal(owners.length, 1);
+    assert.equal(owners[0].email, 'owner@test.com');
+    assert.equal(
+      normalizedCollaborators.marriages[0].collaborators.find(item => item.email === 'duplicate@test.com').role,
+      'viewer'
+    );
   });
 
   it('parses client origins and signs/verifies session token', async function () {
@@ -166,7 +195,9 @@ describe('VivahGo/server/index.js', function () {
     assert.equal(res.status, 200);
     assert.ok(typeof res.body.token === 'string');
     assert.equal(res.body.user.id, 'gid-123');
-    assert.deepEqual(res.body.planner.events, [{ id: 1 }]);
+    assert.equal(res.body.planner.events.length, 1);
+    assert.equal(res.body.planner.events[0].id, 1);
+    assert.equal(typeof res.body.planner.events[0].planId, 'string');
   });
 
   it('handles Google auth failures and incomplete payload branches', async function () {
@@ -261,7 +292,9 @@ describe('VivahGo/server/index.js', function () {
       .set('Authorization', `Bearer ${token}`)
       .send({ planner: { events: [{ ok: true }, null] } });
     assert.equal(putRes.status, 200);
-    assert.deepEqual(putRes.body.planner.events, [{ ok: true }]);
+    assert.equal(putRes.body.planner.events.length, 1);
+    assert.equal(putRes.body.planner.events[0].ok, true);
+    assert.equal(typeof putRes.body.planner.events[0].planId, 'string');
 
     plannerShouldThrow = true;
     const getErr = await request(app).get('/api/planner/me').set('Authorization', `Bearer ${token}`);

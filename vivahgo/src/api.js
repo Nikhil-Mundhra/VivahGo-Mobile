@@ -69,15 +69,65 @@ export function loginWithGoogle(credential) {
   });
 }
 
-export function fetchPlanner(token) {
-  return request('/planner/me', { token });
+function withOwnerQuery(path, plannerOwnerId) {
+  if (!plannerOwnerId) {
+    return path;
+  }
+
+  const join = path.includes('?') ? '&' : '?';
+  return `${path}${join}plannerOwnerId=${encodeURIComponent(plannerOwnerId)}`;
 }
 
-export function savePlanner(token, planner) {
-  return request('/planner/me', {
+export function fetchPlanner(token, plannerOwnerId) {
+  return request(withOwnerQuery('/planner/me', plannerOwnerId), { token });
+}
+
+export function savePlanner(token, planner, plannerOwnerId) {
+  return request(withOwnerQuery('/planner/me', plannerOwnerId), {
     method: 'PUT',
     token,
     body: { planner },
+  });
+}
+
+export function fetchAccessiblePlanners(token) {
+  return request('/planner/access', { token });
+}
+
+export function fetchPlanCollaborators(token, planId, plannerOwnerId) {
+  const query = planId ? `?planId=${encodeURIComponent(planId)}` : '';
+  const path = withOwnerQuery(`/planner/me/collaborators${query}`, plannerOwnerId);
+  return request(path, {
+    token,
+  });
+}
+
+export function addPlanCollaborator(token, payload) {
+  return request(withOwnerQuery('/planner/me/collaborators', payload?.plannerOwnerId), {
+    method: 'POST',
+    token,
+    body: payload,
+  });
+}
+
+export function updatePlanCollaboratorRole(token, payload) {
+  return request(withOwnerQuery('/planner/me/collaborators', payload?.plannerOwnerId), {
+    method: 'PUT',
+    token,
+    body: payload,
+  });
+}
+
+export function removePlanCollaborator(token, payload) {
+  const query = payload?.email
+    ? `?planId=${encodeURIComponent(payload.planId || '')}&email=${encodeURIComponent(payload.email)}`
+    : '';
+  const path = withOwnerQuery(`/planner/me/collaborators${query}`, payload?.plannerOwnerId);
+
+  return request(path, {
+    method: 'DELETE',
+    token,
+    body: payload,
   });
 }
 

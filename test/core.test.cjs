@@ -87,6 +87,30 @@ describe('core helpers', function () {
       assert.equal(result.events.find(event => event.id === 1).planId, 'plan_b');
       assert.equal(result.events.find(event => event.id === 2).planId, 'plan_a');
     });
+
+    it('enforces a single owner in collaborators during normalization', function () {
+      const result = sanitizePlanner(
+        {
+          marriages: [
+            {
+              id: 'plan_owner',
+              collaborators: [
+                { email: 'owner@test.com', role: 'owner' },
+                { email: 'other@test.com', role: 'owner' },
+              ],
+            },
+          ],
+          activePlanId: 'plan_owner',
+        },
+        { ownerEmail: 'owner@test.com', ownerId: 'owner-sub' }
+      );
+
+      const collaborators = result.marriages[0].collaborators;
+      const owners = collaborators.filter(item => item.role === 'owner');
+      assert.equal(owners.length, 1);
+      assert.equal(owners[0].email, 'owner@test.com');
+      assert.equal(collaborators.find(item => item.email === 'other@test.com').role, 'viewer');
+    });
   });
 
   describe('setCorsHeaders', function () {
@@ -111,7 +135,7 @@ describe('core helpers', function () {
         res.headers['Access-Control-Allow-Headers'],
         'Content-Type, Authorization'
       );
-      assert.equal(res.headers['Access-Control-Allow-Methods'], 'GET, POST, PUT, OPTIONS');
+      assert.equal(res.headers['Access-Control-Allow-Methods'], 'GET, POST, PUT, DELETE, OPTIONS');
       assert.equal(res.headers.Vary, undefined);
     });
 

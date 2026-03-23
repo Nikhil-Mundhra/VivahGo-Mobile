@@ -4,7 +4,7 @@ export default function MarriagePlanSelector({
   onSwitchPlan,
   onCreatePlan,
   onDeletePlan,
-  onEditPlan,
+  onConfigurePlan,
   onClose,
 }) {
   const handleDeletePlan = (e, planId) => {
@@ -121,7 +121,7 @@ export default function MarriagePlanSelector({
                   type="button"
                   onClick={(e) => {
                     e.stopPropagation();
-                    onEditPlan(plan.id);
+                    onConfigurePlan(plan.id);
                     onClose();
                   }}
                   style={{
@@ -142,7 +142,7 @@ export default function MarriagePlanSelector({
                     e.currentTarget.style.background = "rgba(212, 175, 55, 0.1)";
                   }}
                 >
-                  Edit
+                  Configure
                 </button>
 
                 {marriages.length > 1 && (

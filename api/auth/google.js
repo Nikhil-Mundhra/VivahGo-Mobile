@@ -68,7 +68,7 @@ module.exports = async function handler(req, res) {
       {
         $setOnInsert: {
           googleId: payload.sub,
-          ...buildEmptyPlanner(),
+          ...buildEmptyPlanner({ ownerEmail: payload.email, ownerId: payload.sub }),
         },
       },
       { new: true, upsert: true, setDefaultsOnInsert: true }
@@ -82,7 +82,8 @@ module.exports = async function handler(req, res) {
         name: user.name,
         picture: user.picture,
       },
-      planner: sanitizePlanner(planner.toObject()),
+      planner: sanitizePlanner(planner.toObject(), { ownerEmail: user.email, ownerId: user.googleId }),
+      plannerOwnerId: user.googleId,
     });
   } catch (error) {
     console.error('Google auth failed:', error);

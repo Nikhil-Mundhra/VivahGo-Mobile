@@ -214,6 +214,7 @@ export function createBlankMarriagePlan(planId = null) {
     guests: '',
     budget: '',
     template: 'blank',
+    collaborators: [],
     createdAt: new Date(),
   };
 }
@@ -230,6 +231,7 @@ export function createDemoMarriagePlan() {
     guests: '320',
     budget: '6500000',
     template: 'traditional',
+    collaborators: [],
     createdAt: new Date(),
   };
 }
@@ -282,7 +284,23 @@ export function normalizePlanner(planner) {
   }
 
   // Handle migration from old single-plan format
-  let marriages = Array.isArray(planner.marriages) ? planner.marriages : [];
+  let marriages = Array.isArray(planner.marriages)
+    ? planner.marriages
+      .filter(marriage => marriage && typeof marriage === 'object')
+      .map(marriage => ({
+        ...marriage,
+        collaborators: Array.isArray(marriage.collaborators)
+          ? marriage.collaborators
+            .filter(item => item && typeof item === 'object' && typeof item.email === 'string' && item.email.trim())
+            .map(item => ({
+              email: item.email.trim().toLowerCase(),
+              role: item.role === 'owner' || item.role === 'editor' || item.role === 'viewer' ? item.role : 'viewer',
+              addedAt: item.addedAt || new Date(),
+              addedBy: item.addedBy || '',
+            }))
+          : [],
+      }))
+    : [];
   let activePlanId = planner.activePlanId;
 
   // If no marriages but has old wedding data, migrate it
@@ -297,6 +315,7 @@ export function normalizePlanner(planner) {
       guests: planner.wedding.guests || '',
       budget: planner.wedding.budget || '',
       template: 'blank',
+      collaborators: [],
       createdAt: new Date(),
     }];
     activePlanId = planId;

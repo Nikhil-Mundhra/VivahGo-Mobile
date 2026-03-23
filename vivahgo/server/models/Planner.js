@@ -1,5 +1,30 @@
 import mongoose from 'mongoose';
 
+const collaboratorSchema = new mongoose.Schema(
+  {
+    email: {
+      type: String,
+      required: true,
+      trim: true,
+      lowercase: true,
+    },
+    role: {
+      type: String,
+      enum: ['owner', 'editor', 'viewer'],
+      default: 'viewer',
+    },
+    addedBy: {
+      type: String,
+      default: '',
+    },
+    addedAt: {
+      type: Date,
+      default: () => new Date(),
+    },
+  },
+  { _id: false }
+);
+
 const plannerSchema = new mongoose.Schema(
   {
     googleId: {
@@ -20,6 +45,10 @@ const plannerSchema = new mongoose.Schema(
           budget: String,
           guests: String,
           template: String, // 'blank', 'traditional', 'modern', 'minimalist', 'adventure'
+          collaborators: {
+            type: [collaboratorSchema],
+            default: [],
+          },
           createdAt: {
             type: Date,
             default: () => new Date(),

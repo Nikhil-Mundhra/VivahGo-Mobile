@@ -10,6 +10,12 @@ const emptyWedding = {
   budget: '',
 };
 
+const ROLE_LEVEL = {
+  viewer: 1,
+  editor: 2,
+  owner: 3,
+};
+
 let cachedConnection = null;
 
 function getClientOrigins() {
@@ -33,7 +39,7 @@ function setCorsHeaders(req, res) {
   }
 
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, OPTIONS');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
 }
 
 function handlePreflight(req, res) {
@@ -88,6 +94,17 @@ function getPlannerModel() {
             budget: String,
             guests: String,
             template: String,
+            collaborators: {
+              type: [
+                {
+                  email: { type: String, required: true, trim: true, lowercase: true },
+                  role: { type: String, enum: ['owner', 'editor', 'viewer'], default: 'viewer' },
+                  addedBy: { type: String, default: '' },
+                  addedAt: { type: Date, default: () => new Date() },
+                },
+              ],
+              default: [],
+            },
             createdAt: { type: Date, default: () => new Date() },
           },
         ],
@@ -110,7 +127,9 @@ function getPlannerModel() {
   return mongoose.models.Planner || mongoose.model('Planner', schema);
 }
 
-function buildEmptyPlanner() {
+function buildEmptyPlanner(options = {}) {
+  const ownerEmail = normalizeEmail(options.ownerEmail || '');
+  const ownerId = typeof options.ownerId === 'string' ? options.ownerId : '';
   const planId = `plan_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
   return {
     marriages: [
@@ -123,6 +142,16 @@ function buildEmptyPlanner() {
         budget: '',
         guests: '',
         template: 'blank',
+        collaborators: ownerEmail
+          ? [
+            {
+              email: ownerEmail,
+              role: 'owner',
+              addedBy: ownerId,
+              addedAt: new Date(),
+            },
+          ]
+          : [],
         createdAt: new Date(),
       },
     ],
@@ -147,6 +176,53 @@ function sanitizeCollection(value) {
   return value.filter(isRecord);
 }
 
+function normalizeEmail(value) {
+  return typeof value === 'string' ? value.trim().toLowerCase() : '';
+}
+
+function normalizeRole(value) {
+  if (value === 'owner' || value === 'editor' || value === 'viewer') {
+    return value;
+  }
+  return 'viewer';
+}
+
+function sanitizeCollaborators(value, ownerEmail, ownerId) {
+  const owner = normalizeEmail(ownerEmail);
+  const byEmail = new Map();
+
+  if (Array.isArray(value)) {
+    value
+      .filter(isRecord)
+      .forEach(collaborator => {
+        const email = normalizeEmail(collaborator.email);
+        if (!email) {
+          return;
+        }
+
+        const requestedRole = normalizeRole(collaborator.role);
+        const role = email === owner ? 'owner' : requestedRole === 'owner' ? 'viewer' : requestedRole;
+        byEmail.set(email, {
+          email,
+          role,
+          addedBy: typeof collaborator.addedBy === 'string' ? collaborator.addedBy : '',
+          addedAt: collaborator.addedAt || new Date(),
+        });
+      });
+  }
+
+  if (owner) {
+    byEmail.set(owner, {
+      email: owner,
+      role: 'owner',
+      addedBy: ownerId || owner,
+      addedAt: byEmail.get(owner)?.addedAt || new Date(),
+    });
+  }
+
+  return [...byEmail.values()];
+}
+
 function sanitizeMarriages(value) {
   if (!Array.isArray(value)) {
     return [];
@@ -163,6 +239,7 @@ function sanitizeMarriages(value) {
       budget: marriage.budget || '',
       guests: marriage.guests || '',
       template: marriage.template || 'blank',
+      collaborators: sanitizeCollaborators(marriage.collaborators),
       createdAt: marriage.createdAt || new Date(),
     }))
     .filter(marriage => Boolean(marriage.id));
@@ -182,8 +259,13 @@ function sanitizePlanScopedCollection(items, validPlanIds, activePlanId) {
   });
 }
 
-function sanitizePlanner(payload = {}) {
-  const marriages = sanitizeMarriages(payload.marriages);
+function sanitizePlanner(payload = {}, options = {}) {
+  const ownerEmail = normalizeEmail(options.ownerEmail || payload.ownerEmail || '');
+  const ownerId = typeof options.ownerId === 'string' ? options.ownerId : '';
+  const marriages = sanitizeMarriages(payload.marriages).map(marriage => ({
+    ...marriage,
+    collaborators: sanitizeCollaborators(marriage.collaborators, ownerEmail, ownerId),
+  }));
   const fallbackPlanId = `plan_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
 
   if (marriages.length === 0) {
@@ -196,6 +278,7 @@ function sanitizePlanner(payload = {}) {
       budget: '',
       guests: '',
       template: 'blank',
+      collaborators: sanitizeCollaborators([], ownerEmail, ownerId),
       createdAt: new Date(),
     });
   }
@@ -218,6 +301,46 @@ function sanitizePlanner(payload = {}) {
     vendors: sanitizePlanScopedCollection(payload.vendors, validPlanIds, activePlanId),
     tasks: sanitizePlanScopedCollection(payload.tasks, validPlanIds, activePlanId),
   };
+}
+
+function getPlanFromPlanner(planner, planId) {
+  if (!planner || !Array.isArray(planner.marriages)) {
+    return null;
+  }
+
+  const targetPlanId = typeof planId === 'string' && planId ? planId : planner.activePlanId;
+  return planner.marriages.find(marriage => marriage?.id === targetPlanId) || null;
+}
+
+function getCollaboratorRoleForPlan(plan, email) {
+  const normalized = normalizeEmail(email);
+  if (!plan || !Array.isArray(plan.collaborators) || !normalized) {
+    return null;
+  }
+
+  return plan.collaborators.find(item => normalizeEmail(item.email) === normalized)?.role || null;
+}
+
+function hasPlanRole(plan, email, minimumRole) {
+  const role = getCollaboratorRoleForPlan(plan, email);
+  if (!role) {
+    return false;
+  }
+
+  return (ROLE_LEVEL[role] || 0) >= (ROLE_LEVEL[minimumRole] || 0);
+}
+
+function normalizePlannerOwnership(planner, ownerEmail, ownerId) {
+  if (!planner || !Array.isArray(planner.marriages)) {
+    return planner;
+  }
+
+  planner.marriages = planner.marriages.map(marriage => ({
+    ...marriage,
+    collaborators: sanitizeCollaborators(marriage.collaborators, ownerEmail, ownerId),
+  }));
+
+  return planner;
 }
 
 function createSessionToken(user) {
@@ -259,9 +382,15 @@ module.exports = {
   buildEmptyPlanner,
   connectDb,
   createSessionToken,
+  getCollaboratorRoleForPlan,
   getPlannerModel,
+  getPlanFromPlanner,
   getUserModel,
   handlePreflight,
+  hasPlanRole,
+  normalizeEmail,
+  normalizePlannerOwnership,
+  normalizeRole,
   sanitizePlanner,
   setCorsHeaders,
   verifySession,

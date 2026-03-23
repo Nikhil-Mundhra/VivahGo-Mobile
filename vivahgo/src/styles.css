@@ -279,6 +279,18 @@ body { background: var(--color-deep-red); }
 }
 .content-area::-webkit-scrollbar { display: none; }
 
+.content-area-readonly button,
+.content-area-readonly input,
+.content-area-readonly textarea,
+.content-area-readonly select {
+  pointer-events: none;
+  opacity: 0.65;
+}
+
+.content-area-readonly [contenteditable="true"] {
+  pointer-events: none;
+}
+
 /* BOTTOM NAV */
 .bottom-nav {
   position: fixed;
@@ -886,6 +898,40 @@ body { background: var(--color-deep-red); }
   cursor: pointer;
   font-family: 'Jost', sans-serif;
   margin-top: 8px;
+}
+
+.share-role-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 82px;
+  border-radius: 999px;
+  padding: 6px 12px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.25px;
+}
+
+.share-role-badge-owner {
+  border: 1px solid rgba(212, 175, 55, 0.55);
+  background: rgba(212, 175, 55, 0.16);
+  color: var(--color-gold-dark);
+}
+
+.share-revoke-btn {
+  border: 1px solid rgba(180, 35, 24, 0.4);
+  background: rgba(180, 35, 24, 0.1);
+  color: #8B1A1A;
+  border-radius: 6px;
+  padding: 6px 10px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.share-revoke-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 .fab {
   position: fixed;
