@@ -1,7 +1,7 @@
-function LegalFooter({ hasBottomNav, isVisible = true, onOpenTerms, onOpenAbout, onOpenFeedback }) {
+function LegalFooter({ hasBottomNav, isVisible = true, onOpenTerms, onOpenFeedback, aboutHref = "/home", className = "" }) {
   return (
     <div
-      className={`legal-footer-slot${hasBottomNav ? " legal-footer-with-nav" : ""}${isVisible ? "" : " legal-footer-slot-hidden"}`}
+      className={`legal-footer-slot${hasBottomNav ? " legal-footer-with-nav" : ""}${isVisible ? "" : " legal-footer-slot-hidden"}${className ? ` ${className}` : ""}`}
     >
       <footer className={`legal-footer${isVisible ? "" : " legal-footer-hidden"}`}>
         <div className="legal-footer-links">
@@ -9,9 +9,9 @@ function LegalFooter({ hasBottomNav, isVisible = true, onOpenTerms, onOpenAbout,
             Terms &amp; Conditions
           </button>
           <span className="legal-footer-divider">|</span>
-          <button type="button" className="legal-footer-link" onClick={onOpenAbout}>
+          <a href={aboutHref} className="legal-footer-link">
             About
-          </button>
+          </a>
           <span className="legal-footer-divider">|</span>
           <button type="button" className="legal-footer-link" onClick={onOpenFeedback}>
             Feedback

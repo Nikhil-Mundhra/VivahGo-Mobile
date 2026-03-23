@@ -11,7 +11,6 @@ import VendorsScreen from "./components/VendorsScreen";
 import TasksScreen from "./components/TasksScreen";
 import AccountScreen from "./components/AccountScreen";
 import TermsConditionsModal from "./components/TermsConditionsModal";
-import AboutModal from "./components/AboutModal";
 import FeedbackModal from "./components/FeedbackModal";
 import LegalFooter from "./components/LegalFooter";
 import NavIcon from "./components/NavIcon";
@@ -56,7 +55,6 @@ export default function VivahGoApp() {
   const [eventToEditId, setEventToEditId] = useState(null);
   const [showAccountSettings, setShowAccountSettings] = useState(false);
   const [showTermsModal, setShowTermsModal] = useState(false);
-  const [showAboutModal, setShowAboutModal] = useState(false);
   const [showFeedbackModal, setShowFeedbackModal] = useState(false);
   const [showDesktopFooter, setShowDesktopFooter] = useState(true);
   const [isDesktopView, setIsDesktopView] = useState(() =>
@@ -732,14 +730,6 @@ export default function VivahGoApp() {
     setShowTermsModal(false);
   }
 
-  function openAboutModal() {
-    setShowAboutModal(true);
-  }
-
-  function closeAboutModal() {
-    setShowAboutModal(false);
-  }
-
   function openFeedbackModal() {
     setShowFeedbackModal(true);
   }
@@ -812,7 +802,6 @@ export default function VivahGoApp() {
           <LegalFooter
             hasBottomNav={false}
             onOpenTerms={openTermsModal}
-            onOpenAbout={openAboutModal}
             onOpenFeedback={openFeedbackModal}
           />
         </>
@@ -906,7 +895,6 @@ export default function VivahGoApp() {
             hasBottomNav={true}
             isVisible={showDesktopFooter}
             onOpenTerms={openTermsModal}
-            onOpenAbout={openAboutModal}
             onOpenFeedback={openFeedbackModal}
           />
 
@@ -921,7 +909,6 @@ export default function VivahGoApp() {
             />
           )}
           {showTermsModal && <TermsConditionsModal onClose={closeTermsModal} />}
-          {showAboutModal && <AboutModal onClose={closeAboutModal} />}
           {showFeedbackModal && <FeedbackModal onClose={closeFeedbackModal} />}
           {showMarriagePlanSelector && (
             <MarriagePlanSelector

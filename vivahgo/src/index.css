@@ -54,6 +54,10 @@ body {
   margin: 0;
 }
 
+body[data-route='home'] {
+  color-scheme: light;
+}
+
 #root {
   width: 1126px;
   max-width: 100%;
