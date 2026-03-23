@@ -6,7 +6,7 @@ function createTaskForm() {
   return {name:"",due:"",group:"Final",priority:"medium",eventId:""};
 }
 
-function TasksScreen({ tasks, setTasks, events }) {
+function TasksScreen({ tasks, setTasks, events, planId }) {
   const [showAdd, setShowAdd] = useState(false);
   const [form, setForm] = useState(createTaskForm());
   const taskSwipe = useSwipeDown(() => setShowAdd(false));
@@ -24,7 +24,7 @@ function TasksScreen({ tasks, setTasks, events }) {
   function add() {
     if(!form.name) return;
     const linkedEvent = events.find(event => String(event.id) === String(form.eventId));
-    setTasks(ts=>[...ts,{...form,id:Date.now(),done:false,ceremony:linkedEvent?.name || "General"}]);
+    setTasks(ts=>[...ts,{...form,id:Date.now(),done:false,planId,ceremony:linkedEvent?.name || "General"}]);
     setForm(createTaskForm());
     setShowAdd(false);
   }

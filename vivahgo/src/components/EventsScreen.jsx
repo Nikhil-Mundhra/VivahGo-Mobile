@@ -27,7 +27,7 @@ function buildTimeStr(timeH, timeM, timeP) {
   return timeH && timeM ? timeH + ":" + timeM + " " + timeP : "";
 }
 
-function EventsScreen({ events, setEvents, expenses, onOpenBudget, initialEditingEventId }) {
+function EventsScreen({ events, setEvents, expenses, onOpenBudget, initialEditingEventId, planId }) {
   const [editing, setEditing] = useState(() => {
     const initialEvent = events.find(event => String(event.id) === String(initialEditingEventId));
     return initialEvent ? { ...initialEvent, ...parseTimeParts(initialEvent.time) } : null;
@@ -86,6 +86,7 @@ function EventsScreen({ events, setEvents, expenses, onOpenBudget, initialEditin
         ...rest,
         time: buildTimeStr(timeH, timeM, timeP),
         id: Date.now(),
+        planId,
         colorIdx: preset ? preset.colorIdx : evs.length % EVENT_COLORS.length,
       },
     ]);

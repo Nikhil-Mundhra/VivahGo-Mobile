@@ -77,6 +77,26 @@ function getPlannerModel() {
   const schema = new mongoose.Schema(
     {
       googleId: { type: String, required: true, unique: true, index: true },
+      marriages: {
+        type: [
+          {
+            id: String,
+            bride: String,
+            groom: String,
+            date: String,
+            venue: String,
+            budget: String,
+            guests: String,
+            template: String,
+            createdAt: { type: Date, default: () => new Date() },
+          },
+        ],
+        default: [],
+      },
+      activePlanId: {
+        type: String,
+        default: null,
+      },
       wedding: { type: mongoose.Schema.Types.Mixed, default: () => ({}) },
       events: { type: [mongoose.Schema.Types.Mixed], default: [] },
       expenses: { type: [mongoose.Schema.Types.Mixed], default: [] },
@@ -91,7 +111,22 @@ function getPlannerModel() {
 }
 
 function buildEmptyPlanner() {
+  const planId = `plan_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
   return {
+    marriages: [
+      {
+        id: planId,
+        bride: '',
+        groom: '',
+        date: '',
+        venue: '',
+        budget: '',
+        guests: '',
+        template: 'blank',
+        createdAt: new Date(),
+      },
+    ],
+    activePlanId: planId,
     wedding: { ...emptyWedding },
     events: [],
     expenses: [],
@@ -112,18 +147,76 @@ function sanitizeCollection(value) {
   return value.filter(isRecord);
 }
 
+function sanitizeMarriages(value) {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value
+    .filter(isRecord)
+    .map(marriage => ({
+      id: typeof marriage.id === 'string' && marriage.id.trim() ? marriage.id : null,
+      bride: marriage.bride || '',
+      groom: marriage.groom || '',
+      date: marriage.date || '',
+      venue: marriage.venue || '',
+      budget: marriage.budget || '',
+      guests: marriage.guests || '',
+      template: marriage.template || 'blank',
+      createdAt: marriage.createdAt || new Date(),
+    }))
+    .filter(marriage => Boolean(marriage.id));
+}
+
+function sanitizePlanScopedCollection(items, validPlanIds, activePlanId) {
+  return sanitizeCollection(items).map(item => {
+    if (typeof item.planId === 'string' && validPlanIds.has(item.planId)) {
+      return { ...item };
+    }
+
+    // Migrate legacy or malformed entries into the active plan scope.
+    return {
+      ...item,
+      planId: activePlanId,
+    };
+  });
+}
+
 function sanitizePlanner(payload = {}) {
+  const marriages = sanitizeMarriages(payload.marriages);
+  const fallbackPlanId = `plan_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+
+  if (marriages.length === 0) {
+    marriages.push({
+      id: fallbackPlanId,
+      bride: '',
+      groom: '',
+      date: '',
+      venue: '',
+      budget: '',
+      guests: '',
+      template: 'blank',
+      createdAt: new Date(),
+    });
+  }
+
+  const validPlanIds = new Set(marriages.map(marriage => marriage.id));
+  const activePlanId = typeof payload.activePlanId === 'string' && validPlanIds.has(payload.activePlanId)
+    ? payload.activePlanId
+    : marriages[0].id;
   const wedding = isRecord(payload.wedding)
     ? { ...emptyWedding, ...payload.wedding }
     : { ...emptyWedding };
 
   return {
+    marriages,
+    activePlanId,
     wedding,
-    events: sanitizeCollection(payload.events),
-    expenses: sanitizeCollection(payload.expenses),
-    guests: sanitizeCollection(payload.guests),
-    vendors: sanitizeCollection(payload.vendors),
-    tasks: sanitizeCollection(payload.tasks),
+    events: sanitizePlanScopedCollection(payload.events, validPlanIds, activePlanId),
+    expenses: sanitizePlanScopedCollection(payload.expenses, validPlanIds, activePlanId),
+    guests: sanitizePlanScopedCollection(payload.guests, validPlanIds, activePlanId),
+    vendors: sanitizePlanScopedCollection(payload.vendors, validPlanIds, activePlanId),
+    tasks: sanitizePlanScopedCollection(payload.tasks, validPlanIds, activePlanId),
   };
 }
 

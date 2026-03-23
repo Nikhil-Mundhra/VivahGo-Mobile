@@ -31,6 +31,8 @@ describe('core helpers', function () {
 
       const result = sanitizePlanner(payload);
 
+      assert.ok(result.activePlanId);
+      assert.equal(result.marriages.length, 1);
       assert.deepEqual(result.wedding, {
         bride: 'Asha',
         groom: '',
@@ -40,11 +42,14 @@ describe('core helpers', function () {
         budget: '',
         unknown: 'keep',
       });
-      assert.deepEqual(result.events, [{ title: 'Sangeet' }, { date: '2026-03-22' }]);
+      assert.deepEqual(result.events, [
+        { title: 'Sangeet', planId: result.activePlanId },
+        { date: '2026-03-22', planId: result.activePlanId },
+      ]);
       assert.deepEqual(result.expenses, []);
-      assert.deepEqual(result.guests, [{ name: 'Rahul' }]);
-      assert.deepEqual(result.vendors, [{ id: 1 }]);
-      assert.deepEqual(result.tasks, [{ task: 'Book venue' }]);
+      assert.deepEqual(result.guests, [{ name: 'Rahul', planId: result.activePlanId }]);
+      assert.deepEqual(result.vendors, [{ id: 1, planId: result.activePlanId }]);
+      assert.deepEqual(result.tasks, [{ task: 'Book venue', planId: result.activePlanId }]);
     });
 
     it('returns defaults for missing payload', function () {
@@ -63,6 +68,24 @@ describe('core helpers', function () {
       assert.deepEqual(result.guests, []);
       assert.deepEqual(result.vendors, []);
       assert.deepEqual(result.tasks, []);
+      assert.ok(result.activePlanId);
+      assert.equal(result.marriages.length, 1);
+    });
+
+    it('keeps valid plan IDs and migrates missing plan IDs to active plan', function () {
+      const result = sanitizePlanner({
+        marriages: [
+          { id: 'plan_a', bride: 'A', groom: 'B' },
+          { id: 'plan_b', bride: 'C', groom: 'D' },
+        ],
+        activePlanId: 'plan_b',
+        events: [{ id: 1 }, { id: 2, planId: 'plan_a' }],
+      });
+
+      assert.equal(result.activePlanId, 'plan_b');
+      assert.equal(result.events.length, 2);
+      assert.equal(result.events.find(event => event.id === 1).planId, 'plan_b');
+      assert.equal(result.events.find(event => event.id === 2).planId, 'plan_a');
     });
   });
 

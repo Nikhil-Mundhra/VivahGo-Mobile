@@ -27,7 +27,7 @@ run: build
 	cd VivahGo && npm run dev
 
 run_local: test build
-	cd VivahGo && \
+	cd VivahGo; \
 	npm run dev:server & \
 	SERVER_PID=$$!; \
 	trap 'kill $$SERVER_PID' EXIT INT TERM; \

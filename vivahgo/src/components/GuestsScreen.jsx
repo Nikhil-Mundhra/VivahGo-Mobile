@@ -49,7 +49,7 @@ function getGuestNameParts(guest) {
   };
 }
 
-function GuestsScreen({ guests, setGuests }) {
+function GuestsScreen({ guests, setGuests, planId }) {
   const [showEditor, setShowEditor] = useState(false);
   const [editingGuestId, setEditingGuestId] = useState(null);
   const [form, setForm] = useState(createGuestForm());
@@ -144,6 +144,7 @@ function GuestsScreen({ guests, setGuests }) {
       lastName,
       id: editingGuestId ?? Date.now(),
       guestCount,
+      planId,
       name: [title, firstName, middleName, lastName].filter(Boolean).join(" "),
     };
 

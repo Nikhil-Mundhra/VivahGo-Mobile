@@ -15,9 +15,11 @@ import AboutModal from "./components/AboutModal";
 import FeedbackModal from "./components/FeedbackModal";
 import LegalFooter from "./components/LegalFooter";
 import NavIcon from "./components/NavIcon";
+import MarriagePlanSelector from "./components/MarriagePlanSelector";
+import NewMarriagePlanModal from "./components/NewMarriagePlanModal";
 import { NAV_ITEMS } from "./constants";
 import { fetchPlanner, loginWithGoogle, savePlanner } from "./api";
-import { createBlankPlanner, createDemoPlanner, hasWeddingProfile, normalizePlanner } from "./plannerDefaults";
+import { createBlankPlanner, createDemoPlanner, hasWeddingProfile, normalizePlanner, generatePlanId, createTemplatePlanCollections } from "./plannerDefaults";
 import { useSwipeDown } from "./hooks/useSwipeDown";
 
 const SESSION_STORAGE_KEY = "vivahgo.session";
@@ -50,14 +52,56 @@ export default function VivahGoApp() {
   const [isDesktopView, setIsDesktopView] = useState(() =>
     typeof window !== "undefined" ? window.matchMedia("(min-width: 1024px)").matches : false
   );
+  // Multi-marriage management
+  const [marriages, setMarriages] = useState([]);
+  const [activePlanId, setActivePlanId] = useState(null);
+  const [showMarriagePlanSelector, setShowMarriagePlanSelector] = useState(false);
+  const [showNewPlanModal, setShowNewPlanModal] = useState(false);
+  const [editingPlanId, setEditingPlanId] = useState(null);
+  const [editingMarriageForm, setEditingMarriageForm] = useState({ bride: "", groom: "", date: "", venue: "" });
   const weddingSwipe = useSwipeDown(() => closeWeddingDetailsEditor());
 
   const saveTimerRef = useRef(null);
   const contentAreaRef = useRef(null);
   const previousScrollTopRef = useRef(0);
 
+  function mergeActivePlanCollection(currentItems, nextPlanItems, planId) {
+    const nextItems = Array.isArray(nextPlanItems) ? nextPlanItems : [];
+    const preserved = (Array.isArray(currentItems) ? currentItems : []).filter(item => item?.planId !== planId);
+    const normalizedPlanItems = nextItems
+      .filter(item => item && typeof item === "object")
+      .map(item => ({ ...item, planId }));
+    return [...preserved, ...normalizedPlanItems];
+  }
+
+  function createPlanScopedSetter(setCollection, planId) {
+    return (updater) => {
+      if (!planId) {
+        return;
+      }
+      setCollection(previous => {
+        const currentPlanItems = (Array.isArray(previous) ? previous : []).filter(item => item?.planId === planId);
+        const nextPlanItems = typeof updater === "function" ? updater(currentPlanItems) : updater;
+        return mergeActivePlanCollection(previous, nextPlanItems, planId);
+      });
+    };
+  }
+
+  const activeEvents = (events || []).filter(item => item?.planId === activePlanId);
+  const activeExpenses = (expenses || []).filter(item => item?.planId === activePlanId);
+  const activeGuests = (guests || []).filter(item => item?.planId === activePlanId);
+  const activeVendors = (vendors || []).filter(item => item?.planId === activePlanId);
+  const activeTasks = (tasks || []).filter(item => item?.planId === activePlanId);
+
+  const setActiveEvents = createPlanScopedSetter(setEvents, activePlanId);
+  const setActiveExpenses = createPlanScopedSetter(setExpenses, activePlanId);
+  const setActiveGuests = createPlanScopedSetter(setGuests, activePlanId);
+  const setActiveTasks = createPlanScopedSetter(setTasks, activePlanId);
+
   function applyPlanner(nextPlanner) {
     const planner = normalizePlanner(nextPlanner);
+    setMarriages(planner.marriages || []);
+    setActivePlanId(planner.activePlanId);
     setWedding(planner.wedding);
     setEvents(planner.events);
     setExpenses(planner.expenses);
@@ -73,6 +117,93 @@ export default function VivahGoApp() {
   function clearStoredSession() {
     localStorage.removeItem(SESSION_STORAGE_KEY);
     localStorage.removeItem(DEMO_PLANNER_STORAGE_KEY);
+  }
+
+  // Multi-marriage management functions
+  function switchToMarriage(planId) {
+    if (!planId || planId === activePlanId) {
+      return;
+    }
+
+    const targetPlan = marriages.find(m => m.id === planId);
+    if (!targetPlan) return;
+
+    setActivePlanId(planId);
+
+    // Update wedding metadata from the selected plan.
+    setWedding({
+      bride: targetPlan.bride || "",
+      groom: targetPlan.groom || "",
+      date: targetPlan.date || "",
+      venue: targetPlan.venue || "",
+      guests: targetPlan.guests || "",
+      budget: targetPlan.budget || "",
+    });
+  }
+
+  function createNewMarriage(formData) {
+    const newPlanId = generatePlanId();
+    const seededCollections = createTemplatePlanCollections(formData.template, newPlanId);
+    const newMarriage = {
+      id: newPlanId,
+      bride: formData.bride,
+      groom: formData.groom,
+      date: formData.date,
+      venue: formData.venue,
+      guests: formData.guests,
+      budget: formData.budget,
+      template: formData.template,
+      createdAt: new Date(),
+    };
+
+    setMarriages(current => [...current, newMarriage]);
+    setEvents(current => [...current, ...seededCollections.events]);
+    setExpenses(current => [...current, ...seededCollections.expenses]);
+    setGuests(current => [...current, ...seededCollections.guests]);
+    setVendors(current => [...current, ...seededCollections.vendors]);
+    setTasks(current => [...current, ...seededCollections.tasks]);
+    setActivePlanId(newPlanId);
+    setWedding({
+      bride: newMarriage.bride || "",
+      groom: newMarriage.groom || "",
+      date: newMarriage.date || "",
+      venue: newMarriage.venue || "",
+      guests: newMarriage.guests || "",
+      budget: newMarriage.budget || "",
+    });
+    setShowNewPlanModal(false);
+  }
+
+  function deleteMarriage(planId) {
+    if (marriages.length <= 1) {
+      alert("You must have at least one marriage plan");
+      return;
+    }
+
+    const updatedMarriages = marriages.filter(m => m.id !== planId);
+    const deletedPlanWasActive = activePlanId === planId;
+    const fallbackPlan = updatedMarriages[0] || null;
+
+    setMarriages(updatedMarriages);
+
+    if (deletedPlanWasActive && fallbackPlan) {
+      setActivePlanId(fallbackPlan.id);
+      setWedding({
+        bride: fallbackPlan.bride || "",
+        groom: fallbackPlan.groom || "",
+        date: fallbackPlan.date || "",
+        venue: fallbackPlan.venue || "",
+        guests: fallbackPlan.guests || "",
+        budget: fallbackPlan.budget || "",
+      });
+    }
+
+    // Remove all data for this plan
+    setEvents(current => current.filter(e => e.planId !== planId));
+    setExpenses(current => current.filter(e => e.planId !== planId));
+    setGuests(current => current.filter(g => g.planId !== planId));
+    setVendors(current => current.filter(v => v.planId !== planId));
+    setTasks(current => current.filter(t => t.planId !== planId));
   }
 
   useEffect(() => {
@@ -136,6 +267,47 @@ export default function VivahGoApp() {
   }, [screen]);
 
   useEffect(() => {
+    if (!activePlanId) {
+      return;
+    }
+
+    setMarriages(current => {
+      let didChange = false;
+      const updated = current.map(plan => {
+        if (plan.id !== activePlanId) {
+          return plan;
+        }
+
+        const nextPlan = {
+          ...plan,
+          bride: wedding.bride || "",
+          groom: wedding.groom || "",
+          date: wedding.date || "",
+          venue: wedding.venue || "",
+          guests: wedding.guests || "",
+          budget: wedding.budget || "",
+        };
+
+        if (
+          nextPlan.bride !== plan.bride ||
+          nextPlan.groom !== plan.groom ||
+          nextPlan.date !== plan.date ||
+          nextPlan.venue !== plan.venue ||
+          nextPlan.guests !== plan.guests ||
+          nextPlan.budget !== plan.budget
+        ) {
+          didChange = true;
+          return nextPlan;
+        }
+
+        return plan;
+      });
+
+      return didChange ? updated : current;
+    });
+  }, [activePlanId, wedding]);
+
+  useEffect(() => {
     let cancelled = false;
 
     async function restoreSession() {
@@ -194,11 +366,20 @@ export default function VivahGoApp() {
   }, []);
 
   useEffect(() => {
-    if (isBootstrapping) {
+    if (isBootstrapping || !authToken) {
       return undefined;
     }
 
-    const planner = normalizePlanner({ wedding, events, expenses, guests, vendors, tasks });
+    const planner = {
+      marriages,
+      activePlanId,
+      wedding,
+      events,
+      expenses,
+      guests,
+      vendors,
+      tasks,
+    };
 
     if (authMode === "demo") {
       localStorage.setItem(DEMO_PLANNER_STORAGE_KEY, JSON.stringify(planner));
@@ -224,7 +405,7 @@ export default function VivahGoApp() {
     return () => {
       clearTimeout(saveTimerRef.current);
     };
-  }, [authMode, authToken, expenses, events, guests, isBootstrapping, tasks, vendors, wedding]);
+  }, [authMode, authToken, expenses, events, guests, isBootstrapping, tasks, vendors, wedding, marriages, activePlanId]);
 
   function handleDemoLogin() {
     const demoUser = {
@@ -301,6 +482,42 @@ export default function VivahGoApp() {
     setShowWeddingDetailsEditor(false);
   }
 
+  function openEditMarriagePlan(planId) {
+    const plan = marriages.find(m => m.id === planId);
+    if (plan) {
+      setEditingMarriageForm({
+        bride: plan.bride || "",
+        groom: plan.groom || "",
+        date: plan.date || "",
+        venue: plan.venue || "",
+      });
+      setEditingPlanId(planId);
+    }
+  }
+
+  function closeEditMarriagePlan() {
+    setEditingPlanId(null);
+    setEditingMarriageForm({ bride: "", groom: "", date: "", venue: "" });
+  }
+
+  function saveEditMarriagePlan() {
+    setMarriages(marriages.map(m => 
+      m.id === editingPlanId 
+        ? { ...m, ...editingMarriageForm }
+        : m
+    ));
+    if (editingPlanId === activePlanId) {
+      setWedding(current => ({
+        ...current,
+        bride: editingMarriageForm.bride,
+        groom: editingMarriageForm.groom,
+        date: editingMarriageForm.date,
+        venue: editingMarriageForm.venue,
+      }));
+    }
+    closeEditMarriagePlan();
+  }
+
   function openAccountSettings() {
     setShowAccountSettings(true);
   }
@@ -334,11 +551,22 @@ export default function VivahGoApp() {
   }
 
   function saveWeddingDetails() {
+    const nextWedding = {
+      ...wedding,
+      date: weddingDetailsForm.date,
+      venue: weddingDetailsForm.venue,
+    };
+
     setWedding(current => ({
       ...current,
       date: weddingDetailsForm.date,
       venue: weddingDetailsForm.venue,
     }));
+    setMarriages(current => current.map(plan => (
+      plan.id === activePlanId
+        ? { ...plan, date: nextWedding.date, venue: nextWedding.venue }
+        : plan
+    )));
     closeWeddingDetailsEditor();
   }
 
@@ -395,8 +623,38 @@ export default function VivahGoApp() {
           <div className="top-bar">
             <div className="top-bar-pattern">🪔</div>
             <div className="top-bar-greeting">Your Wedding</div>
-            <div className="top-bar-names">
-              {wedding.bride || "Bride"} & {wedding.groom || "Groom"}
+            <div className="top-bar-names" style={{ display: "flex", justifyContent: "center", width: "100%" }}>
+              <button
+                type="button"
+                onClick={() => setShowMarriagePlanSelector(true)}
+                style={{
+                  background: "none",
+                  border: "none",
+                  cursor: "pointer",
+                  padding: "0 8px",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: "6px",
+                  fontFamily: "'Cormorant Garamond', serif",
+                  fontSize: 28,
+                  fontWeight: 700,
+                  color: "var(--color-gold)",
+                }}
+                title="Manage marriage plans"
+              >
+                <span>
+                  {marriages.find(m => m.id === activePlanId)?.bride || "Bride"} & {marriages.find(m => m.id === activePlanId)?.groom || "Groom"}
+                </span>
+                <span style={{
+                  fontSize: 12,
+                  display: "inline-flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  color: "var(--color-gold)",
+                  fontWeight: 700,
+                }}></span>
+              </button>
             </div>
             <div className="top-bar-meta">
               {wedding.date && <button type="button" className="top-bar-chip top-bar-chip-button" onClick={openWeddingDetailsEditor}>📅 {wedding.date}</button>}
@@ -422,12 +680,12 @@ export default function VivahGoApp() {
 
           {/* Content */}
           <div className="content-area" ref={contentAreaRef}>
-            {tab==="home" && <Dashboard wedding={wedding} events={events} expenses={expenses} guests={guests} budget={wedding.budget} onTabChange={setTab} onEditEvent={openEventEditorFromCalendar}/>}
-            {tab==="events" && <EventsScreen events={events} setEvents={setEvents} expenses={expenses} onOpenBudget={() => setTab("budget")} initialEditingEventId={eventToEditId}/>}
-            {tab==="budget" && <BudgetScreen expenses={expenses} setExpenses={setExpenses} wedding={wedding} events={events}/>} 
-            {tab==="guests" && <GuestsScreen guests={guests} setGuests={setGuests}/>}
-            {tab==="vendors" && <VendorsScreen vendors={vendors} setVendors={setVendors}/>}
-            {tab==="tasks" && <TasksScreen tasks={tasks} setTasks={setTasks} events={events}/>}
+            {tab==="home" && <Dashboard wedding={wedding} events={activeEvents} expenses={activeExpenses} guests={activeGuests} budget={wedding.budget} onTabChange={setTab} onEditEvent={openEventEditorFromCalendar}/>}
+            {tab==="events" && <EventsScreen events={activeEvents} setEvents={setActiveEvents} expenses={activeExpenses} planId={activePlanId} onOpenBudget={() => setTab("budget")} initialEditingEventId={eventToEditId}/>}
+            {tab==="budget" && <BudgetScreen expenses={activeExpenses} setExpenses={setActiveExpenses} wedding={wedding} events={activeEvents} planId={activePlanId}/>} 
+            {tab==="guests" && <GuestsScreen guests={activeGuests} setGuests={setActiveGuests} planId={activePlanId}/>} 
+            {tab==="vendors" && <VendorsScreen vendors={activeVendors}/>} 
+            {tab==="tasks" && <TasksScreen tasks={activeTasks} setTasks={setActiveTasks} events={activeEvents} planId={activePlanId}/>} 
           </div>
 
           {/* Bottom Nav */}
@@ -462,6 +720,71 @@ export default function VivahGoApp() {
           {showTermsModal && <TermsConditionsModal onClose={closeTermsModal} />}
           {showAboutModal && <AboutModal onClose={closeAboutModal} />}
           {showFeedbackModal && <FeedbackModal onClose={closeFeedbackModal} />}
+          {showMarriagePlanSelector && (
+            <MarriagePlanSelector
+              marriages={marriages}
+              activePlanId={activePlanId}
+              onSwitchPlan={switchToMarriage}
+              onCreatePlan={() => setShowNewPlanModal(true)}
+              onDeletePlan={deleteMarriage}
+              onEditPlan={openEditMarriagePlan}
+              onClose={() => setShowMarriagePlanSelector(false)}
+            />
+          )}
+          {showNewPlanModal && (
+            <NewMarriagePlanModal
+              onClose={() => setShowNewPlanModal(false)}
+              onCreate={createNewMarriage}
+            />
+          )}
+          {editingPlanId && (
+            <div className="modal-overlay" onClick={closeEditMarriagePlan}>
+              <div className="modal" {...weddingSwipe.modalProps} onClick={(event) => event.stopPropagation()}>
+                <div className="modal-handle"/>
+                <div className="modal-title">Edit Marriage Plan</div>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                  <div className="input-group">
+                    <div className="input-label">Bride's Name</div>
+                    <input
+                      className="input-field"
+                      value={editingMarriageForm.bride}
+                      onChange={(event) => setEditingMarriageForm({ ...editingMarriageForm, bride: event.target.value })}
+                      placeholder="e.g. Aarohi"
+                    />
+                  </div>
+                  <div className="input-group">
+                    <div className="input-label">Groom's Name</div>
+                    <input
+                      className="input-field"
+                      value={editingMarriageForm.groom}
+                      onChange={(event) => setEditingMarriageForm({ ...editingMarriageForm, groom: event.target.value })}
+                      placeholder="e.g. Kabir"
+                    />
+                  </div>
+                </div>
+                <div className="input-group">
+                  <div className="input-label">Wedding Date</div>
+                  <input
+                    className="input-field"
+                    value={editingMarriageForm.date}
+                    onChange={(event) => setEditingMarriageForm({ ...editingMarriageForm, date: event.target.value })}
+                    placeholder="e.g. 25 November 2027"
+                  />
+                </div>
+                <div className="input-group">
+                  <div className="input-label">Venue / Location</div>
+                  <input
+                    className="input-field"
+                    value={editingMarriageForm.venue}
+                    onChange={(event) => setEditingMarriageForm({ ...editingMarriageForm, venue: event.target.value })}
+                    placeholder="e.g. Jaipur Palace Grounds"
+                  />
+                </div>
+                <button className="btn-primary" onClick={saveEditMarriagePlan}>Save Plan</button>
+                <button className="btn-secondary" onClick={closeEditMarriagePlan}>Cancel</button>
+              </div>
+            </div>
+          )}
           {showWeddingDetailsEditor && (
             <div className="modal-overlay" onClick={closeWeddingDetailsEditor}>
               <div className="modal" {...weddingSwipe.modalProps} onClick={(event) => event.stopPropagation()}>

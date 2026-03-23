@@ -24,7 +24,7 @@ function createExpenseFormFromExpense(expense, events) {
   };
 }
 
-function BudgetScreen({ expenses, setExpenses, wedding, events }) {
+function BudgetScreen({ expenses, setExpenses, wedding, events, planId }) {
   const [showEditor, setShowEditor] = useState(false);
   const [editingExpenseId, setEditingExpenseId] = useState(null);
   const [expandedCategoryId, setExpandedCategoryId] = useState(null);
@@ -71,11 +71,11 @@ function BudgetScreen({ expenses, setExpenses, wedding, events }) {
     if (editingExpenseId !== null) {
       setExpenses(existing => existing.map(expense => (
         expense.id === editingExpenseId
-          ? { ...expense, ...form, id: editingExpenseId, amount: Number(form.amount) }
+          ? { ...expense, ...form, id: editingExpenseId, amount: Number(form.amount), planId }
           : expense
       )));
     } else {
-      setExpenses(existing => [...existing, { ...form, id: Date.now(), amount: Number(form.amount) }]);
+      setExpenses(existing => [...existing, { ...form, id: Date.now(), amount: Number(form.amount), planId }]);
     }
     closeEditor();
   }
