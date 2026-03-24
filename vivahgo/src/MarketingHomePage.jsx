@@ -42,25 +42,25 @@ const featureGroups = [
 const plans = [
   {
     name: "Starter",
-    price: "Free",
-    cadence: "forever",
+    monthlyPrice: 0,
+    yearlyPrice: 0,
     description: "For couples exploring the workflow before locking in their planning stack.",
     features: ["1 wedding workspace", "Core budget, tasks, guest, and vendor tracking", "Demo planner access", "Google sign-in"],
   },
   {
     name: "Premium",
-    price: "$12",
-    cadence: "/month",
+    monthlyPrice: 2000,
+    yearlyPrice: 1600,
     description: "For active planning with shared ownership, faster coordination, and a cleaner handoff to families.",
-    features: ["Multiple wedding workspaces", "Collaborator permissions", "Priority planner sync", "Expanded support and onboarding"],
+    features: ["Everything in Starter, plus:", "Multiple wedding workspaces", "Collaborator permissions", "Priority planner sync"],
     featured: true,
   },
   {
     name: "Studio",
-    price: "$39",
-    cadence: "/month",
-    description: "For wedding planners or agencies managing several celebrations at the same time.",
-    features: ["Client-ready workspaces", "Team collaboration", "Admin visibility across plans", "Early access to premium workflows"],
+    monthlyPrice: 5000,
+    yearlyPrice: 4000,
+    description: "For professional agencies and power planners.",
+    features: ["Everything in Premium, plus:", "Client-ready workspaces", "Team collaboration", "Admin visibility across plans"],
   },
 ];
 
@@ -139,6 +139,7 @@ function SocialIcon({ name }) {
 
 export default function MarketingHomePage() {
   const [session, setSession] = useState(() => readStoredSession());
+  const [billingCycle, setBillingCycle] = useState("monthly");
   const [showTermsModal, setShowTermsModal] = useState(false);
   const [showFeedbackModal, setShowFeedbackModal] = useState(false);
 
@@ -168,6 +169,7 @@ export default function MarketingHomePage() {
   }, []);
 
   const isSignedIn = Boolean(session?.mode && (session?.user || session?.token));
+  const isYearlyBilling = billingCycle === "yearly";
   const firstName = session?.user?.given_name || session?.user?.name?.split(" ")[0] || "there";
   const primaryCtaLabel = isSignedIn ? "Open Your Planner" : "Login / Signup";
 
@@ -299,6 +301,22 @@ export default function MarketingHomePage() {
         <section className="marketing-section" id="pricing">
           <div className="marketing-section-heading">
             <p className="marketing-section-kicker">Premium Plans</p>
+            <div className="marketing-billing-toggle" role="group" aria-label="Billing period">
+              <button
+                type="button"
+                className={`marketing-billing-option${!isYearlyBilling ? " marketing-billing-option-active" : ""}`}
+                onClick={() => setBillingCycle("monthly")}
+              >
+                Monthly
+              </button>
+              <button
+                type="button"
+                className={`marketing-billing-option${isYearlyBilling ? " marketing-billing-option-active" : ""}`}
+                onClick={() => setBillingCycle("yearly")}
+              >
+                Yearly <span>Save 20%</span>
+              </button>
+            </div>
             <h2>Pricing that scales from one wedding to a planning studio</h2>
             <p>Start free, then move into premium collaboration when the wedding plan needs more structure and more people involved.</p>
           </div>
@@ -306,19 +324,34 @@ export default function MarketingHomePage() {
           <div className="marketing-pricing-grid">
             {plans.map((plan) => (
               <article className={`marketing-price-card${plan.featured ? " marketing-price-card-featured" : ""}`} key={plan.name}>
-                {plan.featured && <span className="marketing-price-badge">Most Popular</span>}
+                {plan.featured && <span className="marketing-price-ribbon">Most Popular</span>}
                 <h3>{plan.name}</h3>
                 <p className="marketing-price-value">
-                  <strong>{plan.price}</strong>
-                  <span>{plan.cadence}</span>
+                  <strong>
+                    {(isYearlyBilling ? plan.yearlyPrice : plan.monthlyPrice) === 0 ? (
+                      "Free"
+                    ) : (
+                      <>
+                        <span className="marketing-price-currency">₹</span>
+                        {(isYearlyBilling ? plan.yearlyPrice : plan.monthlyPrice).toLocaleString("en-IN")}
+                      </>
+                    )}
+                  </strong>
+                  <span>{(isYearlyBilling ? plan.yearlyPrice : plan.monthlyPrice) === 0 ? "forever" : "/month"}</span>
                 </p>
+                {isYearlyBilling && (isYearlyBilling ? plan.yearlyPrice : plan.monthlyPrice) !== 0 && (
+                  <span className="marketing-price-billed-yearly">Billed Yearly</span>
+                )}
                 <p className="marketing-price-description">{plan.description}</p>
                 <ul>
                   {plan.features.map((item) => (
                     <li key={item}>{item}</li>
                   ))}
                 </ul>
-                <a className="marketing-price-action" href="/">
+                <a
+                  className={`marketing-price-action ${plan.featured ? "marketing-price-action-featured" : "marketing-price-action-ghost"}`}
+                  href="/"
+                >
                   {plan.name === "Starter" ? "Try Starter" : "Choose " + plan.name}
                 </a>
               </article>
