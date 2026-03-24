@@ -85,6 +85,19 @@ body { background: var(--color-deep-red); }
 }
 .splash-divider-line { flex: 1; height: 1px; background: var(--color-gold); opacity: 0.5; }
 .splash-divider-diamond { width: 6px; height: 6px; background: var(--color-gold); transform: rotate(45deg); }
+.splash-skip-btn {
+  background: transparent;
+  border: 1px solid rgba(255,255,255,0.28);
+  color: rgba(255,255,255,0.88);
+  font-size: 12px;
+  border-radius: 16px;
+  padding: 7px 14px;
+  cursor: pointer;
+  font-family: 'Jost', sans-serif;
+}
+.splash-skip-btn:active {
+  transform: scale(0.98);
+}
 
 /* ONBOARDING CHAT */
 .onboard {
@@ -206,6 +219,43 @@ body { background: var(--color-deep-red); }
   transition: transform 0.15s;
 }
 .chat-send-btn:active { transform: scale(0.92); }
+.onboard-form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+.onboard-form-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.onboard-form-label {
+  color: rgba(255,255,255,0.72);
+  font-size: 12px;
+}
+.onboard-form-input {
+  width: 100%;
+  border-radius: 12px;
+  padding: 10px 12px;
+}
+.onboard-form-select {
+  width: 100%;
+  border-radius: 12px;
+  padding: 10px 12px;
+  color: white;
+  font-family: 'Jost', sans-serif;
+}
+.onboard-form-select option {
+  color: var(--color-dark-text);
+}
+.onboard-form-select:disabled {
+  opacity: 0.55;
+}
+.onboard-date-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 8px;
+}
 .chat-quick-replies {
   display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px;
 }
@@ -221,6 +271,12 @@ body { background: var(--color-deep-red); }
   font-family: 'Jost', sans-serif;
 }
 .quick-reply:active { background: rgba(212,175,55,0.3); }
+
+@media (max-width: 640px) {
+  .onboard-form-grid {
+    grid-template-columns: 1fr;
+  }
+}
 
 /* MAIN APP */
 .main-app { flex: 1; min-height: 0; display: flex; flex-direction: column; background: var(--color-cream); }

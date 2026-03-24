@@ -251,7 +251,7 @@ function BudgetScreen({ expenses, setExpenses, wedding, events, planId }) {
       {/* Expenses List */}
       <div className="section-head" style={{marginTop:20}}>
         <div className="section-title">All Expenses</div>
-        <button className="section-action" onClick={openAddExpense}>+ Add</button>
+        <button className="section-action guest-section-add" onClick={openAddExpense}>+ Add</button>
       </div>
       {expenses.length === 0 ? (
         <div style={{textAlign:"center",padding:"30px 20px"}}>
@@ -290,10 +290,6 @@ function BudgetScreen({ expenses, setExpenses, wedding, events, planId }) {
           })}
         </div>
       )}
-
-      {/* FAB */}
-      <button className="fab" onClick={openAddExpense}>+</button>
-
       {showEditor && (
         <div className="modal-overlay" onClick={closeEditor}>
           <div className="modal" {...budgetSwipe.modalProps} onClick={e=>e.stopPropagation()}>

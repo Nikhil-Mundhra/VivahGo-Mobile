@@ -131,6 +131,13 @@ export function removePlanCollaborator(token, payload) {
   });
 }
 
+export function deleteAccount(token) {
+  return request('/auth/me', {
+    method: 'DELETE',
+    token,
+  });
+}
+
 export function submitFeedback(payload) {
   return request('/feedback', {
     method: 'POST',

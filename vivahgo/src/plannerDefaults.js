@@ -21,31 +21,131 @@ export const MARRIAGE_TEMPLATES = {
     name: 'Start Fresh',
     description: 'Create a blank planning canvas',
     emoji: '✨',
+    culture: 'Custom',
+    eventCount: 0,
+    highlights: ['No preloaded events'],
   },
-  traditional: {
-    id: 'traditional',
-    name: 'Traditional Indian',
-    description: 'Pre-populated with traditional ceremonies',
+  punjabi: {
+    id: 'punjabi',
+    name: 'Punjabi Wedding',
+    description: 'Big-energy functions with Jaggo and Anand Karaj',
     emoji: '🪔',
+    culture: 'Punjabi',
+    eventCount: 12,
+    highlights: ['Jaggo', 'Anand Karaj', 'Milni'],
   },
-  modern: {
-    id: 'modern',
-    name: 'Modern Wedding',
-    description: 'Contemporary celebration style',
-    emoji: '💫',
+  gujarati: {
+    id: 'gujarati',
+    name: 'Gujarati Wedding',
+    description: 'Garba-led celebrations with Mameru and Hasta Milap',
+    emoji: '🪷',
+    culture: 'Gujarati',
+    eventCount: 11,
+    highlights: ['Gol Dhana', 'Mameru', 'Hasta Milap'],
   },
-  minimalist: {
-    id: 'minimalist',
-    name: 'Minimalist',
-    description: 'Intimate, essential elements only',
-    emoji: '🎯',
+  marwari: {
+    id: 'marwari',
+    name: 'Marwari Wedding',
+    description: 'Royal-style flow with Baan, Pithi Dastoor, and Toran',
+    emoji: '👑',
+    culture: 'Marwari',
+    eventCount: 11,
+    highlights: ['Baan', 'Pithi Dastoor', 'Toran'],
   },
-  adventure: {
-    id: 'adventure',
-    name: 'Adventure Wedding',
-    description: 'Unique location-based celebration',
-    emoji: '🏝️',
+  bengali: {
+    id: 'bengali',
+    name: 'Bengali Wedding',
+    description: 'Aiburo Bhaat to Bou Bhaat with classic Bengali rituals',
+    emoji: '🌺',
+    culture: 'Bengali',
+    eventCount: 11,
+    highlights: ['Gaye Holud', 'Shubho Drishti', 'Bou Bhaat'],
   },
+  'south-indian': {
+    id: 'south-indian',
+    name: 'South Indian Wedding',
+    description: 'Temple-style sequence with Vratham and Kashi Yatra',
+    emoji: '🛕',
+    culture: 'South Indian',
+    eventCount: 11,
+    highlights: ['Vratham', 'Kashi Yatra', 'Saptapadi'],
+  },
+};
+
+const LEGACY_TEMPLATE_MAP = {
+  traditional: 'punjabi',
+  modern: 'gujarati',
+  minimalist: 'marwari',
+  adventure: 'south-indian',
+};
+
+const TEMPLATE_EVENT_SETS = {
+  punjabi: [
+    { name: 'Roka', emoji: '🪔' },
+    { name: 'Chunni Ceremony', emoji: '🧣' },
+    { name: 'Mehndi', emoji: '🌿' },
+    { name: 'Sangeet', emoji: '🎶' },
+    { name: 'Maiyan', emoji: '🫧' },
+    { name: 'Jaggo', emoji: '🏮' },
+    { name: 'Choora Ceremony', emoji: '📿' },
+    { name: 'Baraat', emoji: '🐴' },
+    { name: 'Milni', emoji: '🤝' },
+    { name: 'Anand Karaj', emoji: '🛕' },
+    { name: 'Vidaai', emoji: '💐' },
+    { name: 'Reception', emoji: '✨' },
+  ],
+  gujarati: [
+    { name: 'Chandlo Matli', emoji: '🪔' },
+    { name: 'Gol Dhana', emoji: '🍬' },
+    { name: 'Mehndi', emoji: '🌸' },
+    { name: 'Garba Night', emoji: '💃' },
+    { name: 'Mandap Muhurat', emoji: '🪵' },
+    { name: 'Grah Shanti', emoji: '🙏' },
+    { name: 'Pithi', emoji: '🌼' },
+    { name: 'Mameru', emoji: '🎁' },
+    { name: 'Baraat', emoji: '🐎' },
+    { name: 'Hasta Milap & Pheras', emoji: '🔥' },
+    { name: 'Reception', emoji: '🎉' },
+  ],
+  marwari: [
+    { name: 'Roka', emoji: '🪔' },
+    { name: 'Baan', emoji: '🌿' },
+    { name: 'Pithi Dastoor', emoji: '🌼' },
+    { name: 'Mehndi', emoji: '🌺' },
+    { name: 'Sangeet Sandhya', emoji: '🎵' },
+    { name: 'Sehra Bandi', emoji: '👑' },
+    { name: 'Baraat', emoji: '🐴' },
+    { name: 'Toran', emoji: '🚪' },
+    { name: 'Pheras', emoji: '🔥' },
+    { name: 'Vidaai', emoji: '💐' },
+    { name: 'Reception', emoji: '✨' },
+  ],
+  bengali: [
+    { name: 'Aiburo Bhaat', emoji: '🍽️' },
+    { name: 'Gaye Holud', emoji: '🌼' },
+    { name: 'Dodhi Mongol', emoji: '🥣' },
+    { name: 'Saat Paak', emoji: '🌀' },
+    { name: 'Shubho Drishti', emoji: '👀' },
+    { name: 'Mala Badal', emoji: '🌸' },
+    { name: 'Sampradan', emoji: '🙏' },
+    { name: 'Yagna & Saptapadi', emoji: '🔥' },
+    { name: 'Sindoor Daan', emoji: '❤️' },
+    { name: 'Bidaay', emoji: '🚗' },
+    { name: 'Bou Bhaat', emoji: '🍛' },
+  ],
+  'south-indian': [
+    { name: 'Nischayathartham', emoji: '💍' },
+    { name: 'Pellikuthuru / Haldi', emoji: '🌿' },
+    { name: 'Mehndi', emoji: '🌸' },
+    { name: 'Vratham', emoji: '🪔' },
+    { name: 'Janavasam', emoji: '🚗' },
+    { name: 'Kashi Yatra', emoji: '🛕' },
+    { name: 'Oonjal', emoji: '🎐' },
+    { name: 'Muhurtham', emoji: '🔥' },
+    { name: 'Saptapadi', emoji: '🪷' },
+    { name: 'Grihapravesam', emoji: '🏠' },
+    { name: 'Reception', emoji: '🎉' },
+  ],
 };
 
 const SAMPLE_GUESTS = [
@@ -108,6 +208,14 @@ function normalizeTask(task, planId) {
   };
 }
 
+function resolveTemplateId(templateId) {
+  if (MARRIAGE_TEMPLATES[templateId]) {
+    return templateId;
+  }
+
+  return LEGACY_TEMPLATE_MAP[templateId] || 'blank';
+}
+
 function cloneCollection(items) {
   return items.map(item => ({ ...item }));
 }
@@ -137,14 +245,18 @@ function normalizePlanScopedItems(items, activePlanId, validPlanIds) {
 }
 
 function createTemplateEvents(templateId, planId) {
-  if (templateId === 'blank') {
+  const resolvedTemplateId = resolveTemplateId(templateId);
+  if (resolvedTemplateId === 'blank') {
     return [];
   }
 
-  return cloneCollection(DEFAULT_EVENTS).map((event, index) => ({
+  const templateEvents = TEMPLATE_EVENT_SETS[resolvedTemplateId] || [];
+
+  return cloneCollection(templateEvents).map((event, index) => ({
     ...event,
     id: Date.now() + index,
     planId,
+    colorIdx: index,
     status: 'upcoming',
     date: '',
     time: '',
@@ -153,22 +265,41 @@ function createTemplateEvents(templateId, planId) {
   }));
 }
 
-function createTemplateTasks(templateId, planId) {
-  if (templateId === 'blank') {
+function createTemplateTasks(templateId, planId, events) {
+  const resolvedTemplateId = resolveTemplateId(templateId);
+  if (resolvedTemplateId === 'blank') {
     return [];
   }
 
-  return cloneCollection(DEFAULT_TASKS).map((task, index) => normalizeTask({
-    ...task,
-    id: Date.now() + 100 + index,
+  const planningTasks = cloneCollection(DEFAULT_TASKS)
+    .filter(task => !task.eventId || task.ceremony === 'General')
+    .slice(0, 8)
+    .map((task, index) => normalizeTask({
+      ...task,
+      id: Date.now() + 100 + index,
+      done: false,
+      eventId: '',
+      ceremony: 'General',
+    }, planId));
+
+  const timelineGroups = ['6 months', '5 months', '4 months', '3 months', '2 months', '1 month', 'Final'];
+  const eventTasks = events.map((event, index) => normalizeTask({
+    id: Date.now() + 500 + index,
+    name: `Finalize ${event.name} logistics`,
     done: false,
-    eventId: '',
-    ceremony: 'General',
+    due: `${Math.max(1, 6 - Math.floor(index / 2))} months before`,
+    priority: index % 3 === 0 ? 'high' : index % 3 === 1 ? 'medium' : 'low',
+    group: timelineGroups[Math.min(index, timelineGroups.length - 1)],
+    eventId: event.id,
+    ceremony: event.name,
   }, planId));
+
+  return [...planningTasks, ...eventTasks];
 }
 
 function createTemplateVendors(templateId, planId) {
-  if (templateId === 'blank') {
+  const resolvedTemplateId = resolveTemplateId(templateId);
+  if (resolvedTemplateId === 'blank') {
     return [];
   }
 
@@ -181,12 +312,14 @@ function createTemplateVendors(templateId, planId) {
 }
 
 export function createTemplatePlanCollections(templateId, planId) {
+  const events = createTemplateEvents(templateId, planId);
+
   return {
-    events: createTemplateEvents(templateId, planId),
+    events,
     expenses: [],
     guests: [],
     vendors: createTemplateVendors(templateId, planId),
-    tasks: createTemplateTasks(templateId, planId),
+    tasks: createTemplateTasks(templateId, planId, events),
   };
 }
 
@@ -230,7 +363,7 @@ export function createDemoMarriagePlan() {
     venue: 'Jaipur Palace Grounds',
     guests: '320',
     budget: '6500000',
-    template: 'traditional',
+    template: 'punjabi',
     collaborators: [],
     createdAt: new Date(),
   };

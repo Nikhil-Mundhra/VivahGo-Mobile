@@ -633,6 +633,19 @@ export function createApp(options = {}) {
     }
   });
 
+  app.delete('/api/auth/me', (req, res, next) => authMiddleware(req, res, next, injectedJwtSecret), async (req, res) => {
+    try {
+      await Promise.all([
+        UserModel.deleteOne({ googleId: req.auth.sub }),
+        PlannerModel.deleteOne({ googleId: req.auth.sub }),
+      ]);
+      return res.json({ ok: true });
+    } catch (err) {
+      console.error('DELETE /api/auth/me error:', err);
+      return res.status(500).json({ error: 'Failed to delete account. Please try again.' });
+    }
+  });
+
   app.get('/api/planner/me', (req, res, next) => authMiddleware(req, res, next, injectedJwtSecret), async (req, res) => {
     try {
       req.auth.plannerOwnerId = req.query?.plannerOwnerId || '';

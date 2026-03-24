@@ -60,7 +60,7 @@ function TasksScreen({ tasks, setTasks, events, planId }) {
 
       <div className="section-head" style={{marginTop:20}}>
         <div className="section-title">Checklist</div>
-        <button className="section-action" onClick={()=>setShowAdd(true)}>+ Add</button>
+        <button className="section-action guest-section-add" onClick={()=>setShowAdd(true)}>+ Add</button>
       </div>
 
       {groups.map(group=>(
@@ -85,9 +85,6 @@ function TasksScreen({ tasks, setTasks, events, planId }) {
           </div>
         </div>
       ))}
-
-      <button className="fab" onClick={()=>setShowAdd(true)}>+</button>
-
       {showAdd && (
         <div className="modal-overlay" onClick={cancelAdd}>
           <div className="modal" {...taskSwipe.modalProps} onClick={e=>e.stopPropagation()}>

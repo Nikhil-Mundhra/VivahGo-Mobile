@@ -20,6 +20,7 @@ import PlanShareModal from "./components/PlanShareModal";
 import { NAV_ITEMS } from "./constants";
 import {
   addPlanCollaborator,
+  deleteAccount,
   fetchAccessiblePlanners,
   fetchPlanCollaborators,
   fetchPlanner,
@@ -29,7 +30,7 @@ import {
   savePlanner,
   updatePlanCollaboratorRole,
 } from "./api";
-import { createBlankPlanner, createDemoPlanner, hasWeddingProfile, normalizePlanner, generatePlanId, createTemplatePlanCollections } from "./plannerDefaults";
+import { EMPTY_WEDDING, createBlankPlanner, createDemoPlanner, hasWeddingProfile, normalizePlanner, generatePlanId, createTemplatePlanCollections } from "./plannerDefaults";
 import { useSwipeDown } from "./hooks/useSwipeDown";
 
 const SESSION_STORAGE_KEY = "vivahgo.session";
@@ -82,6 +83,23 @@ export default function VivahGoApp() {
   const saveTimerRef = useRef(null);
   const contentAreaRef = useRef(null);
   const previousScrollTopRef = useRef(0);
+
+  function applyWeddingToActivePlan(nextWedding) {
+    setWedding(nextWedding);
+    setMarriages(current => current.map(plan => (
+      plan.id === activePlanId
+        ? {
+          ...plan,
+          bride: nextWedding.bride || "",
+          groom: nextWedding.groom || "",
+          date: nextWedding.date || "",
+          venue: nextWedding.venue || "",
+          guests: nextWedding.guests || "",
+          budget: nextWedding.budget || "",
+        }
+        : plan
+    )));
+  }
 
   function mergeActivePlanCollection(currentItems, nextPlanItems, planId) {
     const nextItems = Array.isArray(nextPlanItems) ? nextPlanItems : [];
@@ -735,8 +753,46 @@ export default function VivahGoApp() {
     setScreen("login");
   }
 
+  async function handleDeleteAccount() {
+    await deleteAccount(authToken);
+    clearStoredSession();
+    setUser(null);
+    setAuthMode(null);
+    setAuthToken("");
+    setPlannerOwnerId("");
+    setAccessibleWorkspaces([]);
+    applyPlanner(createBlankPlanner());
+    setTab("home");
+    setSaveState("idle");
+    setScreen("login");
+  }
+
   function handleOnboardComplete(answers) {
-    setWedding(answers);
+    const selectedTemplate = answers?.template || "blank";
+    const seededCollections = createTemplatePlanCollections(selectedTemplate, activePlanId);
+    const { template, ...answerFields } = answers || {};
+    const nextWedding = {
+      ...EMPTY_WEDDING,
+      ...answerFields,
+    };
+
+    setMarriages(current => current.map(plan => (
+      plan.id === activePlanId
+        ? { ...plan, template: selectedTemplate }
+        : plan
+    )));
+    setEvents(current => mergeActivePlanCollection(current, seededCollections.events, activePlanId));
+    setExpenses(current => mergeActivePlanCollection(current, seededCollections.expenses, activePlanId));
+    setGuests(current => mergeActivePlanCollection(current, seededCollections.guests, activePlanId));
+    setVendors(current => mergeActivePlanCollection(current, seededCollections.vendors, activePlanId));
+    setTasks(current => mergeActivePlanCollection(current, seededCollections.tasks, activePlanId));
+
+    applyWeddingToActivePlan(nextWedding);
+    setScreen("app");
+  }
+
+  function handleSkipOnboarding() {
+    applyWeddingToActivePlan({ ...EMPTY_WEDDING });
     setScreen("app");
   }
 
@@ -844,7 +900,13 @@ export default function VivahGoApp() {
           />
         </>
       )}
-      {screen === "splash" && <SplashScreen onStart={() => setScreen(hasWeddingProfile(wedding) ? "app" : "onboard")} />}
+      {screen === "splash" && (
+        <SplashScreen
+          onStart={() => setScreen(hasWeddingProfile(wedding) ? "app" : "onboard")}
+          onSkip={handleSkipOnboarding}
+          showSkip={!hasWeddingProfile(wedding)}
+        />
+      )}
       {screen === "onboard" && <OnboardingScreen onComplete={handleOnboardComplete} />}
       {screen === "app" && (
         <div className="main-app">
@@ -911,7 +973,7 @@ export default function VivahGoApp() {
           {/* Content */}
           <div className={`content-area ${!planAccess.canEdit ? "content-area-readonly" : ""}`} ref={contentAreaRef}>
             {tab==="home" && <Dashboard wedding={wedding} events={activeEvents} expenses={activeExpenses} guests={activeGuests} budget={wedding.budget} onTabChange={setTab} onEditEvent={openEventEditorFromCalendar}/>}
-            {tab==="events" && <EventsScreen events={activeEvents} setEvents={setActiveEvents} expenses={activeExpenses} planId={activePlanId} onOpenBudget={() => setTab("budget")} initialEditingEventId={eventToEditId}/>}
+            {tab==="events" && <EventsScreen events={activeEvents} setEvents={setActiveEvents} expenses={activeExpenses} setExpenses={setActiveExpenses} planId={activePlanId} onOpenBudget={() => setTab("budget")} initialEditingEventId={eventToEditId}/>}
             {tab==="budget" && <BudgetScreen expenses={activeExpenses} setExpenses={setActiveExpenses} wedding={wedding} events={activeEvents} planId={activePlanId}/>} 
             {tab==="guests" && <GuestsScreen guests={activeGuests} setGuests={setActiveGuests} planId={activePlanId}/>} 
             {tab==="vendors" && <VendorsScreen vendors={activeVendors}/>} 
@@ -946,6 +1008,7 @@ export default function VivahGoApp() {
               authToken={authToken}
               onClose={closeAccountSettings}
               onLogout={() => { closeAccountSettings(); handleLogout(); }}
+              onDeleteAccount={handleDeleteAccount}
             />
           )}
           {showTermsModal && <TermsConditionsModal onClose={closeTermsModal} />}

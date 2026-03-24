@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useBackButtonClose } from "../hooks/useBackButtonClose";
 
-function AccountScreen({ user, authMode, wedding, setWedding, subscription, onClose, onLogout }) {
+function AccountScreen({ user, authMode, wedding, setWedding, subscription, onClose, onLogout, onDeleteAccount }) {
   const [form, setForm] = useState({
     bride: wedding.bride || "",
     groom: wedding.groom || "",
@@ -11,6 +11,9 @@ function AccountScreen({ user, authMode, wedding, setWedding, subscription, onCl
     guests: wedding.guests || "",
   });
   const [saved, setSaved] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState("");
 
   useBackButtonClose(true, onClose);
 
@@ -240,6 +243,110 @@ function AccountScreen({ user, authMode, wedding, setWedding, subscription, onCl
         <button className="btn-secondary-danger" onClick={onLogout}>
           Log Out
         </button>
+
+        {/* Danger Zone */}
+        {!isDemo && onDeleteAccount && (
+          <div style={{
+            marginTop: 24,
+            paddingTop: 20,
+            borderTop: "1px solid rgba(139,26,26,0.18)",
+          }}>
+            <div style={{
+              fontSize: 11, fontWeight: 700,
+              color: "#b91c1c", textTransform: "uppercase",
+              letterSpacing: 1, marginBottom: 12,
+            }}>
+              Danger Zone
+            </div>
+
+            {!confirmDelete ? (
+              <button
+                onClick={() => { setConfirmDelete(true); setDeleteError(""); }}
+                style={{
+                  width: "100%",
+                  padding: "10px 16px",
+                  borderRadius: 10,
+                  border: "1.5px solid #b91c1c",
+                  background: "transparent",
+                  color: "#b91c1c",
+                  fontSize: 14,
+                  fontWeight: 600,
+                  cursor: "pointer",
+                  letterSpacing: 0.3,
+                }}
+              >
+                Delete Account
+              </button>
+            ) : (
+              <div style={{
+                background: "rgba(185,28,28,0.06)",
+                border: "1.5px solid rgba(185,28,28,0.25)",
+                borderRadius: 12,
+                padding: "14px 16px",
+              }}>
+                <p style={{
+                  fontSize: 13, color: "#7f1d1d",
+                  lineHeight: 1.5, marginBottom: 14, marginTop: 0,
+                }}>
+                  This will permanently delete your account and all wedding data. This cannot be undone.
+                </p>
+                {deleteError && (
+                  <p style={{
+                    fontSize: 12, color: "#b91c1c",
+                    marginBottom: 10, marginTop: 0,
+                  }}>
+                    {deleteError}
+                  </p>
+                )}
+                <div style={{ display: "flex", gap: 8 }}>
+                  <button
+                    onClick={() => { setConfirmDelete(false); setDeleteError(""); }}
+                    disabled={deleting}
+                    style={{
+                      flex: 1,
+                      padding: "9px 0",
+                      borderRadius: 9,
+                      border: "1px solid rgba(139,26,26,0.2)",
+                      background: "transparent",
+                      color: "var(--color-light-text)",
+                      fontSize: 13,
+                      fontWeight: 600,
+                      cursor: "pointer",
+                    }}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={async () => {
+                      setDeleting(true);
+                      setDeleteError("");
+                      try {
+                        await onDeleteAccount();
+                      } catch (err) {
+                        setDeleteError(err?.message || "Failed to delete account. Please try again.");
+                        setDeleting(false);
+                      }
+                    }}
+                    disabled={deleting}
+                    style={{
+                      flex: 1,
+                      padding: "9px 0",
+                      borderRadius: 9,
+                      border: "none",
+                      background: deleting ? "#e57373" : "#b91c1c",
+                      color: "white",
+                      fontSize: 13,
+                      fontWeight: 700,
+                      cursor: deleting ? "not-allowed" : "pointer",
+                    }}
+                  >
+                    {deleting ? "Deleting…" : "Yes, Delete"}
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );

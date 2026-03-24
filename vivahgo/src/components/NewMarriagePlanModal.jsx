@@ -120,6 +120,22 @@ export default function NewMarriagePlanModal({ onClose, onCreate }) {
                 }}>
                   {template.description}
                 </div>
+                <div style={{
+                  fontSize: 10,
+                  color: "var(--color-mid-text)",
+                  fontWeight: 600,
+                }}>
+                  {template.culture}
+                </div>
+                {template.eventCount > 0 && (
+                  <div style={{
+                    fontSize: 10,
+                    color: "var(--color-crimson)",
+                    lineHeight: 1.35,
+                  }}>
+                    {template.eventCount} events: {template.highlights.join(" • ")}
+                  </div>
+                )}
               </button>
             ))}
           </div>

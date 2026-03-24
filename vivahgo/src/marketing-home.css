@@ -1205,12 +1205,18 @@ body[data-route='home'] #root {
 
   .marketing-brand {
     width: 100%;
+    justify-content: center;
+  }
+
+  .marketing-brand-mark {
+    width: 100%;
+    max-width: 100%;
   }
 
   .marketing-auth {
     width: 100%;
     flex-wrap: wrap;
-    justify-content: stretch;
+    justify-content: center;
   }
 
   .marketing-auth-badge,

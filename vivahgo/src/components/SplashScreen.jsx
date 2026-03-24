@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import Mandala from "./Mandala";
 
-function SplashScreen({ onStart }) {
+function SplashScreen({ onStart, onSkip, showSkip = false }) {
   const [show, setShow] = useState(false);
   useEffect(()=>{ setTimeout(()=>setShow(true),200); },[]);
   return (
@@ -22,6 +22,15 @@ function SplashScreen({ onStart }) {
           <button className="btn-primary" style={{width:240,background:"linear-gradient(135deg, #D4AF37, #A8860C)",color:"#3D0000",fontSize:16,letterSpacing:0.5}} onClick={onStart}>
             Begin Your Journey ✨
           </button>
+          {showSkip && (
+            <button
+              type="button"
+              className="splash-skip-btn"
+              onClick={onSkip}
+            >
+              Skip for now, start with blank template
+            </button>
+          )}
           <p style={{color:"rgba(255,255,255,0.4)",fontSize:12,marginTop:4}}>Powered by VivahGo AI</p>
         </div>
       </div>

@@ -27,15 +27,16 @@ function buildTimeStr(timeH, timeM, timeP) {
   return timeH && timeM ? timeH + ":" + timeM + " " + timeP : "";
 }
 
-function EventsScreen({ events, setEvents, expenses, onOpenBudget, initialEditingEventId, planId }) {
+function EventsScreen({ events, setEvents, expenses, setExpenses, onOpenBudget, initialEditingEventId, planId }) {
   const [editing, setEditing] = useState(() => {
     const initialEvent = events.find(event => String(event.id) === String(initialEditingEventId));
     return initialEvent ? { ...initialEvent, ...parseTimeParts(initialEvent.time) } : null;
   });
   const [showAdd, setShowAdd] = useState(false);
   const [selectedPreset, setSelectedPreset] = useState("");
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const [form, setForm] = useState({ name: "", emoji: "✨", date: "", timeH: "", timeM: "", timeP: "AM", venue: "", status: "upcoming", note: "" });
-  const editingSwipe = useSwipeDown(() => setEditing(null));
+  const editingSwipe = useSwipeDown(() => { setEditing(null); setConfirmDelete(false); });
 
   function resetAddForm() {
     setForm({ name: "", emoji: "✨", date: "", timeH: "", timeM: "", timeP: "AM", venue: "", status: "upcoming", note: "" });
@@ -49,7 +50,7 @@ function EventsScreen({ events, setEvents, expenses, onOpenBudget, initialEditin
 
   const addSwipe = useSwipeDown(() => closeAddModal());
 
-  useBackButtonClose(Boolean(editing), () => setEditing(null));
+  useBackButtonClose(Boolean(editing), () => { setEditing(null); setConfirmDelete(false); });
   useBackButtonClose(showAdd, closeAddModal);
 
   const usedNames = new Set(events.map(e => e.name));
@@ -71,6 +72,23 @@ function EventsScreen({ events, setEvents, expenses, onOpenBudget, initialEditin
     const { timeH, timeM, timeP, ...rest } = editing;
     setEvents(evs => evs.map(e => e.id === editing.id ? { ...rest, time: buildTimeStr(timeH, timeM, timeP) } : e));
     setEditing(null);
+  }
+
+  function deleteEvent(id) {
+    setEvents(evs => evs.filter(e => e.id !== id));
+    if (setExpenses) {
+      setExpenses(exps => exps.filter(ex => !(ex.area === "ceremony" && String(ex.eventId) === String(id))));
+    }
+    setEditing(null);
+    setConfirmDelete(false);
+  }
+
+  function handleDeleteClick() {
+    if (getEventSpend(editing.id) > 0) {
+      setConfirmDelete(true);
+    } else {
+      deleteEvent(editing.id);
+    }
   }
 
   function addEvent() {
@@ -107,7 +125,7 @@ function EventsScreen({ events, setEvents, expenses, onOpenBudget, initialEditin
         <div className="section-title">Wedding Ceremonies</div>
         <div style={{display:"flex",gap:12,alignItems:"center"}}>
           <button className="section-action" onClick={onOpenBudget}>Budget</button>
-          <button className="section-action" onClick={() => setShowAdd(true)}>+ Add</button>
+          <button className="section-action guest-section-add" onClick={() => setShowAdd(true)}>+ Add</button>
         </div>
       </div>
       {events.length === 0 ? (
@@ -141,9 +159,6 @@ function EventsScreen({ events, setEvents, expenses, onOpenBudget, initialEditin
           );})}
         </div>
       )}
-
-      <button className="fab" onClick={() => setShowAdd(true)}>+</button>
-
       {editing && (
         <div className="modal-overlay" onClick={()=>setEditing(null)}>
           <div className="modal" {...editingSwipe.modalProps} onClick={e=>e.stopPropagation()}>
@@ -207,6 +222,61 @@ function EventsScreen({ events, setEvents, expenses, onOpenBudget, initialEditin
             <button className="btn-primary btn-gold" onClick={onOpenBudget}>View Linked Budget</button>
             <button className="btn-secondary" onClick={() => setEditing(null)}>Cancel</button>
             <button className="btn-primary" onClick={save}>Save Ceremony Details</button>
+            {!confirmDelete ? (
+              <button
+                className="btn-secondary-danger"
+                onClick={handleDeleteClick}
+                style={{ marginTop: 6 }}
+              >
+                Delete Event
+              </button>
+            ) : (
+              <div style={{
+                marginTop: 8,
+                background: "rgba(185,28,28,0.06)",
+                border: "1.5px solid rgba(185,28,28,0.25)",
+                borderRadius: 12,
+                padding: "14px 16px",
+              }}>
+                <p style={{ fontSize: 13, color: "#7f1d1d", lineHeight: 1.5, marginTop: 0, marginBottom: 14 }}>
+                  This event has <strong>{fmt(getEventSpend(editing.id))}</strong> in linked expenses. Deleting it will also remove those expense records. This cannot be undone.
+                </p>
+                <div style={{ display: "flex", gap: 8 }}>
+                  <button
+                    onClick={() => setConfirmDelete(false)}
+                    style={{
+                      flex: 1,
+                      padding: "9px 0",
+                      borderRadius: 9,
+                      border: "1px solid rgba(139,26,26,0.2)",
+                      background: "transparent",
+                      color: "var(--color-light-text)",
+                      fontSize: 13,
+                      fontWeight: 600,
+                      cursor: "pointer",
+                    }}
+                  >
+                    Keep Event
+                  </button>
+                  <button
+                    onClick={() => deleteEvent(editing.id)}
+                    style={{
+                      flex: 1,
+                      padding: "9px 0",
+                      borderRadius: 9,
+                      border: "none",
+                      background: "#b91c1c",
+                      color: "white",
+                      fontSize: 13,
+                      fontWeight: 700,
+                      cursor: "pointer",
+                    }}
+                  >
+                    Yes, Delete
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}
