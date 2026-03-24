@@ -1,8 +1,7 @@
 import { useState } from "react";
 import { useBackButtonClose } from "../hooks/useBackButtonClose";
-import { createPortalSession } from "../api";
 
-function AccountScreen({ user, authMode, wedding, setWedding, subscription, authToken, onClose, onLogout }) {
+function AccountScreen({ user, authMode, wedding, setWedding, subscription, onClose, onLogout }) {
   const [form, setForm] = useState({
     bride: wedding.bride || "",
     groom: wedding.groom || "",
@@ -12,8 +11,6 @@ function AccountScreen({ user, authMode, wedding, setWedding, subscription, auth
     guests: wedding.guests || "",
   });
   const [saved, setSaved] = useState(false);
-  const [portalLoading, setPortalLoading] = useState(false);
-  const [portalError, setPortalError] = useState("");
 
   useBackButtonClose(true, onClose);
 
@@ -34,20 +31,6 @@ function AccountScreen({ user, authMode, wedding, setWedding, subscription, auth
     studio: { bg: "rgba(30,60,114,0.10)", text: "#1a3a7c", border: "rgba(30,60,114,0.25)" },
   };
   const tierColor = tierColors[tier] || tierColors.starter;
-
-  async function handleManageSubscription() {
-    if (!authToken) return;
-    setPortalError("");
-    setPortalLoading(true);
-    try {
-      const { url } = await createPortalSession(authToken);
-      window.location.href = url;
-    } catch (err) {
-      setPortalError(err.message || "Could not open subscription portal.");
-    } finally {
-      setPortalLoading(false);
-    }
-  }
 
   return (
     <div className="modal-overlay" onClick={onClose}>
@@ -142,22 +125,23 @@ function AccountScreen({ user, authMode, wedding, setWedding, subscription, auth
               </span>
               {subscription?.currentPeriodEnd && tier !== "starter" && (
                 <span style={{ fontSize: 11, color: "var(--color-light-text)" }}>
-                  Renews {new Date(subscription.currentPeriodEnd).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}
+                  Active until {new Date(subscription.currentPeriodEnd).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}
                 </span>
               )}
             </div>
-            {portalError && (
-              <p style={{ fontSize: 12, color: "var(--color-crimson)", marginTop: 8 }}>{portalError}</p>
-            )}
             {tier !== "starter" ? (
-              <button
-                className="btn-secondary"
-                onClick={handleManageSubscription}
-                disabled={portalLoading}
-                style={{ marginTop: 10, opacity: portalLoading ? 0.7 : 1 }}
-              >
-                {portalLoading ? "Opening\u2026" : "Manage Subscription"}
-              </button>
+              <>
+                <p style={{ fontSize: 12, color: "var(--color-light-text)", marginTop: 8 }}>
+                  Need to renew or switch plans? Open pricing and complete the next Razorpay payment cycle there.
+                </p>
+                <a
+                  className="btn-secondary"
+                  href="/home#pricing"
+                  style={{ display: "block", textAlign: "center", textDecoration: "none", marginTop: 10 }}
+                >
+                  View Premium Plans
+                </a>
+              </>
             ) : (
               <a
                 className="btn-primary"

@@ -1,13 +1,14 @@
 import 'dotenv/config';
 
 import cors from 'cors';
+import crypto from 'node:crypto';
 import express from 'express';
 import jwt from 'jsonwebtoken';
 import mongoose from 'mongoose';
 import { OAuth2Client } from 'google-auth-library';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import Stripe from 'stripe';
+import Razorpay from 'razorpay';
 
 import Planner from './models/Planner.js';
 import User from './models/User.js';
@@ -31,6 +32,50 @@ const ROLE_LEVEL = {
   editor: 2,
   owner: 3,
 };
+
+const DEFAULT_SUBSCRIPTION_AMOUNT_MAP = {
+  premium: { monthly: 200000, yearly: 1920000 },
+  studio: { monthly: 500000, yearly: 4800000 },
+};
+
+function resolveSubscriptionAmount(plan, billingCycle) {
+  const cycle = billingCycle === 'yearly' ? 'yearly' : 'monthly';
+  const envKey = `RAZORPAY_${plan.toUpperCase()}_${cycle.toUpperCase()}_AMOUNT`;
+  const fromEnv = Number(process.env[envKey]);
+  if (Number.isFinite(fromEnv) && fromEnv > 0) {
+    return fromEnv;
+  }
+
+  return DEFAULT_SUBSCRIPTION_AMOUNT_MAP[plan]?.[cycle] || 0;
+}
+
+function buildSubscriptionPeriodEnd(billingCycle, startDate = new Date()) {
+  const next = new Date(startDate);
+  if (billingCycle === 'yearly') {
+    next.setFullYear(next.getFullYear() + 1);
+  } else {
+    next.setMonth(next.getMonth() + 1);
+  }
+  return next;
+}
+
+function verifyRazorpayPaymentSignature(orderId, paymentId, signature, secret) {
+  const expected = crypto
+    .createHmac('sha256', secret)
+    .update(`${orderId}|${paymentId}`)
+    .digest('hex');
+
+  return expected === signature;
+}
+
+function verifyRazorpayWebhookSignature(rawBody, signature, secret) {
+  const expected = crypto
+    .createHmac('sha256', secret)
+    .update(rawBody)
+    .digest('hex');
+
+  return expected === signature;
+}
 
 export function normalizeEmail(value) {
   return typeof value === 'string' ? value.trim().toLowerCase() : '';
@@ -872,11 +917,6 @@ export function createApp(options = {}) {
 
   // ── Subscription routes ──────────────────────────────────────────────────
 
-  const SUBSCRIPTION_PRICE_MAP = {
-    premium: { monthly: process.env.STRIPE_PREMIUM_MONTHLY_PRICE_ID, yearly: process.env.STRIPE_PREMIUM_YEARLY_PRICE_ID },
-    studio: { monthly: process.env.STRIPE_STUDIO_MONTHLY_PRICE_ID, yearly: process.env.STRIPE_STUDIO_YEARLY_PRICE_ID },
-  };
-
   app.get('/api/subscription/status', (req, res, next) => authMiddleware(req, res, next, injectedJwtSecret), async (req, res) => {
     try {
       const user = await UserModel.findOne({ googleId: req.auth.sub }).lean();
@@ -895,8 +935,9 @@ export function createApp(options = {}) {
   });
 
   app.post('/api/subscription/checkout', (req, res, next) => authMiddleware(req, res, next, injectedJwtSecret), async (req, res) => {
-    const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
-    if (!stripeSecretKey) {
+    const razorpayKeyId = process.env.RAZORPAY_KEY_ID;
+    const razorpayKeySecret = process.env.RAZORPAY_KEY_SECRET;
+    if (!razorpayKeyId || !razorpayKeySecret) {
       return res.status(500).json({ error: 'Payment gateway is not configured.' });
     }
 
@@ -906,149 +947,145 @@ export function createApp(options = {}) {
     }
 
     const cycle = billingCycle === 'yearly' ? 'yearly' : 'monthly';
-    const priceId = SUBSCRIPTION_PRICE_MAP[plan]?.[cycle];
-    if (!priceId) {
-      return res.status(500).json({ error: `Price ID for ${plan} (${cycle}) is not configured.` });
+    const amount = resolveSubscriptionAmount(plan, cycle);
+    if (!amount) {
+      return res.status(500).json({ error: `Amount for ${plan} (${cycle}) is not configured.` });
     }
 
-    const clientOrigin = (process.env.CLIENT_ORIGIN || '').split(',')[0].trim() || 'http://localhost:5173';
-    const returnUrl = process.env.STRIPE_PORTAL_RETURN_URL || clientOrigin;
-
     try {
-      const user = await UserModel.findOne({ googleId: req.auth.sub });
+      const user = await UserModel.findOne({ googleId: req.auth.sub }).lean();
       if (!user) return res.status(404).json({ error: 'User not found.' });
 
-      const stripe = Stripe(stripeSecretKey);
-      let customerId = user.stripeCustomerId;
-      if (!customerId) {
-        const customer = await stripe.customers.create({
+      const razorpay = new Razorpay({ key_id: razorpayKeyId, key_secret: razorpayKeySecret });
+      const order = await razorpay.orders.create({
+        amount,
+        currency: 'INR',
+        receipt: `vivahgo_${plan}_${Date.now()}`,
+        notes: {
+          googleId: req.auth.sub,
+          plan,
+          billingCycle: cycle,
           email: user.email,
-          name: user.name,
-          metadata: { googleId: user.googleId },
-        });
-        customerId = customer.id;
-        await UserModel.updateOne({ googleId: req.auth.sub }, { $set: { stripeCustomerId: customerId } });
-      }
-
-      const session = await stripe.checkout.sessions.create({
-        mode: 'subscription',
-        customer: customerId,
-        line_items: [{ price: priceId, quantity: 1 }],
-        success_url: `${returnUrl}/?subscription=success`,
-        cancel_url: `${returnUrl}/?subscription=canceled`,
-        subscription_data: { metadata: { googleId: req.auth.sub, plan } },
+        },
       });
 
-      return res.json({ url: session.url });
+      return res.json({
+        keyId: razorpayKeyId,
+        orderId: order.id,
+        amount: order.amount,
+        currency: order.currency,
+        name: 'VivahGo',
+        description: `${plan === 'studio' ? 'Studio' : 'Premium'} ${cycle === 'yearly' ? 'yearly' : 'monthly'} plan`,
+        prefill: {
+          name: user.name,
+          email: user.email,
+        },
+        notes: order.notes || {},
+      });
     } catch (error) {
-      console.error('Checkout session creation failed:', error);
-      return res.status(500).json({ error: 'Failed to create checkout session.' });
+      console.error('Razorpay order creation failed:', error);
+      return res.status(500).json({ error: 'Failed to create checkout order.' });
+    }
+  });
+
+  app.post('/api/subscription/confirm', (req, res, next) => authMiddleware(req, res, next, injectedJwtSecret), async (req, res) => {
+    const razorpayKeySecret = process.env.RAZORPAY_KEY_SECRET;
+    if (!razorpayKeySecret) {
+      return res.status(500).json({ error: 'Payment gateway is not configured.' });
+    }
+
+    const { plan, billingCycle, orderId, paymentId, signature } = req.body || {};
+    if (!plan || !['premium', 'studio'].includes(plan)) {
+      return res.status(400).json({ error: 'Invalid plan.' });
+    }
+
+    if (!orderId || !paymentId || !signature) {
+      return res.status(400).json({ error: 'Payment confirmation is incomplete.' });
+    }
+
+    const cycle = billingCycle === 'yearly' ? 'yearly' : 'monthly';
+    const isValid = verifyRazorpayPaymentSignature(orderId, paymentId, signature, razorpayKeySecret);
+    if (!isValid) {
+      return res.status(400).json({ error: 'Payment signature verification failed.' });
+    }
+
+    try {
+      await UserModel.updateOne(
+        { googleId: req.auth.sub },
+        {
+          $set: {
+            subscriptionId: paymentId,
+            subscriptionTier: tierForPlan(plan),
+            subscriptionStatus: 'active',
+            subscriptionCurrentPeriodEnd: buildSubscriptionPeriodEnd(cycle),
+          },
+        }
+      );
+
+      return res.json({ success: true });
+    } catch (error) {
+      console.error('Razorpay payment confirmation failed:', error);
+      return res.status(500).json({ error: 'Failed to confirm payment.' });
     }
   });
 
   app.post('/api/subscription/portal', (req, res, next) => authMiddleware(req, res, next, injectedJwtSecret), async (req, res) => {
-    const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
-    if (!stripeSecretKey) {
-      return res.status(500).json({ error: 'Payment gateway is not configured.' });
-    }
-
-    const clientOrigin = (process.env.CLIENT_ORIGIN || '').split(',')[0].trim() || 'http://localhost:5173';
-    const returnUrl = process.env.STRIPE_PORTAL_RETURN_URL || clientOrigin;
-
-    try {
-      const user = await UserModel.findOne({ googleId: req.auth.sub }).lean();
-      if (!user || !user.stripeCustomerId) {
-        return res.status(400).json({ error: 'No active subscription found to manage.' });
-      }
-      const stripe = Stripe(stripeSecretKey);
-      const portalSession = await stripe.billingPortal.sessions.create({
-        customer: user.stripeCustomerId,
-        return_url: returnUrl,
-      });
-      return res.json({ url: portalSession.url });
-    } catch (error) {
-      console.error('Portal session creation failed:', error);
-      return res.status(500).json({ error: 'Failed to open subscription management portal.' });
-    }
+    return res.status(501).json({ error: 'Razorpay self-serve subscription management is not configured. Choose a new plan from pricing instead.' });
   });
 
   app.post('/api/subscription/webhook', express.raw({ type: 'application/json' }), async (req, res) => {
-    const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
-    const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
-
-    if (!stripeSecretKey || !webhookSecret) {
-      return res.status(500).json({ error: 'Stripe webhook is not configured.' });
+    const webhookSecret = process.env.RAZORPAY_WEBHOOK_SECRET;
+    if (!webhookSecret) {
+      return res.status(500).json({ error: 'Razorpay webhook is not configured.' });
     }
 
-    const stripe = Stripe(stripeSecretKey);
-    const sig = req.headers['stripe-signature'];
-    let event;
-    try {
-      event = stripe.webhooks.constructEvent(req.body, sig, webhookSecret);
-    } catch (err) {
-      console.error('Stripe webhook signature verification failed:', err.message);
-      return res.status(400).json({ error: `Webhook signature verification failed: ${err.message}` });
+    const signature = req.headers['x-razorpay-signature'];
+    if (!signature || !verifyRazorpayWebhookSignature(req.body, signature, webhookSecret)) {
+      return res.status(400).json({ error: 'Webhook signature verification failed.' });
     }
 
     try {
-      if (event.type === 'checkout.session.completed') {
-        const session = event.data.object;
-        if (session.mode === 'subscription' && session.subscription && session.customer) {
-          const subscription = await stripe.subscriptions.retrieve(session.subscription);
-          const googleId = subscription.metadata?.googleId;
-          const plan = tierForPlan(subscription.metadata?.plan || '');
-          if (googleId) {
-            await UserModel.updateOne({ googleId }, {
-              $set: {
-                stripeCustomerId: session.customer,
-                subscriptionId: session.subscription,
-                subscriptionTier: plan,
-                subscriptionStatus: 'active',
-                subscriptionCurrentPeriodEnd: new Date(subscription.current_period_end * 1000),
-              },
-            });
-          }
-        }
-      }
+      const event = JSON.parse(req.body.toString('utf8'));
+      const payment = event?.payload?.payment?.entity;
+      const notes = payment?.notes || {};
 
-      if (event.type === 'customer.subscription.updated') {
-        const subscription = event.data.object;
-        const googleId = subscription.metadata?.googleId;
-        if (googleId) {
-          const stripeStatus = subscription.status;
-          const appStatus = ['active', 'past_due'].includes(stripeStatus) ? stripeStatus : 'inactive';
-          const plan = tierForPlan(subscription.metadata?.plan || '');
-          await UserModel.updateOne({ googleId }, {
+      if (event?.event === 'payment.captured' && notes.googleId && notes.plan) {
+        await UserModel.updateOne(
+          { googleId: notes.googleId },
+          {
             $set: {
-              subscriptionId: subscription.id,
-              subscriptionTier: appStatus === 'active' ? plan : 'starter',
-              subscriptionStatus: appStatus,
-              subscriptionCurrentPeriodEnd: new Date(subscription.current_period_end * 1000),
+              subscriptionId: payment.id,
+              subscriptionTier: tierForPlan(notes.plan),
+              subscriptionStatus: 'active',
+              subscriptionCurrentPeriodEnd: buildSubscriptionPeriodEnd(notes.billingCycle),
             },
-          });
-        }
+          }
+        );
       }
 
-      if (event.type === 'customer.subscription.deleted') {
-        const subscription = event.data.object;
-        const googleId = subscription.metadata?.googleId;
-        if (googleId) {
-          await UserModel.updateOne({ googleId }, {
-            $set: { subscriptionTier: 'starter', subscriptionStatus: 'inactive', subscriptionCurrentPeriodEnd: null },
-          });
-        }
+      if (event?.event === 'payment.failed' && notes.googleId) {
+        await UserModel.updateOne(
+          { googleId: notes.googleId },
+          { $set: { subscriptionStatus: 'inactive' } }
+        );
       }
 
-      if (event.type === 'invoice.payment_failed') {
-        const invoice = event.data.object;
-        if (invoice.customer) {
-          await UserModel.updateOne({ stripeCustomerId: invoice.customer }, { $set: { subscriptionStatus: 'past_due' } });
-        }
+      if (event?.event === 'refund.processed' && notes.googleId) {
+        await UserModel.updateOne(
+          { googleId: notes.googleId },
+          {
+            $set: {
+              subscriptionTier: 'starter',
+              subscriptionStatus: 'inactive',
+              subscriptionCurrentPeriodEnd: null,
+            },
+          }
+        );
       }
 
       return res.json({ received: true });
     } catch (error) {
-      console.error('Stripe webhook handler failed:', error);
+      console.error('Razorpay webhook handler failed:', error);
       return res.status(500).json({ error: 'Webhook processing failed.' });
     }
   });

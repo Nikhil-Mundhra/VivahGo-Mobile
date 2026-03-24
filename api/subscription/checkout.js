@@ -1,4 +1,4 @@
-const Stripe = require('stripe');
+const Razorpay = require('razorpay');
 const {
   connectDb,
   getUserModel,
@@ -7,16 +7,21 @@ const {
   verifySession,
 } = require('../_lib/core');
 
-const PRICE_MAP = {
-  premium: {
-    monthly: process.env.STRIPE_PREMIUM_MONTHLY_PRICE_ID,
-    yearly: process.env.STRIPE_PREMIUM_YEARLY_PRICE_ID,
-  },
-  studio: {
-    monthly: process.env.STRIPE_STUDIO_MONTHLY_PRICE_ID,
-    yearly: process.env.STRIPE_STUDIO_YEARLY_PRICE_ID,
-  },
+const DEFAULT_SUBSCRIPTION_AMOUNT_MAP = {
+  premium: { monthly: 200000, yearly: 1920000 },
+  studio: { monthly: 500000, yearly: 4800000 },
 };
+
+function resolveSubscriptionAmount(plan, billingCycle) {
+  const cycle = billingCycle === 'yearly' ? 'yearly' : 'monthly';
+  const envKey = `RAZORPAY_${plan.toUpperCase()}_${cycle.toUpperCase()}_AMOUNT`;
+  const fromEnv = Number(process.env[envKey]);
+  if (Number.isFinite(fromEnv) && fromEnv > 0) {
+    return fromEnv;
+  }
+
+  return DEFAULT_SUBSCRIPTION_AMOUNT_MAP[plan]?.[cycle] || 0;
+}
 
 module.exports = async function handler(req, res) {
   if (handlePreflight(req, res)) {
@@ -35,8 +40,9 @@ module.exports = async function handler(req, res) {
     return res.status(401).json({ error });
   }
 
-  const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
-  if (!stripeSecretKey) {
+  const razorpayKeyId = process.env.RAZORPAY_KEY_ID;
+  const razorpayKeySecret = process.env.RAZORPAY_KEY_SECRET;
+  if (!razorpayKeyId || !razorpayKeySecret) {
     return res.status(500).json({ error: 'Payment gateway is not configured.' });
   }
 
@@ -47,51 +53,48 @@ module.exports = async function handler(req, res) {
   }
 
   const cycle = billingCycle === 'yearly' ? 'yearly' : 'monthly';
-  const priceId = PRICE_MAP[plan][cycle];
-
-  if (!priceId) {
-    return res.status(500).json({ error: `Price ID for ${plan} (${cycle}) is not configured.` });
+  const amount = resolveSubscriptionAmount(plan, cycle);
+  if (!amount) {
+    return res.status(500).json({ error: `Amount for ${plan} (${cycle}) is not configured.` });
   }
-
-  const clientOrigin = (process.env.CLIENT_ORIGIN || '').split(',')[0].trim() || 'http://localhost:5173';
-  const portalReturnUrl = process.env.STRIPE_PORTAL_RETURN_URL || clientOrigin;
 
   try {
     await connectDb();
     const User = getUserModel();
-    const user = await User.findOne({ googleId: auth.sub });
+    const user = await User.findOne({ googleId: auth.sub }).lean();
 
     if (!user) {
       return res.status(404).json({ error: 'User not found.' });
     }
 
-    const stripe = Stripe(stripeSecretKey);
-
-    let customerId = user.stripeCustomerId;
-    if (!customerId) {
-      const customer = await stripe.customers.create({
+    const razorpay = new Razorpay({ key_id: razorpayKeyId, key_secret: razorpayKeySecret });
+    const order = await razorpay.orders.create({
+      amount,
+      currency: 'INR',
+      receipt: `vivahgo_${plan}_${Date.now()}`,
+      notes: {
+        googleId: auth.sub,
+        plan,
+        billingCycle: cycle,
         email: user.email,
-        name: user.name,
-        metadata: { googleId: user.googleId },
-      });
-      customerId = customer.id;
-      await User.updateOne({ googleId: auth.sub }, { $set: { stripeCustomerId: customerId } });
-    }
-
-    const session = await stripe.checkout.sessions.create({
-      mode: 'subscription',
-      customer: customerId,
-      line_items: [{ price: priceId, quantity: 1 }],
-      success_url: `${portalReturnUrl}/?subscription=success`,
-      cancel_url: `${portalReturnUrl}/?subscription=canceled`,
-      subscription_data: {
-        metadata: { googleId: auth.sub, plan },
       },
     });
 
-    return res.status(200).json({ url: session.url });
+    return res.status(200).json({
+      keyId: razorpayKeyId,
+      orderId: order.id,
+      amount: order.amount,
+      currency: order.currency,
+      name: 'VivahGo',
+      description: `${plan === 'studio' ? 'Studio' : 'Premium'} ${cycle === 'yearly' ? 'yearly' : 'monthly'} plan`,
+      prefill: {
+        name: user.name,
+        email: user.email,
+      },
+      notes: order.notes || {},
+    });
   } catch (err) {
-    console.error('Checkout session creation failed:', err);
-    return res.status(500).json({ error: 'Failed to create checkout session.' });
+    console.error('Razorpay order creation failed:', err);
+    return res.status(500).json({ error: 'Failed to create checkout order.' });
   }
 };

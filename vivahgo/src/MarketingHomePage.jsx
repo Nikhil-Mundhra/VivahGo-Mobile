@@ -3,7 +3,9 @@ import "./marketing-home.css";
 import TermsConditionsModal from "./components/TermsConditionsModal";
 import FeedbackModal from "./components/FeedbackModal";
 import LegalFooter from "./components/LegalFooter";
-import { createCheckoutSession } from "./api";
+import GoogleLoginButton from "./components/GoogleLoginButton";
+import SubscriptionCheckoutSheet from "./components/SubscriptionCheckoutSheet";
+import { confirmCheckoutPayment, createCheckoutSession, loginWithGoogle } from "./api";
 
 const SESSION_STORAGE_KEY = "vivahgo.session";
 
@@ -144,6 +146,11 @@ export default function MarketingHomePage() {
   const [showTermsModal, setShowTermsModal] = useState(false);
   const [showFeedbackModal, setShowFeedbackModal] = useState(false);
   const [checkoutLoadingPlan, setCheckoutLoadingPlan] = useState(null);
+  const [checkoutSheetPlan, setCheckoutSheetPlan] = useState(null);
+  const [pendingPlanSelection, setPendingPlanSelection] = useState(null);
+  const [showLoginBeforePlanModal, setShowLoginBeforePlanModal] = useState(false);
+  const [planLoginLoading, setPlanLoginLoading] = useState(false);
+  const [planLoginError, setPlanLoginError] = useState("");
   const [subscriptionBanner, setSubscriptionBanner] = useState(null);
 
   useEffect(() => {
@@ -159,17 +166,6 @@ export default function MarketingHomePage() {
 
     document.title = "VivahGo | Home";
     syncSession();
-
-    // Detect Stripe redirect outcome
-    const params = new URLSearchParams(window.location.search);
-    const subscriptionResult = params.get("subscription");
-    if (subscriptionResult === "success") {
-      setSubscriptionBanner({ type: "success", message: "Subscription activated! Enjoy your plan." });
-      window.history.replaceState({}, "", window.location.pathname);
-    } else if (subscriptionResult === "canceled") {
-      setSubscriptionBanner({ type: "info", message: "Checkout canceled — no charge was made." });
-      window.history.replaceState({}, "", window.location.pathname);
-    }
 
     window.addEventListener("storage", syncSession);
     window.addEventListener("focus", syncSession);
@@ -187,26 +183,68 @@ export default function MarketingHomePage() {
   const firstName = session?.user?.given_name || session?.user?.name?.split(" ")[0] || "there";
   const primaryCtaLabel = isSignedIn ? "Open Your Planner" : "Login / Signup";
 
-  async function handleChoosePlan(planName) {
+  function handleChoosePlan(planName) {
     const planKey = planName.toLowerCase();
     if (!isSignedIn) {
-      window.location.href = "/";
+      setPendingPlanSelection({ key: planKey, name: planName });
+      setPlanLoginError("");
+      setShowLoginBeforePlanModal(true);
       return;
     }
+
     const token = session?.token;
     if (!token) {
-      window.location.href = "/";
+      setPendingPlanSelection({ key: planKey, name: planName });
+      setPlanLoginError("");
+      setShowLoginBeforePlanModal(true);
       return;
     }
+
+    setCheckoutSheetPlan({
+      key: planKey,
+      name: planName,
+      token,
+    });
+  }
+
+  async function handlePlanLoginSuccess(credentialResponse) {
     try {
-      setCheckoutLoadingPlan(planKey);
-      const { url } = await createCheckoutSession(token, planKey, billingCycle);
-      window.location.href = url;
-    } catch (err) {
-      setSubscriptionBanner({ type: "error", message: err.message || "Could not start checkout. Please try again." });
+      setPlanLoginLoading(true);
+      setPlanLoginError("");
+
+      const { token, user, plannerOwnerId } = await loginWithGoogle(credentialResponse.credential);
+      const nextSession = {
+        mode: "google",
+        token,
+        user,
+        plannerOwnerId: plannerOwnerId || user?.id || "",
+      };
+
+      if (typeof window !== "undefined") {
+        window.localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(nextSession));
+      }
+
+      setSession(nextSession);
+      setShowLoginBeforePlanModal(false);
+
+      if (pendingPlanSelection) {
+        setCheckoutSheetPlan({
+          key: pendingPlanSelection.key,
+          name: pendingPlanSelection.name,
+          token,
+        });
+      }
+
+      setPendingPlanSelection(null);
+    } catch (error) {
+      setPlanLoginError(error.message || "Google login failed. Please try again.");
     } finally {
-      setCheckoutLoadingPlan(null);
+      setPlanLoginLoading(false);
     }
+  }
+
+  function handlePlanLoginError(error) {
+    setPlanLoginError(error?.message || "Google login failed. Please try again.");
   }
 
   return (
@@ -421,10 +459,10 @@ export default function MarketingHomePage() {
                     type="button"
                     className={`marketing-price-action ${plan.featured ? "marketing-price-action-featured" : "marketing-price-action-ghost"}`}
                     onClick={() => handleChoosePlan(plan.name)}
-                    disabled={checkoutLoadingPlan === plan.name.toLowerCase()}
-                    style={checkoutLoadingPlan === plan.name.toLowerCase() ? { opacity: 0.7, cursor: "not-allowed" } : undefined}
+                    disabled={checkoutLoadingPlan === plan.name.toLowerCase() || Boolean(checkoutSheetPlan)}
+                    style={checkoutLoadingPlan === plan.name.toLowerCase() || checkoutSheetPlan ? { opacity: 0.7, cursor: "not-allowed" } : undefined}
                   >
-                    {checkoutLoadingPlan === plan.name.toLowerCase() ? "Redirecting…" : `Choose ${plan.name}`}
+                    {checkoutLoadingPlan === plan.name.toLowerCase() ? "Loading checkout..." : `Get ${plan.name}`}
                   </button>
                 )}
               </article>
@@ -474,6 +512,91 @@ export default function MarketingHomePage() {
         onOpenTerms={() => setShowTermsModal(true)}
         onOpenFeedback={() => setShowFeedbackModal(true)}
       />
+
+      {showLoginBeforePlanModal && (
+        <div className="marketing-login-overlay" onClick={() => {
+          if (!planLoginLoading) {
+            setShowLoginBeforePlanModal(false);
+            setPendingPlanSelection(null);
+            setPlanLoginError("");
+          }
+        }} role="presentation">
+          <div className="marketing-login-dialog" role="dialog" aria-modal="true" aria-label="Sign in to choose a premium plan" onClick={(event) => event.stopPropagation()}>
+            <button
+              type="button"
+              className="marketing-login-close"
+              onClick={() => {
+                if (!planLoginLoading) {
+                  setShowLoginBeforePlanModal(false);
+                  setPendingPlanSelection(null);
+                  setPlanLoginError("");
+                }
+              }}
+              aria-label="Close login prompt"
+              disabled={planLoginLoading}
+            >
+              x
+            </button>
+
+            <p className="marketing-login-kicker">Sign in required</p>
+            <h3>Continue with Google before choosing a premium plan</h3>
+            <p>
+              {pendingPlanSelection ? `You selected ${pendingPlanSelection.name}.` : "Sign in to continue with checkout."}
+            </p>
+
+            <div className="marketing-login-google-wrap">
+              <GoogleLoginButton
+                onLoginSuccess={handlePlanLoginSuccess}
+                onLoginError={handlePlanLoginError}
+              />
+            </div>
+
+            {planLoginLoading && <p className="marketing-login-status">Signing you in...</p>}
+            {planLoginError && <p className="marketing-login-error">{planLoginError}</p>}
+
+            <button
+              type="button"
+              className="marketing-price-action marketing-price-action-ghost marketing-login-cancel"
+              onClick={() => {
+                if (!planLoginLoading) {
+                  setShowLoginBeforePlanModal(false);
+                  setPendingPlanSelection(null);
+                  setPlanLoginError("");
+                }
+              }}
+              disabled={planLoginLoading}
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+
+      {checkoutSheetPlan && (
+        <SubscriptionCheckoutSheet
+          token={checkoutSheetPlan.token}
+          plan={checkoutSheetPlan.key}
+          planName={checkoutSheetPlan.name}
+          billingCycle={billingCycle}
+          onReady={() => setCheckoutLoadingPlan(null)}
+          onLoadingStart={() => setCheckoutLoadingPlan(checkoutSheetPlan.key)}
+          onClose={() => {
+            setCheckoutLoadingPlan(null);
+            setCheckoutSheetPlan(null);
+          }}
+          onError={(message) => {
+            setCheckoutLoadingPlan(null);
+            setSubscriptionBanner({ type: "error", message });
+          }}
+          onSuccess={() => {
+            setCheckoutLoadingPlan(null);
+            setCheckoutSheetPlan(null);
+            setSubscriptionBanner({ type: "success", message: "Payment received. Your plan is now active." });
+          }}
+          createSession={createCheckoutSession}
+          confirmPayment={confirmCheckoutPayment}
+        />
+      )}
 
       {showTermsModal && <TermsConditionsModal onClose={() => setShowTermsModal(false)} />}
       {showFeedbackModal && <FeedbackModal onClose={() => setShowFeedbackModal(false)} />}

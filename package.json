@@ -10,11 +10,11 @@
   "dependencies": {
     "@capacitor/core": "^8.2.0",
     "@capacitor/ios": "^8.2.0",
-    "@stripe/stripe-react-native": "^0.60.0",
     "build": "^0.1.4",
     "google-auth-library": "^10.6.2",
     "jsonwebtoken": "^9.0.2",
-    "mongoose": "^8.19.3"
+    "mongoose": "^8.19.3",
+    "razorpay": "^2.9.6"
   },
   "devDependencies": {
     "c8": "^10.1.3",

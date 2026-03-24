@@ -700,6 +700,262 @@ body[data-route='home'] #root {
   stroke: none;
 }
 
+.marketing-checkout-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 300;
+  background: rgba(27, 19, 16, 0.52);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding: 18px;
+}
+
+.marketing-checkout-sheet {
+  position: relative;
+  width: min(1120px, 100%);
+  max-height: calc(100vh - 36px);
+  overflow: auto;
+  border-radius: 28px;
+  border: 1px solid rgba(87, 50, 38, 0.18);
+  background: linear-gradient(180deg, rgba(255, 251, 247, 0.98) 0%, rgba(251, 242, 229, 0.97) 100%);
+  box-shadow: 0 28px 72px rgba(65, 31, 18, 0.35);
+  animation: marketingSheetSlideUp 320ms cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+
+.marketing-checkout-sheet-compact {
+  width: min(640px, 100%);
+}
+
+.marketing-checkout-sheet-handle {
+  width: 56px;
+  height: 5px;
+  border-radius: 999px;
+  background: rgba(68, 43, 35, 0.24);
+  margin: 14px auto 4px;
+}
+
+.marketing-checkout-close {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  width: 40px;
+  height: 40px;
+  border-radius: 999px;
+  border: 1px solid rgba(87, 50, 38, 0.2);
+  background: rgba(255, 255, 255, 0.9);
+  color: var(--marketing-ink);
+  font-size: 1.1rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.marketing-checkout-header {
+  padding: 10px 28px 18px;
+  text-align: center;
+}
+
+.marketing-login-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 320;
+  background: rgba(24, 18, 16, 0.52);
+  backdrop-filter: blur(4px);
+  display: grid;
+  place-items: center;
+  padding: 16px;
+}
+
+.marketing-login-dialog {
+  position: relative;
+  width: min(520px, 100%);
+  border-radius: 24px;
+  border: 1px solid rgba(87, 50, 38, 0.16);
+  background: linear-gradient(180deg, rgba(255, 252, 248, 0.98) 0%, rgba(253, 244, 233, 0.98) 100%);
+  box-shadow: 0 24px 64px rgba(54, 28, 20, 0.3);
+  padding: 24px;
+  text-align: center;
+}
+
+.marketing-login-close {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  width: 36px;
+  height: 36px;
+  border-radius: 999px;
+  border: 1px solid rgba(87, 50, 38, 0.2);
+  background: rgba(255, 255, 255, 0.92);
+  color: var(--marketing-ink);
+  font-size: 1rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.marketing-login-kicker {
+  margin: 0;
+  font-size: 0.76rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  font-weight: 800;
+  color: var(--marketing-accent-deep);
+}
+
+.marketing-login-dialog h3 {
+  margin: 8px 0;
+  font-size: 1.7rem;
+  line-height: 1.2;
+  font-family: 'Playfair Display', serif;
+}
+
+.marketing-login-dialog > p {
+  margin: 0;
+  color: var(--marketing-muted);
+  line-height: 1.5;
+}
+
+.marketing-login-google-wrap {
+  margin-top: 16px;
+  display: flex;
+  justify-content: center;
+}
+
+.marketing-login-google-wrap .google-button-inner-wrap {
+  width: min(100%, 360px);
+}
+
+.marketing-login-google-wrap .login-secondary-btn {
+  width: 100%;
+  border-radius: 12px;
+  border: 1px solid rgba(87, 50, 38, 0.2);
+  background: rgba(255, 252, 248, 0.96);
+  color: var(--marketing-muted);
+  font-weight: 600;
+  min-height: 44px;
+}
+
+.marketing-login-status {
+  margin-top: 10px;
+  color: var(--marketing-accent-deep);
+  font-weight: 700;
+}
+
+.marketing-login-error {
+  margin-top: 10px;
+  color: #8b1a1a;
+  font-weight: 700;
+}
+
+.marketing-login-cancel {
+  width: 100%;
+  margin-top: 14px;
+}
+
+.marketing-checkout-kicker {
+  margin: 0;
+  font-size: 0.78rem;
+  letter-spacing: 0.15em;
+  font-weight: 800;
+  text-transform: uppercase;
+  color: var(--marketing-accent-deep);
+}
+
+.marketing-checkout-header h2 {
+  margin: 8px 0 10px;
+  font-size: clamp(1.55rem, 2.5vw, 2.2rem);
+  font-family: 'Playfair Display', serif;
+}
+
+.marketing-checkout-meta {
+  display: inline-flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+}
+
+.marketing-checkout-meta span {
+  border-radius: 999px;
+  border: 1px solid rgba(87, 50, 38, 0.18);
+  background: rgba(255, 248, 239, 0.95);
+  color: var(--marketing-muted);
+  padding: 5px 12px;
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.marketing-checkout-embedded-wrap {
+  min-height: 560px;
+  padding: 6px 14px 18px;
+}
+
+.marketing-checkout-error-block {
+  margin: 10px auto 24px;
+  width: min(560px, calc(100% - 24px));
+  border-radius: 20px;
+  border: 1px solid rgba(183, 28, 28, 0.2);
+  background: rgba(255, 240, 240, 0.92);
+  padding: 16px;
+  text-align: center;
+}
+
+.marketing-checkout-error-block p {
+  margin-bottom: 10px;
+  color: #7b1d1d;
+  font-weight: 600;
+}
+
+.marketing-checkout-loading-block {
+  padding: 10px 24px 26px;
+  display: grid;
+  gap: 10px;
+  text-align: center;
+  color: var(--marketing-muted);
+}
+
+.marketing-checkout-loading-block p {
+  margin: 0;
+  line-height: 1.55;
+}
+
+.marketing-checkout-actions {
+  margin-top: 8px;
+  display: grid;
+  gap: 10px;
+}
+
+.marketing-checkout-spinner {
+  width: 32px;
+  height: 32px;
+  margin: 0 auto 6px;
+  border-radius: 999px;
+  border: 3px solid rgba(187, 77, 40, 0.18);
+  border-top-color: var(--marketing-accent);
+  animation: marketingSpin 0.8s linear infinite;
+}
+
+@keyframes marketingSpin {
+  from {
+    transform: rotate(0deg);
+  }
+
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes marketingSheetSlideUp {
+  from {
+    opacity: 0;
+    transform: translateY(90px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 @media (max-width: 1080px) {
   .marketing-header {
     flex-wrap: wrap;
@@ -808,5 +1064,37 @@ body[data-route='home'] #root {
     width: 100%;
     justify-content: center;
     flex-wrap: wrap;
+  }
+
+  .marketing-checkout-overlay {
+    padding: 0;
+  }
+
+  .marketing-checkout-sheet {
+    width: 100%;
+    max-height: 100vh;
+    border-radius: 26px 26px 0 0;
+    border-bottom: 0;
+  }
+
+  .marketing-checkout-sheet-compact {
+    width: 100%;
+  }
+
+  .marketing-checkout-header {
+    padding: 8px 18px 16px;
+  }
+
+  .marketing-checkout-embedded-wrap {
+    padding-inline: 8px;
+    min-height: 500px;
+  }
+
+  .marketing-login-dialog {
+    padding: 20px 16px;
+  }
+
+  .marketing-login-dialog h3 {
+    font-size: 1.5rem;
   }
 }

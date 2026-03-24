@@ -20,5 +20,5 @@ const app = (
 );
 
 createRoot(document.getElementById('root')).render(
-  !isMarketingHomeRoute && clientId ? <GoogleOAuthProvider clientId={clientId}>{app}</GoogleOAuthProvider> : app,
+  clientId ? <GoogleOAuthProvider clientId={clientId}>{app}</GoogleOAuthProvider> : app,
 )

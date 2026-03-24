@@ -150,6 +150,14 @@ export function createCheckoutSession(token, plan, billingCycle) {
   });
 }
 
+export function confirmCheckoutPayment(token, payload) {
+  return request('/subscription/confirm', {
+    method: 'POST',
+    token,
+    body: payload,
+  });
+}
+
 export function createPortalSession(token) {
   return request('/subscription/portal', {
     method: 'POST',
