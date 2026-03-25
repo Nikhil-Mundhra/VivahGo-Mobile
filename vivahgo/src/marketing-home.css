@@ -217,7 +217,7 @@ body[data-route='home'] #root {
 
 .marketing-hero {
   display: grid;
-  grid-template-columns: minmax(0, 1.08fr) minmax(320px, 0.92fr);
+  grid-template-columns: 1fr;
   gap: 28px;
   align-items: stretch;
   padding: 28px 0 14px;
@@ -236,6 +236,14 @@ body[data-route='home'] #root {
 .marketing-hero-panel {
   border-radius: 34px;
   padding: 36px;
+}
+
+.marketing-hero-copy {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
 }
 
 .marketing-kicker,
@@ -277,7 +285,7 @@ body[data-route='home'] #root {
 }
 
 .marketing-hero h1 {
-  font-size: clamp(3rem, 5vw, 5.4rem);
+  font-size: clamp(2.4rem, 4vw, 4.2rem);
   line-height: 0.98;
   margin: 16px 0 18px;
   letter-spacing: -0.04em;
@@ -287,6 +295,11 @@ body[data-route='home'] #root {
   max-width: 42rem;
   font-size: 1.05rem;
   line-height: 1.75;
+  margin-inline: auto;
+}
+
+.marketing-nowrap {
+  white-space: nowrap;
 }
 
 .marketing-hero-actions {
@@ -294,6 +307,14 @@ body[data-route='home'] #root {
   flex-wrap: wrap;
   gap: 14px;
   margin-top: 30px;
+  justify-content: center;
+}
+
+.marketing-hero-setup-note {
+  margin: 12px 0 0;
+  color: var(--marketing-muted-strong);
+  font-size: 0.98rem;
+  line-height: 1.6;
 }
 
 .marketing-primary-action,
@@ -328,6 +349,7 @@ body[data-route='home'] #root {
 .marketing-hero-panel {
   display: grid;
   gap: 18px;
+  justify-items: center;
   background:
     linear-gradient(180deg, rgba(255, 250, 244, 0.95) 0%, rgba(249, 232, 214, 0.88) 100%),
     var(--marketing-surface);
@@ -338,11 +360,14 @@ body[data-route='home'] #root {
   border: 1px solid rgba(87, 50, 38, 0.1);
   border-radius: 26px;
   padding: 24px;
+  text-align: center;
+  width: 100%;
 }
 
 .marketing-panel-primary ul {
   list-style: none;
   display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 12px;
   margin-top: 18px;
 }
@@ -350,25 +375,38 @@ body[data-route='home'] #root {
 .marketing-panel-primary li,
 .marketing-price-card li {
   position: relative;
-  padding-left: 18px;
   line-height: 1.55;
 }
 
+.marketing-price-card li {
+  padding-left: 18px;
+}
+
 .marketing-panel-primary li::before {
-  content: '';
-  position: absolute;
-  top: 0.7em;
-  left: 0;
-  width: 8px;
-  height: 8px;
-  border-radius: 999px;
-  background: linear-gradient(135deg, var(--marketing-accent) 0%, var(--marketing-accent-soft) 100%);
+  content: none;
+}
+
+.marketing-panel-primary li {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 92px;
+  padding: 12px 14px;
+  border-radius: 20px;
+  background: rgba(255, 248, 240, 0.92);
+  border: 1px solid rgba(87, 50, 38, 0.08);
+}
+
+.marketing-panel-primary li span:last-child {
+  display: block;
 }
 
 .marketing-panel-stack {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 18px;
+  width: 100%;
 }
 
 .marketing-section {
@@ -411,13 +449,21 @@ body[data-route='home'] #root {
   margin-top: 28px;
 }
 
+.marketing-how-it-works-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 18px;
+  margin-top: 28px;
+}
+
 .marketing-feature-grid {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 .marketing-feature-card,
 .marketing-price-card,
-.marketing-social-link {
+.marketing-social-link,
+.marketing-how-it-works-card {
   background: var(--marketing-surface-strong);
   border: 1px solid rgba(87, 50, 38, 0.1);
   border-radius: 26px;
@@ -426,6 +472,35 @@ body[data-route='home'] #root {
 .marketing-feature-card {
   padding: 24px;
   text-align: center;
+}
+
+.marketing-how-it-works-card {
+  padding: 24px;
+  display: grid;
+  gap: 14px;
+  align-content: start;
+}
+
+.marketing-how-it-works-number {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  border-radius: 999px;
+  background: linear-gradient(135deg, var(--marketing-accent) 0%, var(--marketing-accent-soft) 100%);
+  color: #fff8f0;
+  font-size: 0.95rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+}
+
+.marketing-how-it-works-card h3 {
+  font-family: 'Playfair Display', serif;
+  font-size: 1.55rem;
+  line-height: 1.16;
+  margin: 0;
+  color: var(--marketing-ink);
 }
 
 .marketing-feature-card-left {
@@ -440,8 +515,9 @@ body[data-route='home'] #root {
 
 .marketing-section-band {
   display: grid;
-  grid-template-columns: minmax(0, 0.92fr) minmax(0, 1.08fr);
+  grid-template-columns: 1fr;
   gap: 22px;
+  justify-items: center;
   background:
     linear-gradient(135deg, rgba(125, 37, 18, 0.95) 0%, rgba(197, 94, 53, 0.92) 100%),
     var(--marketing-surface);
@@ -475,6 +551,27 @@ body[data-route='home'] #root {
   max-width: 54rem;
   margin-inline: auto;
   text-align: center;
+  width: 100%;
+}
+
+.marketing-band-mark-frame {
+  width: min(320px, 100%);
+  margin: 12px auto 10px;
+  border-radius: 28px;
+  padding: 18px;
+  background:
+    radial-gradient(circle at center, rgba(255, 248, 240, 0.42) 0%, rgba(255, 226, 192, 0.2) 48%, rgba(255, 226, 192, 0.06) 72%, rgba(255, 226, 192, 0) 100%);
+  box-shadow:
+    0 0 0 1px rgba(255, 239, 220, 0.14),
+    0 18px 42px rgba(73, 24, 11, 0.22);
+}
+
+.marketing-band-mark {
+  display: block;
+  width: 100%;
+  height: auto;
+  border-radius: 28px;
+  background: #ffffff;
 }
 
 .marketing-band-points-inline {
@@ -797,6 +894,89 @@ body[data-route='home'] #root {
   background: linear-gradient(180deg, rgba(255, 248, 240, 0.92) 0%, rgba(252, 238, 219, 0.96) 100%);
 }
 
+.marketing-social-proof {
+  text-align: center;
+}
+
+.marketing-testimonial-slider {
+  display: flex;
+  gap: 18px;
+  margin-top: 28px;
+  overflow-x: auto;
+  padding: 4px 6px 10px;
+  scroll-snap-type: x mandatory;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+}
+
+.marketing-social-proof-quote {
+  flex: 0 0 min(28rem, calc(100vw - 120px));
+  max-width: none;
+  margin: 0;
+  padding: 32px;
+  border-radius: 28px;
+  background: linear-gradient(180deg, rgba(255, 252, 248, 0.95) 0%, rgba(248, 235, 219, 0.92) 100%);
+  border: 1px solid rgba(87, 50, 38, 0.1);
+  box-shadow: 0 20px 44px rgba(82, 37, 21, 0.08);
+  scroll-snap-align: start;
+  text-align: left;
+}
+
+.marketing-social-proof-quote-featured {
+  flex-basis: min(42rem, calc(100vw - 88px));
+}
+
+.marketing-social-proof-quote p {
+  margin: 0;
+  font-family: 'Manrope', sans-serif;
+  font-size: clamp(1.15rem, 1.8vw, 1.45rem);
+  line-height: 1.55;
+  font-weight: 600;
+  color: var(--marketing-ink);
+}
+
+.marketing-testimonial-rating {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 18px;
+}
+
+.marketing-testimonial-star {
+  position: relative;
+  display: inline-block;
+  font-size: 1rem;
+  line-height: 1;
+}
+
+.marketing-testimonial-star-full {
+  color: #c0392b;
+}
+
+.marketing-testimonial-star-empty {
+  color: rgba(192, 57, 43, 0.22);
+}
+
+.marketing-testimonial-star-half {
+  color: rgba(192, 57, 43, 0.22);
+}
+
+.marketing-testimonial-star-half::before {
+  content: "★";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 50%;
+  overflow: hidden;
+  color: #c0392b;
+}
+
+.marketing-social-proof-quote footer {
+  margin-top: 18px;
+  color: var(--marketing-muted-strong);
+  font-size: 1rem;
+  font-weight: 700;
+}
+
 .marketing-differentiator-list {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -820,8 +1000,23 @@ body[data-route='home'] #root {
   font-weight: 700;
 }
 
+.marketing-inline-highlight {
+  display: inline-block;
+  padding: 0.08em 0.12em 0.18em;
+  border-radius: 0;
+  background: linear-gradient(180deg, rgba(255, 229, 196, 0) 0%, rgba(255, 229, 196, 0) 10%, rgba(255, 229, 196, 0.9) 10%, rgba(255, 229, 196, 0.9) 100%);
+  color: var(--marketing-accent-deep);
+}
+
 .marketing-final-cta .marketing-section-heading {
-  max-width: 42rem;
+  max-width: 100%;
+}
+
+.marketing-final-cta-title {
+  white-space: nowrap;
+  display: block;
+  width: 100%;
+  text-align: center;
 }
 
 .marketing-final-actions {
@@ -1373,6 +1568,7 @@ body[data-route='home'] #root {
   .marketing-hero,
   .marketing-section-band,
   .marketing-footer,
+  .marketing-how-it-works-grid,
   .marketing-feature-grid,
   .marketing-pricing-grid,
   .marketing-social-links,
