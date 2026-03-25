@@ -1,0 +1,502 @@
+import { useEffect, useMemo, useState } from 'react';
+import './styles.css';
+import GoogleLoginButton from './components/GoogleLoginButton';
+import {
+  addAdminStaff,
+  fetchAdminSession,
+  fetchAdminStaff,
+  fetchAdminVendors,
+  loginWithGoogle,
+  removeAdminStaff,
+  updateAdminStaff,
+  updateAdminVendorApproval,
+} from './api';
+
+const SESSION_KEY = 'vivahgo.session';
+
+function readSession() {
+  if (typeof window === 'undefined') {
+    return null;
+  }
+
+  try {
+    return JSON.parse(window.localStorage.getItem(SESSION_KEY) || 'null');
+  } catch {
+    return null;
+  }
+}
+
+function formatDate(value) {
+  if (!value) {
+    return 'Not available';
+  }
+
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) {
+    return 'Not available';
+  }
+
+  return parsed.toLocaleString('en-IN', {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+  });
+}
+
+function rolePillClass(role) {
+  if (role === 'owner') return 'bg-emerald-100 text-emerald-700';
+  if (role === 'editor') return 'bg-sky-100 text-sky-700';
+  return 'bg-stone-200 text-stone-700';
+}
+
+export default function AdminPortal() {
+  const [session, setSession] = useState(() => readSession());
+  const [adminUser, setAdminUser] = useState(null);
+  const [access, setAccess] = useState(null);
+  const [vendors, setVendors] = useState([]);
+  const [staff, setStaff] = useState([]);
+  const [loading, setLoading] = useState(Boolean(readSession()?.token));
+  const [vendorsLoading, setVendorsLoading] = useState(false);
+  const [staffLoading, setStaffLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [staffEmail, setStaffEmail] = useState('');
+  const [staffRole, setStaffRole] = useState('viewer');
+  const [staffActionError, setStaffActionError] = useState('');
+  const [savingVendorId, setSavingVendorId] = useState('');
+  const [savingStaffEmail, setSavingStaffEmail] = useState('');
+
+  useEffect(() => {
+    document.title = 'VivahGo | Admin';
+  }, []);
+
+  useEffect(() => {
+    if (!session?.token) {
+      setLoading(false);
+      setAdminUser(null);
+      setAccess(null);
+      setVendors([]);
+      setStaff([]);
+      return;
+    }
+
+    let cancelled = false;
+    setLoading(true);
+    setError('');
+
+    fetchAdminSession(session.token)
+      .then(async (data) => {
+        if (cancelled) {
+          return;
+        }
+
+        setAdminUser(data.user || null);
+        setAccess(data.access || null);
+
+        setVendorsLoading(true);
+        const vendorsPromise = fetchAdminVendors(session.token)
+          .then(result => {
+            if (!cancelled) {
+              setVendors(Array.isArray(result?.vendors) ? result.vendors : []);
+            }
+          })
+          .finally(() => {
+            if (!cancelled) {
+              setVendorsLoading(false);
+            }
+          });
+
+        const staffPromise = data.access?.canManageStaff
+          ? fetchAdminStaff(session.token)
+            .then(result => {
+              if (!cancelled) {
+                setStaff(Array.isArray(result?.staff) ? result.staff : []);
+              }
+            })
+            .finally(() => {
+              if (!cancelled) {
+                setStaffLoading(false);
+              }
+            })
+          : Promise.resolve();
+
+        if (data.access?.canManageStaff && !cancelled) {
+          setStaffLoading(true);
+        } else if (!cancelled) {
+          setStaff([]);
+        }
+
+        await Promise.all([vendorsPromise, staffPromise]);
+      })
+      .catch((nextError) => {
+        if (cancelled) {
+          return;
+        }
+        setError(nextError.message || 'Could not load admin access.');
+        setAdminUser(null);
+        setAccess(null);
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [session]);
+
+  const counts = useMemo(() => ({
+    total: vendors.length,
+    pending: vendors.filter(vendor => !vendor.isApproved).length,
+    approved: vendors.filter(vendor => vendor.isApproved).length,
+  }), [vendors]);
+
+  async function handleLoginSuccess(credentialResponse) {
+    try {
+      const data = await loginWithGoogle(credentialResponse.credential);
+      const newSession = {
+        mode: 'google',
+        token: data.token,
+        user: data.user,
+        plannerOwnerId: data.plannerOwnerId || data.user?.id || '',
+      };
+      window.localStorage.setItem(SESSION_KEY, JSON.stringify(newSession));
+      setSession(newSession);
+    } catch (nextError) {
+      setError(nextError.message || 'Could not sign in.');
+    }
+  }
+
+  function handleLogout() {
+    window.localStorage.removeItem(SESSION_KEY);
+    setSession(null);
+  }
+
+  async function handleVendorApproval(vendorId, isApproved) {
+    if (!session?.token) {
+      return;
+    }
+
+    setSavingVendorId(vendorId);
+    setError('');
+
+    try {
+      const result = await updateAdminVendorApproval(session.token, { vendorId, isApproved });
+      setVendors(current => current.map(vendor => (
+        vendor.id === vendorId
+          ? { ...vendor, ...(result.vendor || {}), isApproved }
+          : vendor
+      )));
+    } catch (nextError) {
+      setError(nextError.message || 'Could not update vendor approval.');
+    } finally {
+      setSavingVendorId('');
+    }
+  }
+
+  async function refreshStaff() {
+    if (!session?.token || !access?.canManageStaff) {
+      return;
+    }
+
+    setStaffLoading(true);
+    try {
+      const result = await fetchAdminStaff(session.token);
+      setStaff(Array.isArray(result?.staff) ? result.staff : []);
+    } catch (nextError) {
+      setStaffActionError(nextError.message || 'Could not refresh staff.');
+    } finally {
+      setStaffLoading(false);
+    }
+  }
+
+  async function handleAddStaff(event) {
+    event.preventDefault();
+    if (!session?.token) {
+      return;
+    }
+
+    setSavingStaffEmail(staffEmail);
+    setStaffActionError('');
+
+    try {
+      await addAdminStaff(session.token, { email: staffEmail, staffRole });
+      setStaffEmail('');
+      setStaffRole('viewer');
+      await refreshStaff();
+    } catch (nextError) {
+      setStaffActionError(nextError.message || 'Could not add staff member.');
+    } finally {
+      setSavingStaffEmail('');
+    }
+  }
+
+  async function handleChangeStaffRole(email, nextRole) {
+    if (!session?.token) {
+      return;
+    }
+
+    setSavingStaffEmail(email);
+    setStaffActionError('');
+
+    try {
+      await updateAdminStaff(session.token, { email, staffRole: nextRole });
+      await refreshStaff();
+    } catch (nextError) {
+      setStaffActionError(nextError.message || 'Could not update staff role.');
+    } finally {
+      setSavingStaffEmail('');
+    }
+  }
+
+  async function handleRemoveStaff(email) {
+    if (!session?.token) {
+      return;
+    }
+
+    setSavingStaffEmail(email);
+    setStaffActionError('');
+
+    try {
+      await removeAdminStaff(session.token, email);
+      await refreshStaff();
+    } catch (nextError) {
+      setStaffActionError(nextError.message || 'Could not remove staff access.');
+    } finally {
+      setSavingStaffEmail('');
+    }
+  }
+
+  if (!session?.token) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-stone-100 via-white to-rose-50 flex items-center justify-center p-6">
+        <div className="bg-white rounded-3xl shadow-xl border border-stone-200 p-8 max-w-md w-full">
+          <div className="flex flex-col items-center text-center gap-3 mb-6">
+            <img src="/Thumbnail.png" alt="VivahGo" className="h-12" />
+            <h1 className="text-2xl font-bold text-stone-900">VivahGo Staff Admin</h1>
+            <p className="text-sm text-stone-500">
+              Sign in with an approved staff account to review vendors and manage staff permissions.
+            </p>
+          </div>
+          <GoogleLoginButton onLoginSuccess={handleLoginSuccess} onLoginError={() => setError('Google login failed.')} />
+          {error && <p className="mt-4 text-sm text-red-600 text-center">{error}</p>}
+          <div className="mt-4 text-center">
+            <a href="/home" className="text-sm text-rose-600 hover:underline">Back to Home</a>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-stone-100 via-white to-rose-50 flex items-center justify-center">
+        <p className="text-sm text-stone-500">Loading staff console...</p>
+      </div>
+    );
+  }
+
+  if (!access?.canViewAdmin) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-stone-100 via-white to-rose-50 flex items-center justify-center p-6">
+        <div className="bg-white rounded-3xl shadow-xl border border-stone-200 p-8 max-w-lg w-full text-center">
+          <h1 className="text-2xl font-bold text-stone-900">Access denied</h1>
+          <p className="mt-3 text-sm text-stone-600">
+            {adminUser?.email || session.user?.email || 'This account'} is not approved for VivahGo staff admin.
+          </p>
+          <p className="mt-2 text-sm text-stone-500">
+            Only `nikhilmundhra28@gmail.com` is pre-approved by default. That owner account can grant `editor` or `viewer` access after sign-in.
+          </p>
+          <div className="mt-6 flex items-center justify-center gap-4">
+            <button type="button" className="login-secondary-btn" onClick={handleLogout}>Logout</button>
+            <a href="/home" className="text-sm text-rose-600 hover:underline">Back to Home</a>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-stone-100 via-white to-rose-50">
+      <header className="bg-white/90 backdrop-blur border-b border-stone-200 px-4 py-4 sm:px-6">
+        <div className="max-w-7xl mx-auto flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <p className="text-xs uppercase tracking-[0.24em] text-stone-500">VivahGo Staff</p>
+            <h1 className="text-2xl font-bold text-stone-900">Admin Console</h1>
+          </div>
+          <div className="flex flex-wrap items-center gap-3">
+            <span className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold ${rolePillClass(access.role)}`}>
+              {access.role}
+            </span>
+            <span className="text-sm text-stone-500">{adminUser?.email || session.user?.email}</span>
+            <a href="/home" className="text-sm text-rose-600 hover:underline">Home</a>
+            <button type="button" className="login-secondary-btn" onClick={handleLogout}>Logout</button>
+          </div>
+        </div>
+      </header>
+
+      <main className="max-w-7xl mx-auto px-4 py-6 sm:px-6 sm:py-8 space-y-6">
+        {error && (
+          <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+            {error}
+          </div>
+        )}
+
+        <section className="grid gap-4 md:grid-cols-3">
+          <div className="bg-white rounded-3xl border border-stone-200 p-5 shadow-sm">
+            <p className="text-sm text-stone-500">Total vendors</p>
+            <p className="mt-2 text-3xl font-bold text-stone-900">{counts.total}</p>
+          </div>
+          <div className="bg-white rounded-3xl border border-amber-200 p-5 shadow-sm">
+            <p className="text-sm text-amber-700">Pending approval</p>
+            <p className="mt-2 text-3xl font-bold text-amber-900">{counts.pending}</p>
+          </div>
+          <div className="bg-white rounded-3xl border border-emerald-200 p-5 shadow-sm">
+            <p className="text-sm text-emerald-700">Approved vendors</p>
+            <p className="mt-2 text-3xl font-bold text-emerald-900">{counts.approved}</p>
+          </div>
+        </section>
+
+        <section className="bg-white rounded-3xl border border-stone-200 shadow-sm overflow-hidden">
+          <div className="px-5 py-4 border-b border-stone-200">
+            <h2 className="text-lg font-semibold text-stone-900">Vendor approvals</h2>
+            <p className="text-sm text-stone-500">Editors and owners can approve vendors. Viewers can audit the queue.</p>
+          </div>
+          <div className="divide-y divide-stone-100">
+            {vendorsLoading && (
+              <div className="px-5 py-10 text-sm text-stone-500">Loading vendors...</div>
+            )}
+            {!vendorsLoading && vendors.length === 0 && (
+              <div className="px-5 py-10 text-sm text-stone-500">No vendors found yet.</div>
+            )}
+            {!vendorsLoading && vendors.map(vendor => (
+              <div key={vendor.id} className="px-5 py-4 flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                <div className="min-w-0">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <h3 className="text-base font-semibold text-stone-900">{vendor.businessName}</h3>
+                    <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ${vendor.isApproved ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
+                      {vendor.isApproved ? 'Approved' : 'Pending'}
+                    </span>
+                    <span className="inline-flex items-center rounded-full bg-stone-100 text-stone-700 px-2.5 py-1 text-xs font-medium">
+                      {vendor.type}
+                    </span>
+                  </div>
+                  <p className="mt-1 text-sm text-stone-500">
+                    {[vendor.city, vendor.state, vendor.country].filter(Boolean).join(', ') || 'Location not set'}
+                  </p>
+                  {vendor.description && (
+                    <p className="mt-2 text-sm text-stone-700">{vendor.description}</p>
+                  )}
+                  <div className="mt-3 flex flex-wrap gap-4 text-xs text-stone-500">
+                    <span>Media: {vendor.mediaCount || 0}</span>
+                    <span>Joined: {formatDate(vendor.createdAt)}</span>
+                    {vendor.phone && <span>Phone: {vendor.phone}</span>}
+                    {vendor.website && <span>Website: {vendor.website}</span>}
+                  </div>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    className="login-secondary-btn"
+                    onClick={() => handleVendorApproval(vendor.id, true)}
+                    disabled={!access.canManageVendors || savingVendorId === vendor.id || vendor.isApproved}
+                  >
+                    {savingVendorId === vendor.id && !vendor.isApproved ? 'Saving...' : 'Approve'}
+                  </button>
+                  <button
+                    type="button"
+                    className="login-secondary-btn"
+                    onClick={() => handleVendorApproval(vendor.id, false)}
+                    disabled={!access.canManageVendors || savingVendorId === vendor.id || !vendor.isApproved}
+                  >
+                    {savingVendorId === vendor.id && vendor.isApproved ? 'Saving...' : 'Move to Pending'}
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        {access.canManageStaff && (
+          <section className="bg-white rounded-3xl border border-stone-200 shadow-sm overflow-hidden">
+            <div className="px-5 py-4 border-b border-stone-200">
+              <h2 className="text-lg font-semibold text-stone-900">Staff permissions</h2>
+              <p className="text-sm text-stone-500">The bootstrap owner can grant `editor` or `viewer` access to signed-in staff accounts.</p>
+            </div>
+            <div className="p-5 border-b border-stone-100">
+              <form className="grid gap-3 md:grid-cols-[minmax(0,1fr)_180px_auto]" onSubmit={handleAddStaff}>
+                <input
+                  type="email"
+                  value={staffEmail}
+                  onChange={event => setStaffEmail(event.target.value)}
+                  placeholder="staff@vivahgo.com"
+                  className="w-full rounded-2xl border border-stone-300 px-4 py-3 text-sm text-stone-900 outline-none focus:border-rose-400"
+                />
+                <select
+                  value={staffRole}
+                  onChange={event => setStaffRole(event.target.value)}
+                  className="w-full rounded-2xl border border-stone-300 px-4 py-3 text-sm text-stone-900 outline-none focus:border-rose-400"
+                >
+                  <option value="viewer">Viewer</option>
+                  <option value="editor">Editor</option>
+                </select>
+                <button
+                  type="submit"
+                  className="login-secondary-btn"
+                  disabled={!staffEmail.trim() || Boolean(savingStaffEmail)}
+                >
+                  {savingStaffEmail === staffEmail ? 'Adding...' : 'Grant access'}
+                </button>
+              </form>
+              {staffActionError && <p className="mt-3 text-sm text-red-600">{staffActionError}</p>}
+            </div>
+            <div className="divide-y divide-stone-100">
+              {staffLoading && <div className="px-5 py-8 text-sm text-stone-500">Loading staff...</div>}
+              {!staffLoading && staff.length === 0 && <div className="px-5 py-8 text-sm text-stone-500">No staff members found.</div>}
+              {!staffLoading && staff.map(member => (
+                <div key={member.email} className="px-5 py-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                  <div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <p className="font-medium text-stone-900">{member.name || member.email}</p>
+                      <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ${rolePillClass(member.staffRole)}`}>
+                        {member.staffRole}
+                      </span>
+                      {member.isBootstrapOwner && (
+                        <span className="inline-flex items-center rounded-full bg-rose-100 px-2.5 py-1 text-xs font-semibold text-rose-700">
+                          bootstrap owner
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-sm text-stone-500">{member.email}</p>
+                    <p className="mt-1 text-xs text-stone-400">Granted: {formatDate(member.staffGrantedAt)}</p>
+                  </div>
+                  {!member.isBootstrapOwner && (
+                    <div className="flex flex-wrap items-center gap-2">
+                      <select
+                        value={member.staffRole}
+                        onChange={event => handleChangeStaffRole(member.email, event.target.value)}
+                        className="rounded-2xl border border-stone-300 px-3 py-2 text-sm text-stone-900 outline-none focus:border-rose-400"
+                        disabled={savingStaffEmail === member.email}
+                      >
+                        <option value="viewer">Viewer</option>
+                        <option value="editor">Editor</option>
+                      </select>
+                      <button
+                        type="button"
+                        className="login-secondary-btn"
+                        onClick={() => handleRemoveStaff(member.email)}
+                        disabled={savingStaffEmail === member.email}
+                      >
+                        {savingStaffEmail === member.email ? 'Saving...' : 'Remove'}
+                      </button>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
+      </main>
+    </div>
+  );
+}

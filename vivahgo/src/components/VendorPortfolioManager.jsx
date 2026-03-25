@@ -60,6 +60,7 @@ export default function VendorPortfolioManager({ token, media, onVendorUpdated }
   const [busyIds, setBusyIds] = useState({});
   const [portfolioError, setPortfolioError] = useState('');
   const [queueError, setQueueError] = useState('');
+  const [showUploadSection, setShowUploadSection] = useState(false);
   const inputRef = useRef(null);
 
   const sortedMedia = useMemo(() => sortMedia(media), [media]);
@@ -93,6 +94,9 @@ export default function VendorPortfolioManager({ token, media, onVendorUpdated }
     }));
 
     setFileItems(prev => [...prev, ...newItems]);
+    if (files.length > 0) {
+      setShowUploadSection(true);
+    }
   }
 
   async function uploadFile(item) {
@@ -281,17 +285,18 @@ export default function VendorPortfolioManager({ token, media, onVendorUpdated }
 
       <div className="rounded-2xl border border-dashed border-gray-200 bg-gray-50 p-4 sm:p-5">
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-          <div>
-            <h3 className="text-base font-semibold text-gray-900">Upload New Work</h3>
+          <div className="w-full text-center">
+            <button
+              type="button"
+              className="inline-flex items-center justify-center gap-2 border-0 bg-transparent p-0 text-center text-base font-semibold text-gray-900 shadow-none"
+              onClick={() => setShowUploadSection(current => !current)}
+              aria-expanded={showUploadSection}
+            >
+              <span>Upload New Work</span>
+              <span className="text-sm text-gray-400">{showUploadSection ? '−' : '+'}</span>
+            </button>
             <p className="text-sm text-gray-500">Add photos and videos, then fine-tune how they appear in your portfolio.</p>
           </div>
-          <button
-            type="button"
-            className="inline-flex w-full items-center justify-center rounded-xl bg-rose-500 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-rose-600 min-[360px]:w-auto"
-            onClick={() => inputRef.current?.click()}
-          >
-            Select Files
-          </button>
         </div>
         <input
           ref={inputRef}
@@ -302,27 +307,29 @@ export default function VendorPortfolioManager({ token, media, onVendorUpdated }
           onChange={handleFilesSelected}
         />
 
-        <div
-          className="mt-4 rounded-2xl border-2 border-dashed border-gray-200 bg-white p-5 text-center sm:p-6"
-          role="button"
-          tabIndex={0}
-          onClick={() => inputRef.current?.click()}
-          onKeyDown={event => {
-            if (event.key === 'Enter' || event.key === ' ') {
-              event.preventDefault();
-              inputRef.current?.click();
-            }
-          }}
-        >
-          <p className="text-sm font-medium text-gray-700">Tap to choose images or videos</p>
-          <p className="mt-1 text-xs text-gray-400">JPG, PNG, WebP, MP4 and more. Max 50 MB per file.</p>
-        </div>
+        {showUploadSection && (
+          <div
+            className="mt-4 rounded-2xl border-2 border-dashed border-gray-200 bg-white p-5 text-center sm:p-6"
+            role="button"
+            tabIndex={0}
+            onClick={() => inputRef.current?.click()}
+            onKeyDown={event => {
+              if (event.key === 'Enter' || event.key === ' ') {
+                event.preventDefault();
+                inputRef.current?.click();
+              }
+            }}
+          >
+            <p className="text-sm font-medium text-gray-700">Tap to choose images or videos</p>
+            <p className="mt-1 text-xs text-gray-400">JPG, PNG, WebP, MP4 and more. Max 50 MB per file.</p>
+          </div>
+        )}
 
         {queueError && (
           <p className="mt-3 text-sm text-red-600" role="alert">{queueError}</p>
         )}
 
-        {fileItems.length > 0 && (
+        {showUploadSection && fileItems.length > 0 && (
           <ul className="mt-4 space-y-2" aria-label="Selected files">
             {fileItems.map(item => (
               <li key={item.id} className="flex flex-col gap-3 rounded-xl bg-white p-3 shadow-sm sm:flex-row sm:items-center">
@@ -375,7 +382,7 @@ export default function VendorPortfolioManager({ token, media, onVendorUpdated }
           </ul>
         )}
 
-        {pendingCount > 0 && uploadingCount === 0 && (
+        {showUploadSection && pendingCount > 0 && uploadingCount === 0 && (
           <button
             type="button"
             onClick={uploadAll}

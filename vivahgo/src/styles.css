@@ -1404,48 +1404,54 @@ body { background: var(--color-deep-red); }
 }
 .vendor-portal-summary-card {
   background: var(--color-white);
-  border-radius: 20px;
-  padding: 16px 18px;
+  border-radius: 16px;
+  padding: 10px 14px;
   border: 1px solid rgba(212,175,55,0.14);
-  box-shadow: 0 8px 22px rgba(107,15,15,0.05);
+  box-shadow: 0 6px 16px rgba(107,15,15,0.04);
 }
-.vendor-portal-summary-top {
+.vendor-portal-summary-strip {
   display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 12px;
-}
-.vendor-portal-summary-title {
-  font-size: 20px;
-  font-weight: 700;
-  color: var(--color-dark-text);
-  line-height: 1.15;
-}
-.vendor-portal-summary-type {
-  margin-top: 4px;
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--color-crimson);
-}
-.vendor-portal-summary-meta {
-  display: flex;
+  align-items: center;
   flex-wrap: wrap;
   gap: 8px;
-  margin-top: 12px;
 }
-.vendor-portal-summary-chip {
+.vendor-portal-summary-item {
+  font-family: 'Jost', sans-serif;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--color-mid-text);
+  line-height: 1.4;
+}
+.vendor-portal-summary-title {
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0;
+  color: var(--color-dark-text);
+  line-height: 1.2;
+}
+.vendor-portal-summary-sep {
+  color: rgba(139,26,26,0.28);
+  font-size: 12px;
+}
+.vendor-portal-summary-spacer {
+  flex: 1 1 auto;
+  min-width: 12px;
+}
+.vendor-portal-summary-status {
   display: inline-flex;
   align-items: center;
   border-radius: 999px;
-  background: rgba(139,26,26,0.06);
-  color: var(--color-mid-text);
-  padding: 7px 11px;
+  padding: 5px 9px;
   font-size: 12px;
-  font-weight: 500;
+  font-weight: 700;
 }
-.vendor-portal-summary-chip-link {
-  color: var(--color-crimson);
-  text-decoration: none;
+.vendor-portal-summary-status.pending {
+  background: #FEF3C7;
+  color: #B45309;
+}
+.vendor-portal-summary-status.approved {
+  background: #DCFCE7;
+  color: #15803D;
 }
 .vendor-portal-sidebar {
   display: none;

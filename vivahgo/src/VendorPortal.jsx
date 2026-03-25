@@ -14,7 +14,7 @@ const SESSION_KEY = 'vivahgo.session';
 const VENDOR_PORTAL_SECTIONS = [
   { id: 'dashboard', label: 'Dashboard', icon: 'home' },
   { id: 'preview', label: 'Live Preview', icon: 'vendors' },
-  { id: 'portfolio', label: 'Portfolio Manager', icon: 'tasks' },
+  { id: 'portfolio', label: 'Media Manager', icon: 'tasks' },
   { id: 'details', label: 'Business Details', icon: 'budget' },
 ];
 
@@ -227,39 +227,38 @@ export default function VendorPortal() {
         ) : (
           <div className="space-y-6">
             <div className="vendor-portal-summary-card">
-              <div className="vendor-portal-summary-top">
-                <div className="min-w-0">
-                  <h1 className="vendor-portal-summary-title">{vendor.businessName}</h1>
-                  <p className="vendor-portal-summary-type">
-                    {vendor.type}
-                    {vendor.subType ? ` · ${vendor.subType}` : ''}
-                  </p>
-                </div>
-                <span className={`inline-flex w-fit items-center px-3 py-1 rounded-full text-xs font-semibold ${vendor.isApproved ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'}`}>
-                  {vendor.isApproved ? '✓ Approved' : 'Pending Approval'}
-                </span>
-              </div>
-              <div className="vendor-portal-summary-meta">
+              <div className="vendor-portal-summary-strip">
+                <span className="vendor-portal-summary-item vendor-portal-summary-title">{vendor.businessName}</span>
+                {vendor.type && (
+                  <>
+                    <span className="vendor-portal-summary-sep">|</span>
+                    <span className="vendor-portal-summary-item">{vendor.type}</span>
+                  </>
+                )}
+                {vendor.subType && (
+                  <>
+                    <span className="vendor-portal-summary-sep">|</span>
+                    <span className="vendor-portal-summary-item">{vendor.subType}</span>
+                  </>
+                )}
                 {[vendor.city, vendor.state, vendor.country].filter(Boolean).length > 0 && (
-                  <span className="vendor-portal-summary-chip">
-                    {[vendor.city, vendor.state, vendor.country].filter(Boolean).join(', ')}
-                  </span>
+                  <>
+                    <span className="vendor-portal-summary-sep">|</span>
+                    <span className="vendor-portal-summary-item">
+                      {[vendor.city, vendor.state, vendor.country].filter(Boolean).join(', ')}
+                    </span>
+                  </>
                 )}
                 {vendor.phone && (
-                  <a href={`tel:${vendor.phone}`} className="vendor-portal-summary-chip vendor-portal-summary-chip-link">
-                    {vendor.phone}
-                  </a>
+                  <>
+                    <span className="vendor-portal-summary-sep">|</span>
+                    <span className="vendor-portal-summary-item">{vendor.phone}</span>
+                  </>
                 )}
-                {vendor.website && (
-                  <a href={vendor.website} target="_blank" rel="noopener noreferrer" className="vendor-portal-summary-chip vendor-portal-summary-chip-link">
-                    Website
-                  </a>
-                )}
-                {Array.isArray(vendor.coverageAreas) && vendor.coverageAreas.length > 0 && (
-                  <span className="vendor-portal-summary-chip">
-                    {vendor.coverageAreas.length} coverage area{vendor.coverageAreas.length === 1 ? '' : 's'}
-                  </span>
-                )}
+                <span className="vendor-portal-summary-spacer" />
+                <span className={`vendor-portal-summary-status ${vendor.isApproved ? 'approved' : 'pending'}`}>
+                  {vendor.isApproved ? '✓ Approved' : 'Pending Approval'}
+                </span>
               </div>
             </div>
 
@@ -299,7 +298,7 @@ export default function VendorPortal() {
 
                 {activeSection === 'portfolio' && (
                   <div className="bg-white rounded-2xl shadow-sm p-4 sm:p-6">
-                    <h2 className="text-lg font-semibold text-gray-900 mb-1">Portfolio Manager</h2>
+                    <h2 className="text-lg font-semibold text-gray-900 mb-1">Media Manager</h2>
                     <p className="text-sm text-gray-500 mb-4">Upload, organize, and fine-tune what couples see first.</p>
 
                     <VendorPortfolioManager
