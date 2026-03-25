@@ -209,17 +209,6 @@ function VendorsScreen({ vendors }) {
               )}
               <div className="vendor-stars">{"★".repeat(v.rating || 0)}{"☆".repeat(5-(v.rating || 0))} <span style={{color:"var(--color-light-text)",fontSize:11}}>{v.rating ? `${v.rating}.0` : 'No rating'}</span> <span style={{color:"var(--color-light-text)",fontSize:11}}>({v.reviewCount || 0} reviews)</span></div>
             </div>
-            <button
-              type="button"
-              className={`vendor-wishlist-btn${v.wishlist ? " active" : ""}`}
-              onClick={(event) => {
-                event.stopPropagation();
-                toggleWishlist(v.id);
-              }}
-              aria-label={v.wishlist ? "Remove from wishlist" : "Add to wishlist"}
-            >
-              {v.wishlist ? "♥" : "♡"}
-            </button>
             {v.booked && <div style={{background:"#E8F5E9",color:"#2E7D32",padding:"3px 10px",borderRadius:10,fontSize:11,fontWeight:600,alignSelf:"flex-start"}}>Booked ✓</div>}
           </div>
           <div className="vendor-bottom">
@@ -229,7 +218,20 @@ function VendorsScreen({ vendors }) {
                 {v.pricePerPlate ? `${v.pricePerPlate.toLocaleString("en-IN")}/plate` : formatVendorBudgetRange(v) || "Budget on request"}
               </div>
             </div>
-            <div className="vendor-view-arrow">View Details →</div>
+            <div className="vendor-card-actions">
+              <button
+                type="button"
+                className={`vendor-wishlist-btn${v.wishlist ? " active" : ""}`}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  toggleWishlist(v.id);
+                }}
+                aria-label={v.wishlist ? "Remove from wishlist" : "Add to wishlist"}
+              >
+                {v.wishlist ? "♥" : "♡"}
+              </button>
+              <div className="vendor-view-arrow">View Details →</div>
+            </div>
           </div>
         </div>
         );

@@ -254,7 +254,7 @@ function extractSlugCounter(slug, baseSlug) {
   return match ? Number(match[1]) : null;
 }
 
-async function assignWeddingWebsiteSlugs(planner, ownerId = '') {
+async function assignWeddingWebsiteSlugs(planner, ownerId = '', plannerModel = Planner) {
   if (!planner || !Array.isArray(planner.marriages)) {
     return planner;
   }
@@ -265,7 +265,7 @@ async function assignWeddingWebsiteSlugs(planner, ownerId = '') {
   for (const marriage of planner.marriages) {
     const baseSlug = buildWeddingWebsiteBaseSlug(marriage);
     const reservedCounters = reservedCountersByBase.get(baseSlug) || new Set();
-    const matchingDocs = await PlannerModel.find({
+    const matchingDocs = await plannerModel.find({
       'marriages.websiteSlug': { $regex: `^${escapeRegex(baseSlug)}-`, $options: 'i' },
     }).lean();
 
@@ -781,7 +781,7 @@ export function createApp(options = {}) {
       const currentPlan = getPlanFromPlanner(normalizedCurrent, normalizedCurrent.activePlanId);
       const ownerEmail = findOwnerEmail(currentPlan) || email;
       const sanitizedPlanner = sanitizePlanner(req.body?.planner, { ownerEmail, ownerId });
-      const planner = await assignWeddingWebsiteSlugs(sanitizedPlanner, ownerId);
+      const planner = await assignWeddingWebsiteSlugs(sanitizedPlanner, ownerId, PlannerModel);
       const nextPlan = getPlanFromPlanner(planner, planner.activePlanId);
 
       const ownerFallback = !email && ownerId === req.auth.sub;

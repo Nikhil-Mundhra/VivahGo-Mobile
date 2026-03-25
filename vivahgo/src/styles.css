@@ -999,6 +999,12 @@ body { background: var(--color-deep-red); }
   border-color: rgba(196,30,58,0.24);
 }
 .vendor-bottom { padding: 12px 16px; display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+.vendor-card-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
 .vendor-price-wrap { min-width: 0; text-align: left; }
 .vendor-price { font-family: 'Jost', 'Noto Sans', 'Segoe UI Symbol', sans-serif; font-size: 18px; font-weight: 700; color: var(--color-crimson); }
 .vendor-btn {
@@ -1177,6 +1183,29 @@ body { background: var(--color-deep-red); }
 .vendor-detail-review-form {
   display: grid;
   gap: 10px;
+}
+.vendor-detail-star-picker {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 6px 0 2px;
+}
+.vendor-detail-star-button {
+  border: none;
+  background: transparent;
+  color: rgba(212,175,55,0.4);
+  font-size: 28px;
+  line-height: 1;
+  padding: 4px;
+  cursor: pointer;
+  transition: transform 0.15s ease, color 0.15s ease;
+}
+.vendor-detail-star-button.active {
+  color: #D4AF37;
+}
+.vendor-detail-star-button:active {
+  transform: scale(0.94);
 }
 .vendor-detail-empty {
   font-size: 13px;

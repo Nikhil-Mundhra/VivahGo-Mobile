@@ -249,17 +249,23 @@ function VendorDetailScreen({ vendor, onBack, onToggleWishlist, onAddReview }) {
             onChange={event => setReviewForm(current => ({ ...current, name: event.target.value }))}
             placeholder="Your name"
           />
-          <select
-            className="select-field"
-            value={reviewForm.rating}
-            onChange={event => setReviewForm(current => ({ ...current, rating: event.target.value }))}
-          >
-            <option value="5">5 stars</option>
-            <option value="4">4 stars</option>
-            <option value="3">3 stars</option>
-            <option value="2">2 stars</option>
-            <option value="1">1 star</option>
-          </select>
+          <div className="vendor-detail-star-picker" aria-label="Select rating">
+            {[1, 2, 3, 4, 5].map(star => {
+              const isActive = star <= Number(reviewForm.rating);
+              return (
+                <button
+                  key={star}
+                  type="button"
+                  className={`vendor-detail-star-button${isActive ? " active" : ""}`}
+                  onClick={() => setReviewForm(current => ({ ...current, rating: String(star) }))}
+                  aria-label={`${star} star${star === 1 ? "" : "s"}`}
+                  aria-pressed={isActive}
+                >
+                  ★
+                </button>
+              );
+            })}
+          </div>
           <textarea
             className="textarea-field"
             value={reviewForm.text}
