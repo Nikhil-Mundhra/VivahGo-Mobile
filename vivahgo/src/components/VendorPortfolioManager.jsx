@@ -423,7 +423,7 @@ export default function VendorPortfolioManager({ token, media, onVendorUpdated }
                         type="text"
                         value={draft.caption}
                         onChange={event => updateDraft(item._id, { caption: event.target.value })}
-                        className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm text-gray-700 outline-none transition focus:border-rose-300 focus:ring-2 focus:ring-rose-100"
+                        className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm text-black outline-none transition placeholder:text-gray-500 focus:border-rose-300 focus:ring-2 focus:ring-rose-100"
                         placeholder="Describe this setup or shoot"
                       />
                     </label>
@@ -434,18 +434,18 @@ export default function VendorPortfolioManager({ token, media, onVendorUpdated }
                         type="text"
                         value={draft.altText}
                         onChange={event => updateDraft(item._id, { altText: event.target.value })}
-                        className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm text-gray-700 outline-none transition focus:border-rose-300 focus:ring-2 focus:ring-rose-100"
+                        className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm text-black outline-none transition placeholder:text-gray-500 focus:border-rose-300 focus:ring-2 focus:ring-rose-100"
                         placeholder="Helpful accessibility description"
                       />
                     </label>
                   </div>
 
-                  <div className="flex flex-wrap gap-2">
+                  <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
                     <button
                       type="button"
                       onClick={() => saveDraft(item._id)}
                       disabled={isBusy}
-                      className="rounded-xl bg-gray-900 px-3.5 py-2 text-sm font-medium text-white transition-colors hover:bg-gray-800 disabled:cursor-not-allowed disabled:bg-gray-300"
+                      className="w-full rounded-xl border border-gray-200 bg-white px-3.5 py-2 text-sm font-medium text-black transition-colors hover:border-rose-200 hover:bg-rose-50 disabled:cursor-not-allowed disabled:border-gray-100 disabled:bg-gray-100 disabled:text-gray-400"
                     >
                       Save Details
                     </button>
@@ -453,7 +453,7 @@ export default function VendorPortfolioManager({ token, media, onVendorUpdated }
                       type="button"
                       onClick={() => updateMedia(item._id, { makeCover: true }, 'Could not update the cover image.')}
                       disabled={isBusy || item.isCover}
-                      className="rounded-xl border border-gray-200 px-3.5 py-2 text-sm font-medium text-gray-700 transition-colors hover:border-rose-200 hover:text-rose-600 disabled:cursor-not-allowed disabled:text-gray-300"
+                      className="w-full rounded-xl border border-gray-200 bg-white px-3.5 py-2 text-sm font-medium text-black transition-colors hover:border-rose-200 hover:bg-rose-50 disabled:cursor-not-allowed disabled:border-gray-100 disabled:bg-gray-100 disabled:text-gray-400"
                     >
                       {item.isCover ? 'Current Cover' : 'Make Cover'}
                     </button>
@@ -461,7 +461,7 @@ export default function VendorPortfolioManager({ token, media, onVendorUpdated }
                       type="button"
                       onClick={() => updateMedia(item._id, { isVisible: item.isVisible === false }, 'Could not update visibility.')}
                       disabled={isBusy}
-                      className="rounded-xl border border-gray-200 px-3.5 py-2 text-sm font-medium text-gray-700 transition-colors hover:border-rose-200 hover:text-rose-600 disabled:cursor-not-allowed disabled:text-gray-300"
+                      className="w-full rounded-xl border border-gray-200 bg-white px-3.5 py-2 text-sm font-medium text-black transition-colors hover:border-rose-200 hover:bg-rose-50 disabled:cursor-not-allowed disabled:border-gray-100 disabled:bg-gray-100 disabled:text-gray-400"
                     >
                       {item.isVisible === false ? 'Show Publicly' : 'Hide From Public'}
                     </button>
@@ -469,7 +469,7 @@ export default function VendorPortfolioManager({ token, media, onVendorUpdated }
                       type="button"
                       onClick={() => handleReorder(item._id, -1)}
                       disabled={isBusy || isFirst}
-                      className="rounded-xl border border-gray-200 px-3.5 py-2 text-sm font-medium text-gray-700 transition-colors hover:border-rose-200 hover:text-rose-600 disabled:cursor-not-allowed disabled:text-gray-300"
+                      className="w-full rounded-xl border border-gray-200 bg-white px-3.5 py-2 text-sm font-medium text-black transition-colors hover:border-rose-200 hover:bg-rose-50 disabled:cursor-not-allowed disabled:border-gray-100 disabled:bg-gray-100 disabled:text-gray-400"
                     >
                       Move Up
                     </button>
@@ -477,7 +477,7 @@ export default function VendorPortfolioManager({ token, media, onVendorUpdated }
                       type="button"
                       onClick={() => handleReorder(item._id, 1)}
                       disabled={isBusy || isLast}
-                      className="rounded-xl border border-gray-200 px-3.5 py-2 text-sm font-medium text-gray-700 transition-colors hover:border-rose-200 hover:text-rose-600 disabled:cursor-not-allowed disabled:text-gray-300"
+                      className="w-full rounded-xl border border-gray-200 bg-white px-3.5 py-2 text-sm font-medium text-black transition-colors hover:border-rose-200 hover:bg-rose-50 disabled:cursor-not-allowed disabled:border-gray-100 disabled:bg-gray-100 disabled:text-gray-400"
                     >
                       Move Down
                     </button>
@@ -485,7 +485,7 @@ export default function VendorPortfolioManager({ token, media, onVendorUpdated }
                       type="button"
                       onClick={() => handleRemove(item._id)}
                       disabled={isBusy}
-                      className="rounded-xl border border-red-200 px-3.5 py-2 text-sm font-medium text-red-600 transition-colors hover:bg-red-50 disabled:cursor-not-allowed disabled:border-red-100 disabled:text-red-200"
+                      className="w-full rounded-xl border border-red-200 bg-white px-3.5 py-2 text-sm font-medium text-red-700 transition-colors hover:bg-red-50 disabled:cursor-not-allowed disabled:border-red-100 disabled:bg-gray-100 disabled:text-red-300"
                     >
                       Delete
                     </button>
