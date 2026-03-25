@@ -254,20 +254,20 @@ export default function VendorRegistrationForm({ token, onRegistered }) {
 
         <div className="vendor-registration-location-block">
           <div className="vendor-registration-section-title">Pricing Structure</div>
-          <p className="text-xs text-gray-500">Set your service budget range so couples can find your business in budget filters.</p>
+          <p className="text-xs text-gray-500">Set your price range so couples can compare your services accurately in the directory.</p>
           <div className="mt-3 grid gap-3 sm:grid-cols-2">
             <div className="rounded-xl border border-gray-200 bg-white px-3 py-2">
-              <div className="text-[11px] uppercase tracking-[0.15em] text-gray-500">Minimum</div>
+              <div className="text-[11px] uppercase tracking-[0.15em] text-gray-500">Minimum Price</div>
               <div className="mt-1 text-sm font-semibold text-gray-900">{formatInr(form.budgetRange.min)}</div>
             </div>
             <div className="rounded-xl border border-gray-200 bg-white px-3 py-2">
-              <div className="text-[11px] uppercase tracking-[0.15em] text-gray-500">Maximum</div>
+              <div className="text-[11px] uppercase tracking-[0.15em] text-gray-500">Maximum Price</div>
               <div className="mt-1 text-sm font-semibold text-gray-900">{formatInr(form.budgetRange.max)}</div>
             </div>
           </div>
           <div className="mt-4 space-y-3">
             <label className="block">
-              <span className="mb-1 block text-xs font-medium text-gray-600">Min Budget</span>
+              <span className="mb-1 block text-xs font-medium text-gray-600">Minimum Price</span>
               <input
                 type="range"
                 min={MIN_BUDGET_LIMIT}
@@ -279,7 +279,7 @@ export default function VendorRegistrationForm({ token, onRegistered }) {
               />
             </label>
             <label className="block">
-              <span className="mb-1 block text-xs font-medium text-gray-600">Max Budget</span>
+              <span className="mb-1 block text-xs font-medium text-gray-600">Maximum Price</span>
               <input
                 type="range"
                 min={MIN_BUDGET_LIMIT}

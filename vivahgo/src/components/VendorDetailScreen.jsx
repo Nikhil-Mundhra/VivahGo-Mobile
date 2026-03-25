@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { WHATSAPP_SUPPORT_NUMBER } from "../constants";
-import { formatVendorBudgetRange, formatVendorPricePerPlate, formatVendorPriceTier, getVendorQuickFacts } from "../utils";
+import { formatVendorBudgetRange, formatVendorPricePerPlate, formatVendorPriceTier, getVendorPriceLevel, getVendorQuickFacts } from "../utils";
 import { FallbackImage, FallbackVideo } from "./MediaWithFallback";
 
 function VendorDetailScreen({ vendor, onBack, onToggleWishlist, onAddReview }) {
@@ -77,9 +77,9 @@ function VendorDetailScreen({ vendor, onBack, onToggleWishlist, onAddReview }) {
             {"★".repeat(vendor.rating)}{"☆".repeat(5 - vendor.rating)}
             <span style={{ color: "var(--color-light-text)", fontSize: 11 }}> {vendor.rating}.0</span>
           </div>
-          <div className="vendor-detail-price">{formatVendorPriceTier(vendor.priceLevel)}</div>
+          <div className="vendor-detail-price">{formatVendorPriceTier(getVendorPriceLevel(vendor))}</div>
           <div className="vendor-detail-meta-line">
-            {formatVendorBudgetRange(vendor) || "Budget on request"}
+            {formatVendorBudgetRange(vendor) || "Price on request"}
             {formatVendorPricePerPlate(vendor) ? ` · ${formatVendorPricePerPlate(vendor)}` : ""}
           </div>
         </div>
@@ -92,7 +92,7 @@ function VendorDetailScreen({ vendor, onBack, onToggleWishlist, onAddReview }) {
         <div className="vendor-detail-section-title">Directory Highlights</div>
         <div className="vendor-detail-stat-grid">
           <div className="vendor-detail-stat-card">
-            <div className="vendor-detail-stat-label">Budget</div>
+            <div className="vendor-detail-stat-label">Price Range</div>
             <div className="vendor-detail-stat-value">{formatVendorBudgetRange(vendor) || "On request"}</div>
           </div>
           <div className="vendor-detail-stat-card">

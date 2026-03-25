@@ -4,7 +4,7 @@ import './styles.css';
 import GoogleLoginButton from './components/GoogleLoginButton';
 import VendorRegistrationForm from './components/VendorRegistrationForm';
 import VendorPortfolioManager from './components/VendorPortfolioManager';
-import VendorPortfolioGallery from './components/VendorPortfolioGallery';
+import VendorDirectoryPreview from './components/VendorDirectoryPreview';
 import VendorBusinessProfileEditor from './components/VendorBusinessProfileEditor';
 import { deleteAccount, fetchVendorProfile, loginWithGoogle } from './api';
 import { formatCoverageLocation } from './locationOptions';
@@ -24,6 +24,7 @@ export default function VendorPortal() {
   const [session, setSession] = useState(() => readSession());
   const [vendor, setVendor] = useState(null);
   const [vendorLoadError, setVendorLoadError] = useState('');
+  const [previewVendor, setPreviewVendor] = useState(null);
   const [showSettingsMenu, setShowSettingsMenu] = useState(false);
   const [deleteError, setDeleteError] = useState('');
   const [isDeletingAccount, setIsDeletingAccount] = useState(false);
@@ -46,6 +47,7 @@ export default function VendorPortal() {
       .then(data => {
         if (cancelled) { return; }
         setVendor(data.vendor);
+        setPreviewVendor(data.vendor);
         setLastFetchedToken(session.token);
       })
       .catch(err => {
@@ -55,6 +57,7 @@ export default function VendorPortal() {
           setVendorLoadError(err.message || 'Could not load vendor profile.');
         }
         setVendor(null);
+        setPreviewVendor(null);
         setLastFetchedToken(session.token);
       });
 
@@ -73,6 +76,7 @@ export default function VendorPortal() {
       window.localStorage.setItem(SESSION_KEY, JSON.stringify(newSession));
       // Reset vendor state before the new session triggers a fresh fetch
       setVendor(null);
+      setPreviewVendor(null);
       setLastFetchedToken(null);
       setVendorLoadError('');
       setSession(newSession);
@@ -165,7 +169,7 @@ export default function VendorPortal() {
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <a href="/home" className="flex items-center gap-2 min-w-0">
             <img src="/Thumbnail.png" alt="VivahGo" className="h-8" />
-            <span className="font-semibold text-gray-900 truncate">Vendor Portal</span>
+            <span className="font-semibold text-gray-900 truncate">Home</span>
           </a>
           <div className="flex flex-col items-start gap-2 min-[360px]:flex-row min-[360px]:items-center min-[360px]:justify-between sm:justify-end">
             {session.user?.name && (
@@ -207,7 +211,10 @@ export default function VendorPortal() {
         {!vendor ? (
           <VendorRegistrationForm
             token={session.token}
-            onRegistered={setVendor}
+            onRegistered={registeredVendor => {
+              setVendor(registeredVendor);
+              setPreviewVendor(registeredVendor);
+            }}
           />
         ) : (
           <div className="space-y-6">
@@ -255,7 +262,15 @@ export default function VendorPortal() {
             <div ref={profileEditorRef} className="bg-white rounded-2xl shadow-sm p-4 sm:p-6">
               <h2 className="text-lg font-semibold text-gray-900 mb-1">Business Details</h2>
               <p className="text-sm text-gray-500 mb-4">Update your contact information, locations, and category preferences anytime.</p>
-              <VendorBusinessProfileEditor token={session.token} vendor={vendor} onVendorUpdated={setVendor} />
+              <VendorBusinessProfileEditor
+                token={session.token}
+                vendor={vendor}
+                onVendorUpdated={updatedVendor => {
+                  setVendor(updatedVendor);
+                  setPreviewVendor(updatedVendor);
+                }}
+                onPreviewChange={setPreviewVendor}
+              />
               {deleteError && (
                 <p className="mt-3 text-sm text-red-600">{deleteError}</p>
               )}
@@ -270,15 +285,18 @@ export default function VendorPortal() {
                 <VendorPortfolioManager
                   token={session.token}
                   media={vendor.media || []}
-                  onVendorUpdated={updatedVendor => setVendor(updatedVendor)}
+                  onVendorUpdated={updatedVendor => {
+                    setVendor(updatedVendor);
+                    setPreviewVendor(updatedVendor);
+                  }}
                 />
               </div>
 
               <div className="bg-white rounded-2xl shadow-sm p-4 sm:p-6">
                 <h2 className="text-lg font-semibold text-gray-900 mb-1">Live Preview</h2>
-                <p className="text-sm text-gray-500 mb-4">This is how your public portfolio is currently being presented.</p>
+                <p className="text-sm text-gray-500 mb-4">This now uses the real vendor directory card and detail layout, and updates as you edit your profile.</p>
 
-                <VendorPortfolioGallery media={vendor.media || []} />
+                <VendorDirectoryPreview vendor={{ ...(vendor || {}), ...(previewVendor || {}), media: vendor.media || [] }} />
               </div>
             </div>
           </div>

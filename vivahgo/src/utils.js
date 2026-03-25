@@ -21,6 +21,23 @@ export function formatVendorPriceTier(priceLevel = 1) {
   return `${"₹".repeat(normalizedLevel)}`;
 }
 
+export function getVendorPriceLevel(vendor) {
+  const explicitLevel = Number(vendor?.priceLevel);
+  if (Number.isFinite(explicitLevel) && explicitLevel > 0) {
+    return Math.min(Math.max(Math.round(explicitLevel), 1), 4);
+  }
+
+  const minPrice = Number(vendor?.budgetRange?.min);
+  if (!Number.isFinite(minPrice) || minPrice <= 0) {
+    return 1;
+  }
+
+  if (minPrice <= 100000) return 1;
+  if (minPrice <= 350000) return 2;
+  if (minPrice <= 1000000) return 3;
+  return 4;
+}
+
 export function formatVendorCurrency(value) {
   const amount = Number(value);
   if (!Number.isFinite(amount) || amount <= 0) {

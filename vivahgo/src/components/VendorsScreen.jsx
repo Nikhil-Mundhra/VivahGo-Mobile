@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { BUNDLED_SERVICE_OPTIONS, VENDOR_SUBTYPE_OPTIONS, VENDOR_TYPES } from "../constants";
 import { DEFAULT_VENDORS } from "../data";
-import { formatVendorBudgetRange, formatVendorPriceTier, getVendorQuickFacts } from "../utils";
+import { formatVendorBudgetRange, formatVendorPriceTier, getVendorPriceLevel, getVendorQuickFacts } from "../utils";
 import VendorDetailScreen from "./VendorDetailScreen";
 import { fetchApprovedVendors } from "../api";
 
@@ -85,10 +85,10 @@ function VendorsScreen({ vendors }) {
     })
     .sort((a, b) => {
       if (priceSort === "low-high") {
-        return (a.priceLevel ?? 99) - (b.priceLevel ?? 99);
+        return getVendorPriceLevel(a) - getVendorPriceLevel(b);
       }
       if (priceSort === "high-low") {
-        return (b.priceLevel ?? 0) - (a.priceLevel ?? 0);
+        return getVendorPriceLevel(b) - getVendorPriceLevel(a);
       }
       if (priceSort === "rating") {
         return (b.rating ?? 0) - (a.rating ?? 0);
@@ -213,9 +213,9 @@ function VendorsScreen({ vendors }) {
           </div>
           <div className="vendor-bottom">
             <div className="vendor-price-wrap">
-              <div className="vendor-price">{formatVendorPriceTier(v.priceLevel)}</div>
+              <div className="vendor-price">{formatVendorPriceTier(getVendorPriceLevel(v))}</div>
               <div style={{fontSize:11,color:"var(--color-light-text)",marginTop:2}}>
-                {v.pricePerPlate ? `${v.pricePerPlate.toLocaleString("en-IN")}/plate` : formatVendorBudgetRange(v) || "Budget on request"}
+                {v.pricePerPlate ? `${v.pricePerPlate.toLocaleString("en-IN")}/plate` : formatVendorBudgetRange(v) || "Price on request"}
               </div>
             </div>
             <div className="vendor-card-actions">
