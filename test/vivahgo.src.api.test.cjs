@@ -130,15 +130,29 @@ describe('VivahGo/src/api.js', function () {
       await mod.savePlanner('jwt-3', { wedding: { bride: 'A' } });
       await mod.fetchPublicWeddingWebsite('asha-rohan-1');
       await mod.submitFeedback({ message: 'Great app' });
+      await mod.fetchAdminSession('jwt-admin');
+      await mod.fetchAdminVendors('jwt-admin');
+      await mod.updateAdminVendorApproval('jwt-admin', { vendorId: 'vendor-1', isApproved: true });
+      await mod.fetchAdminStaff('jwt-admin');
+      await mod.addAdminStaff('jwt-admin', { email: 'staff@example.com', staffRole: 'viewer' });
+      await mod.updateAdminStaff('jwt-admin', { email: 'staff@example.com', staffRole: 'editor' });
+      await mod.removeAdminStaff('jwt-admin', 'staff@example.com');
     } finally {
       delete global.fetch;
     }
 
-    assert.equal(calls.length, 5);
+    assert.equal(calls.length, 12);
     assert.match(calls[0].url, /\/auth\/google$/);
     assert.equal(calls[1].options.headers.Authorization, 'Bearer jwt-2');
     assert.match(calls[2].url, /\/planner\/me$/);
     assert.match(calls[3].url, /\/planner\/public\?slug=asha-rohan-1$/);
     assert.match(calls[4].url, /\/feedback$/);
+    assert.match(calls[5].url, /\/admin\/me$/);
+    assert.match(calls[6].url, /\/admin\/vendors$/);
+    assert.equal(calls[7].options.method, 'PATCH');
+    assert.match(calls[8].url, /\/admin\/staff$/);
+    assert.equal(calls[9].options.method, 'POST');
+    assert.equal(calls[10].options.method, 'PUT');
+    assert.match(calls[11].url, /\/admin\/staff\?email=staff%40example\.com$/);
   });
 });

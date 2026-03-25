@@ -1,4 +1,5 @@
 const { OAuth2Client } = require('google-auth-library');
+const mongoose = require('mongoose');
 
 const {
   buildEmptyPlanner,
@@ -56,7 +57,7 @@ module.exports = async function handler(req, res) {
     const normalizedEmail = normalizeEmail(payload.email);
     let existingUser = null;
 
-    if (typeof User.findOne === 'function') {
+    if (mongoose.connection.readyState > 0 && typeof User.findOne === 'function') {
       const result = await User.findOne({ googleId: payload.sub });
       existingUser = typeof result?.lean === 'function' ? await result.lean() : result;
     }

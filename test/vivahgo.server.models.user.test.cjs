@@ -12,6 +12,9 @@ describe('VivahGo/server/models/User.js', function () {
     assert.ok(User.schema.path('email'));
     assert.ok(User.schema.path('name'));
     assert.ok(User.schema.path('picture'));
+    assert.ok(User.schema.path('staffRole'));
+    assert.ok(User.schema.path('staffAddedBy'));
+    assert.ok(User.schema.path('staffGrantedAt'));
   });
 
   it('lowercases and trims email when creating documents', async function () {

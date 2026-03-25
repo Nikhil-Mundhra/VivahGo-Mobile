@@ -290,7 +290,7 @@ function hasStaffRole(role, minimumRole) {
 }
 
 function getStaffAccess(role) {
-  const normalizedRole = resolveStaffRole('', role);
+  const normalizedRole = normalizeStaffRole(role);
   return {
     role: normalizedRole,
     canViewAdmin: hasStaffRole(normalizedRole, 'viewer'),
