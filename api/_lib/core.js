@@ -76,11 +76,47 @@ function getUserModel() {
       subscriptionTier: { type: String, enum: ['starter', 'premium', 'studio'], default: 'starter' },
       subscriptionStatus: { type: String, enum: ['active', 'inactive', 'canceled', 'past_due'], default: 'active' },
       subscriptionCurrentPeriodEnd: { type: Date, default: null },
+      isVendor: { type: Boolean, default: false },
+      vendorId: { type: mongoose.Schema.Types.ObjectId, ref: 'Vendor', default: null },
     },
     { timestamps: true }
   );
 
   return mongoose.models.User || mongoose.model('User', schema);
+}
+
+function getVendorModel() {
+  const mediaSchema = new mongoose.Schema(
+    {
+      url: { type: String, required: true },
+      type: { type: String, enum: ['IMAGE', 'VIDEO'], required: true },
+      sortOrder: { type: Number, default: 0 },
+      filename: { type: String, default: '' },
+      size: { type: Number, default: 0 },
+    },
+    { _id: true }
+  );
+
+  const schema = new mongoose.Schema(
+    {
+      googleId: { type: String, required: true, unique: true, index: true },
+      businessName: { type: String, required: true, trim: true },
+      type: {
+        type: String,
+        enum: ['Venue', 'Photography', 'Catering', 'Decoration', 'Music', 'Pandit'],
+        required: true,
+      },
+      description: { type: String, default: '', trim: true },
+      city: { type: String, default: '', trim: true },
+      phone: { type: String, default: '', trim: true },
+      website: { type: String, default: '', trim: true },
+      isApproved: { type: Boolean, default: false },
+      media: { type: [mediaSchema], default: [] },
+    },
+    { timestamps: true }
+  );
+
+  return mongoose.models.Vendor || mongoose.model('Vendor', schema);
 }
 
 function getPlannerModel() {
@@ -409,6 +445,7 @@ module.exports = {
   getPlanFromPlanner,
   getSubscriptionTier,
   getUserModel,
+  getVendorModel,
   handlePreflight,
   hasPlanRole,
   normalizeEmail,

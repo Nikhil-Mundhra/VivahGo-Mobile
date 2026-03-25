@@ -1,0 +1,7 @@
+/*
+  Vendor Portal — Tailwind utilities only.
+  Do NOT add @tailwind base or @tailwind components here:
+  the preflight reset would conflict with the existing hand-written CSS
+  used by the rest of the VivahGo app.
+*/
+@tailwind utilities;

@@ -7,19 +7,27 @@ import './index.css'
 import App from './App.jsx'
 import MarketingHomePage from './MarketingHomePage.jsx'
 import WeddingWebsitePage from './components/WeddingWebsitePage.jsx'
+import VendorPortal from './VendorPortal.jsx'
 
 const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
 const pathname = typeof window !== 'undefined' ? window.location.pathname : '/';
 const isMarketingHomeRoute = /^\/home\/?$/.test(pathname);
 const isWeddingWebsiteRoute = /^\/wedding\/?$/.test(pathname);
+const isVendorRoute = /^\/vendor\/?$/.test(pathname);
 
 if (typeof document !== 'undefined') {
-  document.body.dataset.route = isMarketingHomeRoute ? 'home' : isWeddingWebsiteRoute ? 'wedding' : 'app';
+  document.body.dataset.route = isMarketingHomeRoute ? 'home'
+    : isWeddingWebsiteRoute ? 'wedding'
+    : isVendorRoute ? 'vendor'
+    : 'app';
 }
 
 const app = (
   <StrictMode>
-    {isMarketingHomeRoute ? <MarketingHomePage /> : isWeddingWebsiteRoute ? <WeddingWebsitePage /> : <App />}
+    {isVendorRoute ? <VendorPortal />
+      : isMarketingHomeRoute ? <MarketingHomePage />
+      : isWeddingWebsiteRoute ? <WeddingWebsitePage />
+      : <App />}
     <Analytics />
     <SpeedInsights />
   </StrictMode>

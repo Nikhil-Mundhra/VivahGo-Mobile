@@ -1,0 +1,205 @@
+import { useEffect, useState } from 'react';
+import './vendor.css';
+import GoogleLoginButton from './components/GoogleLoginButton';
+import VendorRegistrationForm from './components/VendorRegistrationForm';
+import VendorPortfolioManager from './components/VendorPortfolioManager';
+import VendorPortfolioGallery from './components/VendorPortfolioGallery';
+import { fetchVendorProfile, loginWithGoogle, removeVendorMedia } from './api';
+
+const SESSION_KEY = 'vivahgo.session';
+
+function readSession() {
+  if (typeof window === 'undefined') { return null; }
+  try {
+    return JSON.parse(window.localStorage.getItem(SESSION_KEY) || 'null');
+  } catch {
+    return null;
+  }
+}
+
+export default function VendorPortal() {
+  const [session, setSession] = useState(() => readSession());
+  const [vendor, setVendor] = useState(null);
+  const [vendorLoadError, setVendorLoadError] = useState('');
+  const [removeError, setRemoveError] = useState('');
+  // Track which token we last completed a fetch for.
+  // loadingVendor is derived: we have a token but haven't finished fetching for it yet.
+  const [lastFetchedToken, setLastFetchedToken] = useState(null);
+  const loadingVendor = Boolean(session?.token) && session.token !== lastFetchedToken;
+
+  useEffect(() => {
+    document.title = 'VivahGo | Vendor Portal';
+  }, []);
+
+  useEffect(() => {
+    if (!session?.token) { return; }
+
+    let cancelled = false;
+
+    fetchVendorProfile(session.token)
+      .then(data => {
+        if (cancelled) { return; }
+        setVendor(data.vendor);
+        setLastFetchedToken(session.token);
+      })
+      .catch(err => {
+        if (cancelled) { return; }
+        // 404 is expected when the user hasn't registered yet — not an error state
+        if (err.message && !err.message.includes('404') && !err.message.includes('No vendor profile')) {
+          setVendorLoadError(err.message || 'Could not load vendor profile.');
+        }
+        setVendor(null);
+        setLastFetchedToken(session.token);
+      });
+
+    return () => { cancelled = true; };
+  }, [session]);
+
+  async function handleLoginSuccess(credentialResponse) {
+    try {
+      const data = await loginWithGoogle(credentialResponse.credential);
+      const newSession = {
+        mode: 'google',
+        token: data.token,
+        user: data.user,
+        plannerOwnerId: data.plannerOwnerId || data.user?.id || '',
+      };
+      window.localStorage.setItem(SESSION_KEY, JSON.stringify(newSession));
+      // Reset vendor state before the new session triggers a fresh fetch
+      setVendor(null);
+      setLastFetchedToken(null);
+      setVendorLoadError('');
+      setSession(newSession);
+    } catch {
+      // Error shown implicitly; user can retry
+    }
+  }
+
+  async function handleRemoveMedia(mediaId) {
+    setRemoveError('');
+    try {
+      const data = await removeVendorMedia(session.token, mediaId);
+      setVendor(data.vendor);
+    } catch (err) {
+      setRemoveError(err.message || 'Could not remove media item.');
+    }
+  }
+
+  if (!session?.token) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-rose-50 to-amber-50 flex items-center justify-center p-6">
+        <div className="bg-white rounded-2xl shadow-xl p-8 max-w-md w-full">
+          <div className="flex flex-col items-center mb-6">
+            <img src="/Thumbnail.png" alt="VivahGo" className="h-12 mb-3" />
+            <h1 className="text-2xl font-bold text-gray-900">Vendor Portal</h1>
+            <p className="text-gray-500 text-sm mt-1 text-center">
+              List your business and showcase your portfolio to thousands of couples.
+            </p>
+          </div>
+          <GoogleLoginButton onLoginSuccess={handleLoginSuccess} onLoginError={() => {}} />
+          <div className="mt-4 text-center">
+            <a href="/home" className="text-sm text-rose-600 hover:underline">← Back to Home</a>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (loadingVendor) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-rose-50 to-amber-50 flex items-center justify-center">
+        <p className="text-gray-500 text-sm">Loading your vendor profile…</p>
+      </div>
+    );
+  }
+
+  if (vendorLoadError) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-rose-50 to-amber-50 flex items-center justify-center p-6">
+        <div className="bg-white rounded-2xl shadow-xl p-8 max-w-md w-full text-center">
+          <p className="text-red-600 font-medium">{vendorLoadError}</p>
+          <button type="button" onClick={() => window.location.reload()} className="mt-4 text-sm text-rose-600 hover:underline">
+            Retry
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-rose-50 to-amber-50">
+      <header className="bg-white shadow-sm border-b border-gray-100 px-6 py-4 flex items-center justify-between">
+        <a href="/home" className="flex items-center gap-2">
+          <img src="/Thumbnail.png" alt="VivahGo" className="h-8" />
+          <span className="font-semibold text-gray-900">Vendor Portal</span>
+        </a>
+        <div className="flex items-center gap-4">
+          {session.user?.name && (
+            <span className="text-sm text-gray-500 hidden sm:inline">{session.user.name}</span>
+          )}
+          <a href="/" className="text-sm text-rose-600 font-medium hover:underline">Open Planner</a>
+        </div>
+      </header>
+
+      <main className="max-w-4xl mx-auto px-4 py-8">
+        {!vendor ? (
+          <VendorRegistrationForm
+            token={session.token}
+            onRegistered={setVendor}
+          />
+        ) : (
+          <div className="space-y-6">
+            {/* Profile card */}
+            <div className="bg-white rounded-2xl shadow-sm p-6">
+              <div className="flex items-start justify-between gap-4">
+                <div className="min-w-0">
+                  <h1 className="text-2xl font-bold text-gray-900">{vendor.businessName}</h1>
+                  <p className="text-rose-600 font-medium text-sm mt-0.5">{vendor.type}</p>
+                  {vendor.city && <p className="text-gray-500 text-sm">{vendor.city}</p>}
+                  {vendor.phone && (
+                    <p className="text-gray-500 text-sm">
+                      <a href={`tel:${vendor.phone}`} className="hover:underline">{vendor.phone}</a>
+                    </p>
+                  )}
+                  {vendor.website && (
+                    <p className="text-sm mt-0.5">
+                      <a href={vendor.website} target="_blank" rel="noopener noreferrer" className="text-rose-600 hover:underline break-all">
+                        {vendor.website}
+                      </a>
+                    </p>
+                  )}
+                  {vendor.description && (
+                    <p className="text-gray-700 text-sm mt-3">{vendor.description}</p>
+                  )}
+                </div>
+                <span className={`shrink-0 inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold ${vendor.isApproved ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'}`}>
+                  {vendor.isApproved ? '✓ Approved' : 'Pending Approval'}
+                </span>
+              </div>
+            </div>
+
+            {/* Portfolio section */}
+            <div className="bg-white rounded-2xl shadow-sm p-6">
+              <h2 className="text-lg font-semibold text-gray-900 mb-1">Portfolio</h2>
+              <p className="text-sm text-gray-500 mb-4">Upload photos and videos to showcase your work.</p>
+
+              <VendorPortfolioManager
+                token={session.token}
+                onMediaAdded={updatedVendor => setVendor(updatedVendor)}
+              />
+
+              {removeError && (
+                <p className="text-sm text-red-600 mt-3" role="alert">{removeError}</p>
+              )}
+
+              <VendorPortfolioGallery
+                media={vendor.media || []}
+                onRemove={handleRemoveMedia}
+              />
+            </div>
+          </div>
+        )}
+      </main>
+    </div>
+  );
+}

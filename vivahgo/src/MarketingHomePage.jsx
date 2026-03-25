@@ -366,6 +366,7 @@ export default function MarketingHomePage() {
           <a href="#pricing">Pricing</a>
           <a href="#faqs">FAQs</a>
           <a href="#social">Social</a>
+          <a href="/vendor">For Vendors</a>
         </nav>
 
         <div className="marketing-auth">
@@ -391,6 +392,9 @@ export default function MarketingHomePage() {
               </a>
               <a className="marketing-secondary-action" href="#pricing">
                 View Premium Plans
+              </a>
+              <a className="marketing-secondary-action" href="/vendor" style={{ marginTop: 8 }}>
+                List Your Business →
               </a>
             </div>
 

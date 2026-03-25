@@ -57,6 +57,15 @@ function LoginScreen({ onGoogleLogin, onDemoLogin, onGoToHome, onLoginError, isL
             <button className="login-home-btn" type="button" onClick={onGoToHome} disabled={isLoggingIn}>
               Go to Home
             </button>
+            <button
+              className="login-home-btn"
+              type="button"
+              onClick={() => { window.location.href = '/vendor'; }}
+              disabled={isLoggingIn}
+              style={{ marginTop: 8 }}
+            >
+              Login as Vendor
+            </button>
           </div>
 
           {showOauthHelp && (

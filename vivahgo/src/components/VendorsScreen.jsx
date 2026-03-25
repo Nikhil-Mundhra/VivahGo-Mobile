@@ -1,8 +1,9 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { VENDOR_TYPES } from "../constants";
 import { DEFAULT_VENDORS } from "../data";
 import { formatVendorPriceTier, getVendorQuickFacts } from "../utils";
 import VendorDetailScreen from "./VendorDetailScreen";
+import { fetchApprovedVendors } from "../api";
 
 function VendorsScreen({ vendors }) {
   const [activeTab, setActiveTab] = useState("All");
@@ -10,16 +11,28 @@ function VendorsScreen({ vendors }) {
   const [ratingFilter, setRatingFilter] = useState("all");
   const [priceSort, setPriceSort] = useState("none");
   const [selectedVendor, setSelectedVendor] = useState(null);
+  const [dbVendors, setDbVendors] = useState([]);
+
+  useEffect(() => {
+    fetchApprovedVendors()
+      .then(data => { setDbVendors(Array.isArray(data?.vendors) ? data.vendors : []); })
+      .catch(() => { /* Graceful degradation: fall back to static list only */ });
+  }, []);
 
   const bookedById = useMemo(
     () => new Map((Array.isArray(vendors) ? vendors : []).map(v => [v.id, Boolean(v.booked)])),
     [vendors]
   );
 
-  const universalVendors = useMemo(
-    () => DEFAULT_VENDORS.map(v => ({ ...v, booked: bookedById.get(v.id) ?? Boolean(v.booked) })),
-    [bookedById]
-  );
+  const universalVendors = useMemo(() => {
+    // DB-approved vendors take precedence over static data; merge by id
+    const staticWithBooked = DEFAULT_VENDORS.map(v => ({
+      ...v,
+      booked: bookedById.get(v.id) ?? Boolean(v.booked),
+    }));
+    // DB vendors have ids prefixed with "db_" so they never collide with static ids
+    return [...staticWithBooked, ...dbVendors];
+  }, [bookedById, dbVendors]);
 
   const availableCities = useMemo(
     () => Array.from(new Set(universalVendors.map(v => v.city).filter(Boolean))).sort((a, b) => a.localeCompare(b)),
@@ -92,7 +105,7 @@ function VendorsScreen({ vendors }) {
                   <div className="vendor-facts-inline">{quickFacts.join(" · ")}</div>
                 </div>
               )}
-              <div className="vendor-stars">{"★".repeat(v.rating)}{"☆".repeat(5-v.rating)} <span style={{color:"var(--color-light-text)",fontSize:11}}>{v.rating}.0</span></div>
+              <div className="vendor-stars">{"★".repeat(v.rating || 0)}{"☆".repeat(5-(v.rating || 0))} <span style={{color:"var(--color-light-text)",fontSize:11}}>{v.rating ? `${v.rating}.0` : 'No rating'}</span></div>
             </div>
             {v.booked && <div style={{background:"#E8F5E9",color:"#2E7D32",padding:"3px 10px",borderRadius:10,fontSize:11,fontWeight:600,alignSelf:"flex-start"}}>Booked ✓</div>}
           </div>
