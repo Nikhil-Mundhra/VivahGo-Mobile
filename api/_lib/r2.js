@@ -1,6 +1,8 @@
 const { S3Client, PutObjectCommand } = require('@aws-sdk/client-s3');
 const { getSignedUrl } = require('@aws-sdk/s3-request-presigner');
 
+const MEDIA_VIVAHGO_FALLBACK_URL = 'https://pub-47c8cf1fe5da4a1b89c93045916376d7.r2.dev/';
+
 function createR2Client() {
   const endpoint = process.env.R2_ENDPOINT;
   const accessKeyId = process.env.R2_ACCESS_KEY_ID;
@@ -66,6 +68,20 @@ function createPublicObjectUrl(key) {
   return new URL(normalizeObjectKey(key), baseUrl).toString();
 }
 
+function getAcceptedPublicBaseUrls() {
+  const primaryBaseUrl = getPublicBaseUrl();
+  const acceptedBaseUrls = [primaryBaseUrl];
+
+  if (
+    primaryBaseUrl.origin === 'https://media.vivahgo.com' &&
+    primaryBaseUrl.pathname.replace(/\/+$/, '') === '/portfolio'
+  ) {
+    acceptedBaseUrls.push(new URL(MEDIA_VIVAHGO_FALLBACK_URL));
+  }
+
+  return acceptedBaseUrls;
+}
+
 function extractObjectKeyFromUrl(url) {
   if (!url || typeof url !== 'string') {
     return '';
@@ -78,22 +94,27 @@ function extractObjectKeyFromUrl(url) {
     return '';
   }
 
-  let baseUrl;
+  let baseUrls;
   try {
-    baseUrl = getPublicBaseUrl();
+    baseUrls = getAcceptedPublicBaseUrls();
   } catch {
     return '';
   }
-  if (objectUrl.origin !== baseUrl.origin) {
-    return '';
+
+  for (const baseUrl of baseUrls) {
+    if (objectUrl.origin !== baseUrl.origin) {
+      continue;
+    }
+
+    const basePath = baseUrl.pathname.endsWith('/') ? baseUrl.pathname : `${baseUrl.pathname}/`;
+    if (!objectUrl.pathname.startsWith(basePath)) {
+      continue;
+    }
+
+    return decodeURIComponent(objectUrl.pathname.slice(basePath.length));
   }
 
-  const basePath = baseUrl.pathname.endsWith('/') ? baseUrl.pathname : `${baseUrl.pathname}/`;
-  if (!objectUrl.pathname.startsWith(basePath)) {
-    return '';
-  }
-
-  return decodeURIComponent(objectUrl.pathname.slice(basePath.length));
+  return '';
 }
 
 function normalizeMediaItem(item) {

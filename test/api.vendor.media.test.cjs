@@ -252,4 +252,37 @@ describe('api/vendor/media.js', function () {
     assert.equal(res.body.vendor.media[0].key, 'vendors/Vendor-ABC/Photo.JPG');
     assert.equal(res.body.vendor.media[0].url, 'https://media.vivahgo.com/portfolio/vendors/Vendor-ABC/Photo.JPG');
   });
+
+  it('can recover the exact key from the fallback public R2 URL when key is omitted', async function () {
+    process.env.R2_PUBLIC_URL = 'https://media.vivahgo.com/portfolio';
+
+    const vendorDoc = makeVendorDoc();
+
+    require.cache[corePath].exports = {
+      ...originalCore,
+      connectDb: async () => {},
+      getVendorModel: () => ({
+        findOne: async () => vendorDoc,
+      }),
+    };
+
+    const handler = require(handlerPath);
+    const req = {
+      method: 'POST',
+      headers: { authorization: `Bearer ${makeToken()}` },
+      body: {
+        url: 'https://pub-47c8cf1fe5da4a1b89c93045916376d7.r2.dev/vendors/Vendor-ABC/Photo.JPG',
+        type: 'IMAGE',
+        filename: 'Photo.JPG',
+        size: 1024,
+      },
+    };
+    const res = createRes();
+
+    await handler(req, res);
+
+    assert.equal(res.statusCode, 201);
+    assert.equal(res.body.vendor.media[0].key, 'vendors/Vendor-ABC/Photo.JPG');
+    assert.equal(res.body.vendor.media[0].url, 'https://media.vivahgo.com/portfolio/vendors/Vendor-ABC/Photo.JPG');
+  });
 });

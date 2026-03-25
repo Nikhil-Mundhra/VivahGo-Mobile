@@ -96,4 +96,13 @@ describe('api/media/presigned-url.js', function () {
     assert.equal(publicUrl, 'https://media.vivahgo.com/portfolio/vendors/Vendor-ABC/Photo.JPG');
     assert.equal(extractObjectKeyFromUrl(publicUrl), key);
   });
+
+  it('accepts the public R2 fallback hostname for key extraction', function () {
+    process.env.R2_PUBLIC_URL = 'https://media.vivahgo.com/portfolio';
+
+    const { extractObjectKeyFromUrl } = require(r2Path);
+    const fallbackUrl = 'https://pub-47c8cf1fe5da4a1b89c93045916376d7.r2.dev/vendors/Vendor-ABC/Photo.JPG';
+
+    assert.equal(extractObjectKeyFromUrl(fallbackUrl), 'vendors/Vendor-ABC/Photo.JPG');
+  });
 });
