@@ -34,6 +34,7 @@ module.exports = async function handler(req, res) {
         country: v.country || '',
         state: v.state || '',
         city: v.city || '',
+        googleMapsLink: v.googleMapsLink || '',
         phone: v.phone || '',
         website: v.website || '',
         emoji: '🏷️',

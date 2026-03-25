@@ -7,6 +7,9 @@ const {
   getPlannerModel,
   getUserModel,
   handlePreflight,
+  normalizeEmail,
+  normalizeStaffRole,
+  resolveStaffRole,
   sanitizePlanner,
   setCorsHeaders,
 } = require('../_lib/core');
@@ -50,14 +53,26 @@ module.exports = async function handler(req, res) {
       return res.status(400).json({ error: 'Google account details are incomplete.' });
     }
 
+    const normalizedEmail = normalizeEmail(payload.email);
+    let existingUser = null;
+
+    if (typeof User.findOne === 'function') {
+      const result = await User.findOne({ googleId: payload.sub });
+      existingUser = typeof result?.lean === 'function' ? await result.lean() : result;
+    }
+
+    const staffRole = resolveStaffRole(normalizedEmail, normalizeStaffRole(existingUser?.staffRole));
+
     const user = await User.findOneAndUpdate(
       { googleId: payload.sub },
       {
         $set: {
           googleId: payload.sub,
-          email: payload.email,
+          email: normalizedEmail,
           name: payload.name,
           picture: payload.picture || '',
+          staffRole,
+          staffGrantedAt: staffRole === 'owner' ? existingUser?.staffGrantedAt || new Date() : existingUser?.staffGrantedAt || null,
         },
       },
       { new: true, upsert: true, setDefaultsOnInsert: true }
@@ -81,6 +96,7 @@ module.exports = async function handler(req, res) {
         email: user.email,
         name: user.name,
         picture: user.picture,
+        staffRole: resolveStaffRole(user.email, user.staffRole),
       },
       planner: sanitizePlanner(planner.toObject(), { ownerEmail: user.email, ownerId: user.googleId }),
       plannerOwnerId: user.googleId,

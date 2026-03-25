@@ -22,6 +22,7 @@ export default function VendorRegistrationForm({ token, onRegistered }) {
     state: '',
     description: '',
     city: '',
+    googleMapsLink: '',
     coverageAreas: [],
     phone: '',
     website: '',
@@ -31,6 +32,7 @@ export default function VendorRegistrationForm({ token, onRegistered }) {
     },
   });
   const [coverageDraft, setCoverageDraft] = useState({ country: '', state: '', city: '' });
+  const [showCoverageForm, setShowCoverageForm] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -345,6 +347,20 @@ export default function VendorRegistrationForm({ token, onRegistered }) {
               {primaryCities.map(option => <option key={option} value={option}>{option}</option>)}
             </select>
           </div>
+          <div className="mt-3">
+            <label className="vendor-registration-label" htmlFor="googleMapsLink">
+              Google Maps Link
+            </label>
+            <input
+              id="googleMapsLink"
+              name="googleMapsLink"
+              type="url"
+              value={form.googleMapsLink}
+              onChange={handleChange}
+              placeholder="Paste your main service location Google Maps link"
+              className={fieldClassName}
+            />
+          </div>
         </div>
 
         <div>
@@ -363,38 +379,50 @@ export default function VendorRegistrationForm({ token, onRegistered }) {
         </div>
 
         <div className="vendor-registration-location-block">
-          <div className="vendor-registration-section-title">Additional Coverage Areas</div>
-          <div className="vendor-registration-grid vendor-registration-grid-3">
-            <select
-              value={coverageDraft.country}
-              onChange={event => updateCoverageDraft('country', event.target.value)}
-              className={fieldClassName}
-            >
-              <option value="">Select country</option>
-              {getLocationCountries().map(option => <option key={option} value={option}>{option}</option>)}
-            </select>
-            <select
-              value={coverageDraft.state}
-              onChange={event => updateCoverageDraft('state', event.target.value)}
-              className={fieldClassName}
-              disabled={!coverageStates.length}
-            >
-              <option value="">Select state</option>
-              {coverageStates.map(option => <option key={option} value={option}>{option}</option>)}
-            </select>
-            <select
-              value={coverageDraft.city}
-              onChange={event => updateCoverageDraft('city', event.target.value)}
-              className={fieldClassName}
-              disabled={!coverageCities.length}
-            >
-              <option value="">Select city</option>
-              {coverageCities.map(option => <option key={option} value={option}>{option}</option>)}
-            </select>
-          </div>
-          <button type="button" className="vendor-registration-add-btn" onClick={addCoverageArea}>
-            Add Coverage Area
+          <button
+            type="button"
+            className="vendor-registration-section-toggle"
+            onClick={() => setShowCoverageForm(current => !current)}
+            aria-expanded={showCoverageForm}
+          >
+            <span className="vendor-registration-section-title">Additional Coverage Areas</span>
+            <span>{showCoverageForm ? 'Hide' : 'Add More'}</span>
           </button>
+          {showCoverageForm && (
+            <>
+              <div className="vendor-registration-grid vendor-registration-grid-3">
+                <select
+                  value={coverageDraft.country}
+                  onChange={event => updateCoverageDraft('country', event.target.value)}
+                  className={fieldClassName}
+                >
+                  <option value="">Select country</option>
+                  {getLocationCountries().map(option => <option key={option} value={option}>{option}</option>)}
+                </select>
+                <select
+                  value={coverageDraft.state}
+                  onChange={event => updateCoverageDraft('state', event.target.value)}
+                  className={fieldClassName}
+                  disabled={!coverageStates.length}
+                >
+                  <option value="">Select state</option>
+                  {coverageStates.map(option => <option key={option} value={option}>{option}</option>)}
+                </select>
+                <select
+                  value={coverageDraft.city}
+                  onChange={event => updateCoverageDraft('city', event.target.value)}
+                  className={fieldClassName}
+                  disabled={!coverageCities.length}
+                >
+                  <option value="">Select city</option>
+                  {coverageCities.map(option => <option key={option} value={option}>{option}</option>)}
+                </select>
+              </div>
+              <button type="button" className="vendor-registration-add-btn" onClick={addCoverageArea}>
+                Add Coverage Area
+              </button>
+            </>
+          )}
           {form.coverageAreas.length > 0 && (
             <div className="vendor-registration-chip-list">
               {form.coverageAreas.map(area => (

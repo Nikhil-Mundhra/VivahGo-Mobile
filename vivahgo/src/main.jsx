@@ -8,6 +8,7 @@ import App from './App.jsx'
 import MarketingHomePage from './MarketingHomePage.jsx'
 import WeddingWebsitePage from './components/WeddingWebsitePage.jsx'
 import VendorPortal from './VendorPortal.jsx'
+import AdminPortal from './AdminPortal.jsx'
 
 const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
 const pathname = typeof window !== 'undefined' ? window.location.pathname : '/';
@@ -15,6 +16,7 @@ const normalizedPathname = pathname.replace(/\/+$/, '') || '/';
 const isMarketingHomeRoute = /^\/home\/?$/.test(pathname);
 const isWeddingWebsiteRoute = /^\/wedding\/?$/.test(pathname);
 const isVendorRoute = /^\/vendor\/?$/.test(pathname);
+const isAdminRoute = /^\/admin\/?$/.test(pathname);
 const publicWeddingSlugMatch = normalizedPathname.match(/^\/([^/.][^/]*)$/);
 const publicWeddingSlug = publicWeddingSlugMatch && !['home', 'vendor', 'wedding'].includes(publicWeddingSlugMatch[1].toLowerCase())
   ? decodeURIComponent(publicWeddingSlugMatch[1])
@@ -25,12 +27,14 @@ if (typeof document !== 'undefined') {
     : isWeddingWebsiteRoute ? 'wedding'
     : publicWeddingSlug ? 'wedding'
     : isVendorRoute ? 'vendor'
+    : isAdminRoute ? 'admin'
     : 'app';
 }
 
 const app = (
   <StrictMode>
     {isVendorRoute ? <VendorPortal />
+      : isAdminRoute ? <AdminPortal />
       : isMarketingHomeRoute ? <MarketingHomePage />
       : isWeddingWebsiteRoute ? <WeddingWebsitePage />
       : publicWeddingSlug ? <WeddingWebsitePage websiteSlug={publicWeddingSlug} />

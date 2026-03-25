@@ -22,6 +22,13 @@ const ROLE_LEVEL = {
   owner: 3,
 };
 
+const STAFF_ROLE_LEVEL = {
+  none: 0,
+  viewer: 1,
+  editor: 2,
+  owner: 3,
+};
+
 let cachedConnection = null;
 
 function getClientOrigins() {
@@ -78,6 +85,9 @@ function getUserModel() {
       email: { type: String, required: true, trim: true, lowercase: true },
       name: { type: String, required: true, trim: true },
       picture: { type: String, default: '' },
+      staffRole: { type: String, enum: ['none', 'viewer', 'editor', 'owner'], default: 'none' },
+      staffAddedBy: { type: String, default: '' },
+      staffGrantedAt: { type: Date, default: null },
       subscriptionId: { type: String, default: '' },
       subscriptionTier: { type: String, enum: ['starter', 'premium', 'studio'], default: 'starter' },
       subscriptionStatus: { type: String, enum: ['active', 'inactive', 'canceled', 'past_due'], default: 'active' },
@@ -254,6 +264,39 @@ function normalizeRole(value) {
     return value;
   }
   return 'viewer';
+}
+
+function normalizeStaffRole(value) {
+  if (value === 'owner' || value === 'editor' || value === 'viewer') {
+    return value;
+  }
+  return 'none';
+}
+
+function getBootstrapAdminEmail() {
+  return normalizeEmail(process.env.ADMIN_OWNER_EMAIL || 'nikhilmundhra28@gmail.com');
+}
+
+function resolveStaffRole(email, currentRole = 'none') {
+  if (normalizeEmail(email) === getBootstrapAdminEmail()) {
+    return 'owner';
+  }
+
+  return normalizeStaffRole(currentRole);
+}
+
+function hasStaffRole(role, minimumRole) {
+  return (STAFF_ROLE_LEVEL[normalizeStaffRole(role)] || 0) >= (STAFF_ROLE_LEVEL[normalizeStaffRole(minimumRole)] || 0);
+}
+
+function getStaffAccess(role) {
+  const normalizedRole = resolveStaffRole('', role);
+  return {
+    role: normalizedRole,
+    canViewAdmin: hasStaffRole(normalizedRole, 'viewer'),
+    canManageVendors: hasStaffRole(normalizedRole, 'editor'),
+    canManageStaff: hasStaffRole(normalizedRole, 'owner'),
+  };
 }
 
 function sanitizeCollaborators(value, ownerEmail, ownerId) {
@@ -501,6 +544,7 @@ function createSessionToken(user) {
       sub: user.googleId,
       email: user.email,
       name: user.name,
+      staffRole: resolveStaffRole(user.email, user.staffRole),
     },
     jwtSecret,
     { expiresIn: '7d' }
@@ -556,14 +600,19 @@ module.exports = {
   getCollaboratorRoleForPlan,
   getPlannerModel,
   getPlanFromPlanner,
+  getBootstrapAdminEmail,
+  getStaffAccess,
   getSubscriptionTier,
   getUserModel,
   getVendorModel,
   handlePreflight,
   hasPlanRole,
+  hasStaffRole,
   normalizeEmail,
   normalizePlannerOwnership,
   normalizeRole,
+  normalizeStaffRole,
+  resolveStaffRole,
   sanitizePlanner,
   setCorsHeaders,
   verifySession,

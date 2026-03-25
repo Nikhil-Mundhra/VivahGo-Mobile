@@ -24,7 +24,7 @@ const VENDOR_SUBTYPE_OPTIONS = {
   Bride: ['Bridal Jewellery', 'Bridal Makeup Artists', 'Bridal Lehenga', 'Mehndi Artists', 'Makeup Salon', 'Trousseau Packing'],
   Groom: ['Sherwani'],
 };
-const ALLOWED_UPDATE_FIELDS = ['businessName', 'type', 'subType', 'description', 'country', 'state', 'city', 'phone', 'website'];
+const ALLOWED_UPDATE_FIELDS = ['businessName', 'type', 'subType', 'description', 'country', 'state', 'city', 'googleMapsLink', 'phone', 'website'];
 const MIN_BUDGET_LIMIT = 10000;
 const MAX_BUDGET_LIMIT = 5000000;
 
@@ -117,7 +117,7 @@ module.exports = async function handler(req, res) {
     }
 
     if (req.method === 'POST') {
-      const { businessName, type, subType, description, country, state, city, phone, website, coverageAreas, bundledServices, budgetRange } = req.body || {};
+      const { businessName, type, subType, description, country, state, city, googleMapsLink, phone, website, coverageAreas, bundledServices, budgetRange } = req.body || {};
 
       if (!businessName || typeof businessName !== 'string' || !businessName.trim()) {
         return res.status(400).json({ error: 'businessName is required.' });
@@ -155,6 +155,7 @@ module.exports = async function handler(req, res) {
         state: (state || '').trim(),
         description: (description || '').trim(),
         city: (city || '').trim(),
+        googleMapsLink: (googleMapsLink || '').trim(),
         coverageAreas: normalizeCoverageAreas(coverageAreas),
         phone: (phone || '').trim(),
         website: (website || '').trim(),

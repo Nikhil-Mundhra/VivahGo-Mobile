@@ -35,6 +35,7 @@ const vendorSchema = new mongoose.Schema(
     state: { type: String, default: '', trim: true },
     description: { type: String, default: '', trim: true },
     city: { type: String, default: '', trim: true },
+    googleMapsLink: { type: String, default: '', trim: true },
     coverageAreas: { type: [coverageAreaSchema], default: [] },
     budgetRange: {
       min: { type: Number },

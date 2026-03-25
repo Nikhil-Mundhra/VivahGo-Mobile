@@ -41,6 +41,13 @@ const ROLE_LEVEL = {
   owner: 3,
 };
 
+const STAFF_ROLE_LEVEL = {
+  none: 0,
+  viewer: 1,
+  editor: 2,
+  owner: 3,
+};
+
 const VENDOR_TYPES = ['Venue', 'Photography', 'Catering', 'Wedding Invitations', 'Wedding Gifts', 'Music', 'Wedding Transportation', 'Tent House', 'Wedding Entertainment', 'Florists', 'Wedding Planners', 'Wedding Videography', 'Honeymoon', 'Wedding Decorators', 'Wedding Cakes', 'Wedding DJ', 'Pandit', 'Photobooth', 'Astrologers', 'Party Places', 'Choreographer', 'Bride', 'Groom'];
 const BUNDLED_SERVICE_OPTIONS = VENDOR_TYPES.filter(type => type !== 'Honeymoon');
 const VENDOR_SUBTYPE_OPTIONS = {
@@ -166,6 +173,39 @@ export function normalizeRole(value) {
     return value;
   }
   return 'viewer';
+}
+
+export function normalizeStaffRole(value) {
+  if (value === 'owner' || value === 'editor' || value === 'viewer') {
+    return value;
+  }
+  return 'none';
+}
+
+export function getBootstrapAdminEmail() {
+  return normalizeEmail(process.env.ADMIN_OWNER_EMAIL || 'nikhilmundhra28@gmail.com');
+}
+
+export function resolveStaffRole(email, currentRole = 'none') {
+  if (normalizeEmail(email) === getBootstrapAdminEmail()) {
+    return 'owner';
+  }
+
+  return normalizeStaffRole(currentRole);
+}
+
+export function hasStaffRole(role, minimumRole) {
+  return (STAFF_ROLE_LEVEL[normalizeStaffRole(role)] || 0) >= (STAFF_ROLE_LEVEL[normalizeStaffRole(minimumRole)] || 0);
+}
+
+export function getStaffAccess(role) {
+  const normalizedRole = normalizeStaffRole(role);
+  return {
+    role: normalizedRole,
+    canViewAdmin: hasStaffRole(normalizedRole, 'viewer'),
+    canManageVendors: hasStaffRole(normalizedRole, 'editor'),
+    canManageStaff: hasStaffRole(normalizedRole, 'owner'),
+  };
 }
 
 export function buildEmptyPlanner(options = {}) {
@@ -447,6 +487,7 @@ export function createSessionToken(user, secret = jwtSecret) {
       sub: user.googleId,
       email: user.email,
       name: user.name,
+      staffRole: resolveStaffRole(user.email, user.staffRole),
     },
     secret,
     { expiresIn: '7d' }
@@ -475,6 +516,67 @@ export function authMiddleware(req, res, next, secret = jwtSecret) {
   } catch {
     return res.status(401).json({ error: 'Session expired. Please sign in again.' });
   }
+}
+
+async function resolveLeanDocument(result) {
+  if (!result) {
+    return null;
+  }
+  if (typeof result.lean === 'function') {
+    return result.lean();
+  }
+  if (typeof result.toObject === 'function') {
+    return result.toObject();
+  }
+  return result;
+}
+
+function sanitizeStaffUser(user = {}) {
+  const staffRole = resolveStaffRole(user.email, user.staffRole);
+  return {
+    id: String(user._id || user.googleId || ''),
+    googleId: user.googleId || '',
+    email: normalizeEmail(user.email || ''),
+    name: user.name || '',
+    picture: user.picture || '',
+    staffRole,
+    staffAddedBy: user.staffAddedBy || '',
+    staffGrantedAt: user.staffGrantedAt || null,
+    isBootstrapOwner: normalizeEmail(user.email || '') === getBootstrapAdminEmail(),
+  };
+}
+
+async function resolveAdminSession(UserModel, auth, minimumRole = 'viewer') {
+  const user = await resolveLeanDocument(UserModel.findOne({ googleId: auth.sub }));
+
+  if (!user) {
+    return { status: 401, error: 'Account not found.' };
+  }
+
+  const staffRole = resolveStaffRole(user.email || auth.email, user.staffRole);
+  if (staffRole !== user.staffRole && typeof UserModel.updateOne === 'function') {
+    await UserModel.updateOne(
+      { googleId: user.googleId },
+      {
+        $set: {
+          staffRole,
+          ...(staffRole === 'owner' ? { staffGrantedAt: user.staffGrantedAt || new Date() } : {}),
+        },
+      }
+    );
+  }
+
+  if (!hasStaffRole(staffRole, minimumRole)) {
+    return { status: 403, error: 'Staff access required.' };
+  }
+
+  return {
+    user: {
+      ...user,
+      staffRole,
+    },
+    access: getStaffAccess(staffRole),
+  };
 }
 
 function hasPlannerContent(planner) {
@@ -718,6 +820,7 @@ export function createApp(options = {}) {
     oauthClient: injectedOauthClient,
     PlannerModel = Planner,
     UserModel = User,
+    VendorModel = Vendor,
   } = options;
 
   const oauthClient =
@@ -762,14 +865,22 @@ export function createApp(options = {}) {
         return res.status(400).json({ error: 'Google account details are incomplete.' });
       }
 
+      const normalizedEmail = normalizeEmail(payload.email);
+      const existingUser = typeof UserModel.findOne === 'function'
+        ? await resolveLeanDocument(UserModel.findOne({ googleId: payload.sub }))
+        : null;
+      const staffRole = resolveStaffRole(normalizedEmail, normalizeStaffRole(existingUser?.staffRole));
+
       const user = await UserModel.findOneAndUpdate(
         { googleId: payload.sub },
         {
           $set: {
             googleId: payload.sub,
-            email: payload.email,
+            email: normalizedEmail,
             name: payload.name,
             picture: payload.picture || '',
+            staffRole,
+            staffGrantedAt: staffRole === 'owner' ? existingUser?.staffGrantedAt || new Date() : existingUser?.staffGrantedAt || null,
           },
         },
         {
@@ -801,6 +912,7 @@ export function createApp(options = {}) {
           email: user.email,
           name: user.name,
           picture: user.picture,
+          staffRole: resolveStaffRole(user.email, user.staffRole),
         },
         planner: sanitizePlanner(planner.toObject(), { ownerEmail: user.email, ownerId: user.googleId }),
         plannerOwnerId: user.googleId,
@@ -826,7 +938,7 @@ export function createApp(options = {}) {
 
   app.get('/api/vendor/me', (req, res, next) => authMiddleware(req, res, next, injectedJwtSecret), async (req, res) => {
     try {
-      const vendor = await Vendor.findOne({ googleId: req.auth.sub }).lean();
+      const vendor = await VendorModel.findOne({ googleId: req.auth.sub }).lean();
       if (!vendor) {
         return res.status(404).json({ error: 'No vendor profile found.' });
       }
@@ -847,6 +959,7 @@ export function createApp(options = {}) {
         country,
         state,
         city,
+        googleMapsLink,
         phone,
         website,
         coverageAreas,
@@ -870,12 +983,12 @@ export function createApp(options = {}) {
         return res.status(400).json({ error: error.message });
       }
 
-      const existing = await Vendor.findOne({ googleId: req.auth.sub }).lean();
+      const existing = await VendorModel.findOne({ googleId: req.auth.sub }).lean();
       if (existing) {
         return res.status(409).json({ error: 'Vendor profile already exists. Use PATCH to update.' });
       }
 
-      const vendor = await Vendor.create({
+      const vendor = await VendorModel.create({
         googleId: req.auth.sub,
         businessName: businessName.trim(),
         type,
@@ -885,6 +998,7 @@ export function createApp(options = {}) {
         state: (state || '').trim(),
         description: (description || '').trim(),
         city: (city || '').trim(),
+        googleMapsLink: (googleMapsLink || '').trim(),
         coverageAreas: normalizeCoverageAreas(coverageAreas),
         phone: (phone || '').trim(),
         website: (website || '').trim(),
@@ -907,13 +1021,13 @@ export function createApp(options = {}) {
     try {
       const body = req.body || {};
       const updates = {};
-      const existingVendor = await Vendor.findOne({ googleId: req.auth.sub }).lean();
+      const existingVendor = await VendorModel.findOne({ googleId: req.auth.sub }).lean();
 
       if (!existingVendor) {
         return res.status(404).json({ error: 'No vendor profile found.' });
       }
 
-      const allowedUpdateFields = ['businessName', 'type', 'subType', 'description', 'country', 'state', 'city', 'phone', 'website'];
+      const allowedUpdateFields = ['businessName', 'type', 'subType', 'description', 'country', 'state', 'city', 'googleMapsLink', 'phone', 'website'];
       for (const field of allowedUpdateFields) {
         if (typeof body[field] === 'string') {
           updates[field] = body[field].trim();
@@ -952,7 +1066,7 @@ export function createApp(options = {}) {
         return res.status(400).json({ error: error.message });
       }
 
-      const vendor = await Vendor.findOneAndUpdate(
+      const vendor = await VendorModel.findOneAndUpdate(
         { googleId: req.auth.sub },
         { $set: updates },
         { new: true }
@@ -967,7 +1081,7 @@ export function createApp(options = {}) {
 
   app.get('/api/vendors', async (_req, res) => {
     try {
-      const raw = await Vendor.find({ isApproved: true }).select('-__v').lean();
+      const raw = await VendorModel.find({ isApproved: true }).select('-__v').lean();
       const vendors = raw.map(vendor => ({
         id: `db_${vendor._id}`,
         name: vendor.businessName,
@@ -978,6 +1092,7 @@ export function createApp(options = {}) {
         country: vendor.country || '',
         state: vendor.state || '',
         city: vendor.city || '',
+        googleMapsLink: vendor.googleMapsLink || '',
         phone: vendor.phone || '',
         website: vendor.website || '',
         emoji: '🏷️',
@@ -1000,6 +1115,250 @@ export function createApp(options = {}) {
     } catch (error) {
       console.error('Approved vendors fetch failed:', error);
       return res.status(500).json({ error: 'Could not fetch vendors.' });
+    }
+  });
+
+  app.get('/api/admin/me', (req, res, next) => authMiddleware(req, res, next, injectedJwtSecret), async (req, res) => {
+    try {
+      const session = await resolveAdminSession(UserModel, req.auth, 'viewer');
+      if (session.error) {
+        return res.status(session.status).json({ error: session.error });
+      }
+
+      return res.json({
+        user: sanitizeStaffUser(session.user),
+        access: session.access,
+      });
+    } catch (error) {
+      console.error('Admin session lookup failed:', error);
+      return res.status(500).json({ error: 'Could not load admin access.' });
+    }
+  });
+
+  app.get('/api/admin/vendors', (req, res, next) => authMiddleware(req, res, next, injectedJwtSecret), async (req, res) => {
+    try {
+      const session = await resolveAdminSession(UserModel, req.auth, 'viewer');
+      if (session.error) {
+        return res.status(session.status).json({ error: session.error });
+      }
+
+      const vendors = await VendorModel.find({})
+        .select('-__v')
+        .sort({ isApproved: 1, updatedAt: -1, createdAt: -1 })
+        .lean();
+
+      return res.json({
+        vendors: vendors.map(vendor => ({
+          id: String(vendor._id || ''),
+          googleId: vendor.googleId || '',
+          businessName: vendor.businessName || '',
+          type: vendor.type || '',
+          subType: vendor.subType || '',
+          description: vendor.description || '',
+          country: vendor.country || '',
+          state: vendor.state || '',
+          city: vendor.city || '',
+          phone: vendor.phone || '',
+          website: vendor.website || '',
+          googleMapsLink: vendor.googleMapsLink || '',
+          coverageAreas: Array.isArray(vendor.coverageAreas) ? vendor.coverageAreas : [],
+          bundledServices: Array.isArray(vendor.bundledServices) ? vendor.bundledServices : [],
+          budgetRange: vendor.budgetRange || null,
+          isApproved: Boolean(vendor.isApproved),
+          media: Array.isArray(vendor.media) ? vendor.media : [],
+          mediaCount: Array.isArray(vendor.media) ? vendor.media.length : 0,
+          createdAt: vendor.createdAt || null,
+          updatedAt: vendor.updatedAt || null,
+        })),
+      });
+    } catch (error) {
+      console.error('Admin vendors fetch failed:', error);
+      return res.status(500).json({ error: 'Could not manage vendors.' });
+    }
+  });
+
+  app.patch('/api/admin/vendors', (req, res, next) => authMiddleware(req, res, next, injectedJwtSecret), async (req, res) => {
+    try {
+      const session = await resolveAdminSession(UserModel, req.auth, 'editor');
+      if (session.error) {
+        return res.status(session.status).json({ error: session.error });
+      }
+
+      const vendorId = String(req.body?.vendorId || '').trim();
+      const isApproved = req.body?.isApproved;
+
+      if (!vendorId) {
+        return res.status(400).json({ error: 'vendorId is required.' });
+      }
+      if (typeof isApproved !== 'boolean') {
+        return res.status(400).json({ error: 'isApproved must be true or false.' });
+      }
+
+      const vendor = await VendorModel.findByIdAndUpdate(
+        vendorId,
+        { $set: { isApproved } },
+        { new: true }
+      );
+
+      if (!vendor) {
+        return res.status(404).json({ error: 'Vendor not found.' });
+      }
+
+      return res.json({
+        vendor: {
+          id: String(vendor._id || ''),
+          businessName: vendor.businessName || '',
+          type: vendor.type || '',
+          isApproved: Boolean(vendor.isApproved),
+        },
+      });
+    } catch (error) {
+      console.error('Admin vendor update failed:', error);
+      return res.status(500).json({ error: 'Could not manage vendors.' });
+    }
+  });
+
+  app.get('/api/admin/staff', (req, res, next) => authMiddleware(req, res, next, injectedJwtSecret), async (req, res) => {
+    try {
+      const session = await resolveAdminSession(UserModel, req.auth, 'owner');
+      if (session.error) {
+        return res.status(session.status).json({ error: session.error });
+      }
+
+      const staff = await UserModel.find({ staffRole: { $in: ['owner', 'editor', 'viewer'] } })
+        .select('-__v')
+        .sort({ staffRole: 1, email: 1 })
+        .lean();
+
+      return res.json({ staff: staff.map(sanitizeStaffUser) });
+    } catch (error) {
+      console.error('Admin staff fetch failed:', error);
+      return res.status(500).json({ error: 'Could not manage staff.' });
+    }
+  });
+
+  app.post('/api/admin/staff', (req, res, next) => authMiddleware(req, res, next, injectedJwtSecret), async (req, res) => {
+    try {
+      const session = await resolveAdminSession(UserModel, req.auth, 'owner');
+      if (session.error) {
+        return res.status(session.status).json({ error: session.error });
+      }
+
+      const email = normalizeEmail(req.body?.email);
+      const staffRole = normalizeStaffRole(req.body?.staffRole);
+
+      if (!email) {
+        return res.status(400).json({ error: 'email is required.' });
+      }
+      if (!['editor', 'viewer'].includes(staffRole)) {
+        return res.status(400).json({ error: 'staffRole must be viewer or editor.' });
+      }
+      if (email === normalizeEmail(session.user.email)) {
+        return res.status(400).json({ error: 'Use the bootstrap owner account as the permanent owner.' });
+      }
+
+      const updated = await UserModel.findOneAndUpdate(
+        { email },
+        {
+          $set: {
+            email,
+            staffRole,
+            staffAddedBy: session.user.googleId,
+            staffGrantedAt: new Date(),
+          },
+        },
+        { new: true }
+      );
+
+      if (!updated) {
+        return res.status(404).json({ error: 'User must sign in once with Google before staff access can be granted.' });
+      }
+
+      return res.json({ staffUser: sanitizeStaffUser(updated.toObject ? updated.toObject() : updated) });
+    } catch (error) {
+      console.error('Admin staff grant failed:', error);
+      return res.status(500).json({ error: 'Could not manage staff.' });
+    }
+  });
+
+  app.put('/api/admin/staff', (req, res, next) => authMiddleware(req, res, next, injectedJwtSecret), async (req, res) => {
+    try {
+      const session = await resolveAdminSession(UserModel, req.auth, 'owner');
+      if (session.error) {
+        return res.status(session.status).json({ error: session.error });
+      }
+
+      const email = normalizeEmail(req.body?.email);
+      const staffRole = normalizeStaffRole(req.body?.staffRole);
+
+      if (!email) {
+        return res.status(400).json({ error: 'email is required.' });
+      }
+      if (!['editor', 'viewer'].includes(staffRole)) {
+        return res.status(400).json({ error: 'staffRole must be viewer or editor.' });
+      }
+      if (email === normalizeEmail(session.user.email)) {
+        return res.status(400).json({ error: 'Use the bootstrap owner account as the permanent owner.' });
+      }
+
+      const updated = await UserModel.findOneAndUpdate(
+        { email },
+        {
+          $set: {
+            staffRole,
+            staffAddedBy: session.user.googleId,
+            staffGrantedAt: new Date(),
+          },
+        },
+        { new: true }
+      );
+
+      if (!updated) {
+        return res.status(404).json({ error: 'Staff member not found.' });
+      }
+
+      return res.json({ staffUser: sanitizeStaffUser(updated.toObject ? updated.toObject() : updated) });
+    } catch (error) {
+      console.error('Admin staff update failed:', error);
+      return res.status(500).json({ error: 'Could not manage staff.' });
+    }
+  });
+
+  app.delete('/api/admin/staff', (req, res, next) => authMiddleware(req, res, next, injectedJwtSecret), async (req, res) => {
+    try {
+      const session = await resolveAdminSession(UserModel, req.auth, 'owner');
+      if (session.error) {
+        return res.status(session.status).json({ error: session.error });
+      }
+
+      const email = normalizeEmail(req.query?.email || req.body?.email);
+      if (!email) {
+        return res.status(400).json({ error: 'email is required.' });
+      }
+      if (email === normalizeEmail(session.user.email)) {
+        return res.status(400).json({ error: 'The bootstrap owner cannot be removed.' });
+      }
+
+      const updated = await UserModel.findOneAndUpdate(
+        { email },
+        {
+          $set: {
+            staffRole: 'none',
+            staffAddedBy: '',
+            staffGrantedAt: null,
+          },
+        },
+        { new: true }
+      );
+
+      if (!updated) {
+        return res.status(404).json({ error: 'Staff member not found.' });
+      }
+
+      return res.json({ ok: true });
+    } catch (error) {
+      console.error('Admin staff revoke failed:', error);
+      return res.status(500).json({ error: 'Could not manage staff.' });
     }
   });
 

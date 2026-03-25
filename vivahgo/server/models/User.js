@@ -23,6 +23,19 @@ const userSchema = new mongoose.Schema(
       type: String,
       default: '',
     },
+    staffRole: {
+      type: String,
+      enum: ['none', 'viewer', 'editor', 'owner'],
+      default: 'none',
+    },
+    staffAddedBy: {
+      type: String,
+      default: '',
+    },
+    staffGrantedAt: {
+      type: Date,
+      default: null,
+    },
     subscriptionId: {
       type: String,
       default: '',

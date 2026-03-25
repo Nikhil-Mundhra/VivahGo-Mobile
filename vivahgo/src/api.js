@@ -221,3 +221,47 @@ export function removeVendorMedia(token, mediaId) {
 export function fetchApprovedVendors() {
   return request('/vendors');
 }
+
+export function fetchAdminSession(token) {
+  return request('/admin/me', { token });
+}
+
+export function fetchAdminVendors(token) {
+  return request('/admin/vendors', { token });
+}
+
+export function updateAdminVendorApproval(token, payload) {
+  return request('/admin/vendors', {
+    method: 'PATCH',
+    token,
+    body: payload,
+  });
+}
+
+export function fetchAdminStaff(token) {
+  return request('/admin/staff', { token });
+}
+
+export function addAdminStaff(token, payload) {
+  return request('/admin/staff', {
+    method: 'POST',
+    token,
+    body: payload,
+  });
+}
+
+export function updateAdminStaff(token, payload) {
+  return request('/admin/staff', {
+    method: 'PUT',
+    token,
+    body: payload,
+  });
+}
+
+export function removeAdminStaff(token, email) {
+  return request(`/admin/staff?email=${encodeURIComponent(email)}`, {
+    method: 'DELETE',
+    token,
+    body: { email },
+  });
+}

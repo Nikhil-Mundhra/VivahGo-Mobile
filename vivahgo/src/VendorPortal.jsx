@@ -6,10 +6,17 @@ import VendorRegistrationForm from './components/VendorRegistrationForm';
 import VendorPortfolioManager from './components/VendorPortfolioManager';
 import VendorDirectoryPreview from './components/VendorDirectoryPreview';
 import VendorBusinessProfileEditor from './components/VendorBusinessProfileEditor';
+import VendorPortalDashboard from './components/VendorPortalDashboard';
+import NavIcon from './components/NavIcon';
 import { deleteAccount, fetchVendorProfile, loginWithGoogle } from './api';
-import { formatCoverageLocation } from './locationOptions';
 
 const SESSION_KEY = 'vivahgo.session';
+const VENDOR_PORTAL_SECTIONS = [
+  { id: 'dashboard', label: 'Dashboard', icon: 'home' },
+  { id: 'preview', label: 'Live Preview', icon: 'vendors' },
+  { id: 'portfolio', label: 'Portfolio Manager', icon: 'tasks' },
+  { id: 'details', label: 'Business Details', icon: 'budget' },
+];
 
 function readSession() {
   if (typeof window === 'undefined') { return null; }
@@ -25,6 +32,7 @@ export default function VendorPortal() {
   const [vendor, setVendor] = useState(null);
   const [vendorLoadError, setVendorLoadError] = useState('');
   const [previewVendor, setPreviewVendor] = useState(null);
+  const [activeSection, setActiveSection] = useState('dashboard');
   const [showSettingsMenu, setShowSettingsMenu] = useState(false);
   const [deleteError, setDeleteError] = useState('');
   const [isDeletingAccount, setIsDeletingAccount] = useState(false);
@@ -218,90 +226,132 @@ export default function VendorPortal() {
           />
         ) : (
           <div className="space-y-6">
-            {/* Profile card */}
-            <div className="bg-white rounded-2xl shadow-sm p-4 sm:p-6">
-              <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+            <div className="vendor-portal-summary-card">
+              <div className="vendor-portal-summary-top">
                 <div className="min-w-0">
-                  <h1 className="text-xl font-bold text-gray-900 sm:text-2xl">{vendor.businessName}</h1>
-                  <p className="text-rose-600 font-medium text-sm mt-0.5">{vendor.type}</p>
-                  {vendor.subType && <p className="text-gray-500 text-sm">{vendor.subType}</p>}
-                  {[vendor.city, vendor.state, vendor.country].filter(Boolean).length > 0 && (
-                    <p className="text-gray-500 text-sm">{[vendor.city, vendor.state, vendor.country].filter(Boolean).join(', ')}</p>
-                  )}
-                  {vendor.phone && (
-                    <p className="text-gray-500 text-sm">
-                      <a href={`tel:${vendor.phone}`} className="hover:underline">{vendor.phone}</a>
-                    </p>
-                  )}
-                  {vendor.website && (
-                    <p className="text-sm mt-0.5">
-                      <a href={vendor.website} target="_blank" rel="noopener noreferrer" className="text-rose-600 hover:underline break-all">
-                        {vendor.website}
-                      </a>
-                    </p>
-                  )}
-                  {vendor.description && (
-                    <p className="text-gray-700 text-sm mt-3">{vendor.description}</p>
-                  )}
-                  {Array.isArray(vendor.coverageAreas) && vendor.coverageAreas.length > 0 && (
-                    <div className="mt-3 flex flex-wrap gap-2">
-                      {vendor.coverageAreas.map(area => (
-                        <span key={`${area.country}-${area.state}-${area.city}`} className="vendor-coverage-chip">
-                          {formatCoverageLocation(area)}
-                        </span>
-                      ))}
-                    </div>
-                  )}
+                  <h1 className="vendor-portal-summary-title">{vendor.businessName}</h1>
+                  <p className="vendor-portal-summary-type">
+                    {vendor.type}
+                    {vendor.subType ? ` · ${vendor.subType}` : ''}
+                  </p>
                 </div>
                 <span className={`inline-flex w-fit items-center px-3 py-1 rounded-full text-xs font-semibold ${vendor.isApproved ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'}`}>
                   {vendor.isApproved ? '✓ Approved' : 'Pending Approval'}
                 </span>
               </div>
-            </div>
-
-            <div ref={profileEditorRef} className="bg-white rounded-2xl shadow-sm p-4 sm:p-6">
-              <h2 className="text-lg font-semibold text-gray-900 mb-1">Business Details</h2>
-              <p className="text-sm text-gray-500 mb-4">Update your contact information, locations, and category preferences anytime.</p>
-              <VendorBusinessProfileEditor
-                token={session.token}
-                vendor={vendor}
-                onVendorUpdated={updatedVendor => {
-                  setVendor(updatedVendor);
-                  setPreviewVendor(updatedVendor);
-                }}
-                onPreviewChange={setPreviewVendor}
-              />
-              {deleteError && (
-                <p className="mt-3 text-sm text-red-600">{deleteError}</p>
-              )}
-            </div>
-
-            {/* Portfolio section */}
-            <div className="space-y-6">
-              <div className="bg-white rounded-2xl shadow-sm p-4 sm:p-6">
-                <h2 className="text-lg font-semibold text-gray-900 mb-1">Portfolio Manager</h2>
-                <p className="text-sm text-gray-500 mb-4">Upload, organize, and fine-tune what couples see first.</p>
-
-                <VendorPortfolioManager
-                  token={session.token}
-                  media={vendor.media || []}
-                  onVendorUpdated={updatedVendor => {
-                    setVendor(updatedVendor);
-                    setPreviewVendor(updatedVendor);
-                  }}
-                />
+              <div className="vendor-portal-summary-meta">
+                {[vendor.city, vendor.state, vendor.country].filter(Boolean).length > 0 && (
+                  <span className="vendor-portal-summary-chip">
+                    {[vendor.city, vendor.state, vendor.country].filter(Boolean).join(', ')}
+                  </span>
+                )}
+                {vendor.phone && (
+                  <a href={`tel:${vendor.phone}`} className="vendor-portal-summary-chip vendor-portal-summary-chip-link">
+                    {vendor.phone}
+                  </a>
+                )}
+                {vendor.website && (
+                  <a href={vendor.website} target="_blank" rel="noopener noreferrer" className="vendor-portal-summary-chip vendor-portal-summary-chip-link">
+                    Website
+                  </a>
+                )}
+                {Array.isArray(vendor.coverageAreas) && vendor.coverageAreas.length > 0 && (
+                  <span className="vendor-portal-summary-chip">
+                    {vendor.coverageAreas.length} coverage area{vendor.coverageAreas.length === 1 ? '' : 's'}
+                  </span>
+                )}
               </div>
+            </div>
 
-              <div className="bg-white rounded-2xl shadow-sm p-4 sm:p-6">
-                <h2 className="text-lg font-semibold text-gray-900 mb-1">Live Preview</h2>
-                <p className="text-sm text-gray-500 mb-4">This now uses the real vendor directory card and detail layout, and updates as you edit your profile.</p>
+            <div className="vendor-portal-shell">
+              <aside className="vendor-portal-sidebar">
+                <div className="vendor-portal-sidebar-title">Vendor Menu</div>
+                <div className="vendor-portal-sidebar-nav">
+                  {VENDOR_PORTAL_SECTIONS.map(section => (
+                    <button
+                      key={section.id}
+                      type="button"
+                      className={`vendor-portal-sidebar-item${activeSection === section.id ? ' active' : ''}`}
+                      onClick={() => setActiveSection(section.id)}
+                    >
+                      <span className="vendor-portal-sidebar-icon">
+                        <NavIcon name={section.icon} size={20} />
+                      </span>
+                      <span className="vendor-portal-sidebar-label">{section.label}</span>
+                    </button>
+                  ))}
+                </div>
+              </aside>
 
-                <VendorDirectoryPreview vendor={{ ...(vendor || {}), ...(previewVendor || {}), media: vendor.media || [] }} />
+              <div className="vendor-portal-content">
+                {activeSection === 'dashboard' && (
+                  <VendorPortalDashboard vendor={{ ...(vendor || {}), ...(previewVendor || {}) }} />
+                )}
+
+                {activeSection === 'preview' && (
+                  <div className="bg-white rounded-2xl shadow-sm p-4 sm:p-6">
+                    <h2 className="text-lg font-semibold text-gray-900 mb-1">Live Preview</h2>
+                    <p className="text-sm text-gray-500 mb-4">This uses the real vendor directory card and detail layout, and updates as you edit your profile.</p>
+
+                    <VendorDirectoryPreview vendor={{ ...(vendor || {}), ...(previewVendor || {}), media: vendor.media || [] }} />
+                  </div>
+                )}
+
+                {activeSection === 'portfolio' && (
+                  <div className="bg-white rounded-2xl shadow-sm p-4 sm:p-6">
+                    <h2 className="text-lg font-semibold text-gray-900 mb-1">Portfolio Manager</h2>
+                    <p className="text-sm text-gray-500 mb-4">Upload, organize, and fine-tune what couples see first.</p>
+
+                    <VendorPortfolioManager
+                      token={session.token}
+                      media={vendor.media || []}
+                      onVendorUpdated={updatedVendor => {
+                        setVendor(updatedVendor);
+                        setPreviewVendor(updatedVendor);
+                      }}
+                    />
+                  </div>
+                )}
+
+                {activeSection === 'details' && (
+                  <div ref={profileEditorRef} className="bg-white rounded-2xl shadow-sm p-4 sm:p-6">
+                    <h2 className="text-lg font-semibold text-gray-900 mb-1">Business Details</h2>
+                    <p className="text-sm text-gray-500 mb-4">Update your contact information, locations, and category preferences anytime.</p>
+                    <VendorBusinessProfileEditor
+                      token={session.token}
+                      vendor={vendor}
+                      onVendorUpdated={updatedVendor => {
+                        setVendor(updatedVendor);
+                        setPreviewVendor(updatedVendor);
+                      }}
+                      onPreviewChange={setPreviewVendor}
+                    />
+                    {deleteError && (
+                      <p className="mt-3 text-sm text-red-600">{deleteError}</p>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
           </div>
         )}
       </main>
+
+      {vendor && (
+        <div className="bottom-nav vendor-portal-mobile-nav">
+          {VENDOR_PORTAL_SECTIONS.map(section => (
+            <div
+              key={section.id}
+              className={`nav-item${activeSection===section.id ? " active" : ""}`}
+              onClick={() => setActiveSection(section.id)}
+            >
+              <div className="nav-icon"><NavIcon name={section.icon} /></div>
+              <div className="nav-label">{section.label}</div>
+              {activeSection===section.id && <div className="nav-active-dot" />}
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
