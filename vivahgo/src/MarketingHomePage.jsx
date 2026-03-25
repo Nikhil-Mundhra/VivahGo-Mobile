@@ -279,6 +279,7 @@ export default function MarketingHomePage() {
   const isSignedIn = Boolean(session?.mode && (session?.user || session?.token));
   const isYearlyBilling = billingCycle === "yearly";
   const firstName = session?.user?.given_name || session?.user?.name?.split(" ")[0] || "there";
+  const profileInitial = firstName.trim().charAt(0).toUpperCase() || "Y";
   const primaryCtaLabel = "Start Planning Now";
 
   function handleChoosePlan(planName) {
@@ -430,13 +431,27 @@ export default function MarketingHomePage() {
           <a href="#product">Product</a>
           <a href="#pricing">Pricing</a>
           <a href="#faqs">FAQs</a>
-          <a href="/vendor">For Vendors</a>
         </nav>
 
         <div className="marketing-auth">
-          {isSignedIn && <span className="marketing-auth-badge">Signed in as {firstName}</span>}
+          <a className="marketing-header-link-button" href="/vendor">
+            For Vendors
+          </a>
           <a className="marketing-auth-button" href="/">
             {primaryCtaLabel}
+            {isSignedIn && (
+              session?.user?.picture ? (
+                <img
+                  src={session.user.picture}
+                  alt={`${firstName} profile`}
+                  className="marketing-auth-avatar"
+                />
+              ) : (
+                <span className="marketing-auth-avatar marketing-auth-avatar-fallback" aria-hidden="true">
+                  {profileInitial}
+                </span>
+              )
+            )}
           </a>
         </div>
       </header>
@@ -559,6 +574,7 @@ export default function MarketingHomePage() {
               <div className="marketing-shot-header marketing-shot-header-centered">
                 <strong>Dashboard</strong>
               </div>
+              <p className="marketing-shot-caption">Events, timelines, budget, and guest status.<br />All in one place</p>
               <div className="marketing-app-preview marketing-app-preview-dashboard">
                 <Dashboard
                   wedding={DEMO_PLANNER.wedding}
@@ -569,13 +585,13 @@ export default function MarketingHomePage() {
                   onEditEvent={() => {}}
                 />
               </div>
-              <p className="marketing-shot-caption">Upcoming functions, budget progress, guest confirmations, and the live wedding calendar in one view.</p>
             </article>
 
             <article className="marketing-product-shot">
               <div className="marketing-shot-header marketing-shot-header-centered">
-                <strong>Wedding timeline</strong>
+                <strong>Events Plan</strong>
               </div>
+              <p className="marketing-shot-caption">Track every ceremony, linked spend, venue status, and timeline from one screen.</p>
               <div className="marketing-app-preview marketing-app-preview-events">
                 <EventsScreen
                   events={DEMO_PLANNER.events}
@@ -587,23 +603,23 @@ export default function MarketingHomePage() {
                   planId={DEMO_PLANNER.activePlanId}
                 />
               </div>
-              <p className="marketing-shot-caption">Track every ceremony, linked spend, venue status, and timeline from one screen.</p>
             </article>
 
             <article className="marketing-product-shot">
               <div className="marketing-shot-header marketing-shot-header-centered">
                 <strong>Guest list and RSVPs</strong>
               </div>
+              <p className="marketing-shot-caption">Track confirmations, follow-ups, and family sides easily</p>
               <div className="marketing-app-preview marketing-app-preview-guests">
                 <GuestsScreen guests={DEMO_PLANNER.guests} setGuests={() => {}} planId={DEMO_PLANNER.activePlanId} />
               </div>
-              <p className="marketing-shot-caption">Keep families, confirmations, and follow-ups organized without a messy spreadsheet trail.</p>
             </article>
 
             <article className="marketing-product-shot">
               <div className="marketing-shot-header marketing-shot-header-centered">
                 <strong>Budget tracking</strong>
               </div>
+              <p className="marketing-shot-caption">Planned spend, actual spend, pending costs, and ceremony-wise breakdowns.</p>
               <div className="marketing-app-preview marketing-app-preview-budget">
                 <BudgetScreen
                   expenses={DEMO_PLANNER.expenses}
@@ -613,7 +629,6 @@ export default function MarketingHomePage() {
                   planId={DEMO_PLANNER.activePlanId}
                 />
               </div>
-              <p className="marketing-shot-caption">Planned spend, actual spend, pending costs, and ceremony-wise breakdowns.</p>
             </article>
           </div>
 

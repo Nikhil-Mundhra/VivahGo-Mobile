@@ -167,7 +167,8 @@ body[data-route='home'] #root {
 .marketing-auth-button,
 .marketing-primary-action,
 .marketing-secondary-action,
-.marketing-price-action {
+.marketing-price-action,
+.marketing-header-link-button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -188,6 +189,34 @@ body[data-route='home'] #root {
 .marketing-auth-button {
   min-height: 48px;
   padding: 0 22px;
+  gap: 10px;
+}
+
+.marketing-header-link-button {
+  min-height: 48px;
+  padding: 0 18px;
+  color: var(--marketing-accent-deep);
+  background: rgba(255, 250, 246, 0.74);
+  border: 1px solid rgba(87, 50, 38, 0.14);
+}
+
+.marketing-auth-avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  object-fit: cover;
+  flex: 0 0 28px;
+  border: 1px solid rgba(255, 248, 240, 0.45);
+}
+
+.marketing-auth-avatar-fallback {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 248, 240, 0.2);
+  color: #fff8f0;
+  font-size: 0.82rem;
+  font-weight: 800;
 }
 
 .marketing-secondary-action,
@@ -199,6 +228,7 @@ body[data-route='home'] #root {
 }
 
 .marketing-auth-button:hover,
+.marketing-header-link-button:hover,
 .marketing-primary-action:hover,
 .marketing-secondary-action:hover,
 .marketing-price-action:hover,

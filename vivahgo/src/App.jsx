@@ -622,7 +622,7 @@ export default function VivahGoApp() {
             setPlannerOwnerId(resolvedOwnerId || session.plannerOwnerId || session.user?.id || "");
             await refreshAccessibleWorkspaces(session.token);
             await fetchAndApplySubscription(session.token);
-            setScreen("splash");
+            setScreen("app");
           }
           return;
         }
@@ -754,7 +754,7 @@ export default function VivahGoApp() {
       await fetchAndApplySubscription(token);
       setTab("home");
       setSaveState("idle");
-      setScreen("splash");
+      setScreen("app");
     } catch (error) {
       console.error("Login failed:", error);
       setLoginError(error.message || "Google login failed.");
