@@ -715,6 +715,29 @@ export default function VivahGoApp() {
     setScreen("splash");
   }
 
+  function handleGoToHome() {
+    const guestUser = {
+      id: "guest-user",
+      name: "Guest",
+      email: "guest@vivahgo.local",
+      picture: "",
+    };
+    const guestPlanner = createBlankPlanner();
+
+    setAuthMode("demo");
+    setAuthToken("");
+    setUser(guestUser);
+    applyPlanner(guestPlanner);
+    setPlannerOwnerId(guestUser.id);
+    setAccessibleWorkspaces([]);
+    setPlanAccess({ role: "owner", canEdit: true, canManageSharing: true });
+    persistSession({ mode: "demo", user: guestUser });
+    localStorage.setItem(DEMO_PLANNER_STORAGE_KEY, JSON.stringify(guestPlanner));
+    setLoginError("");
+    setTab("home");
+    setScreen("app");
+  }
+
   async function handleGoogleLoginSuccess(credentialResponse) {
     try {
       setIsLoggingIn(true);
@@ -895,6 +918,7 @@ export default function VivahGoApp() {
           <LoginScreen
             onGoogleLogin={handleGoogleLoginSuccess}
             onDemoLogin={handleDemoLogin}
+            onGoToHome={handleGoToHome}
             onLoginError={handleLoginError}
             isLoggingIn={isLoggingIn}
             errorMessage={loginError}

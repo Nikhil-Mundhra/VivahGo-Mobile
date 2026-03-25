@@ -1,7 +1,7 @@
 import GoogleLoginButton from './GoogleLoginButton';
 import NavIcon from './NavIcon';
 
-function LoginScreen({ onGoogleLogin, onDemoLogin, onLoginError, isLoggingIn, errorMessage, showOauthHelp }) {
+function LoginScreen({ onGoogleLogin, onDemoLogin, onGoToHome, onLoginError, isLoggingIn, errorMessage, showOauthHelp }) {
   const currentOrigin = typeof window !== 'undefined' ? window.location.origin : 'http://localhost:5173';
 
   return (
@@ -45,6 +45,17 @@ function LoginScreen({ onGoogleLogin, onDemoLogin, onLoginError, isLoggingIn, er
             </div>
             <button className="login-secondary-btn" type="button" onClick={onDemoLogin} disabled={isLoggingIn}>
               Login as Demo Planner With Sample Data
+            </button>
+          </div>
+
+          <div className="login-home-section">
+            <div className="login-home-divider">
+              <div className="divider-line"></div>
+              <span className="divider-text">Quick Start</span>
+              <div className="divider-line"></div>
+            </div>
+            <button className="login-home-btn" type="button" onClick={onGoToHome} disabled={isLoggingIn}>
+              Go to Home
             </button>
           </div>
 

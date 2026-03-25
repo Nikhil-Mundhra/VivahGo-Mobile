@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { EVENT_COLORS } from "../constants";
 
 const DEMO_PLANNER_STORAGE_KEY = "vivahgo.demoPlanner";
@@ -33,14 +33,8 @@ function getActiveCollection(planner, key) {
 }
 
 export default function WeddingWebsitePage() {
-  const [plannerData, setPlannerData] = useState(null);
-  const [loaded, setLoaded] = useState(false);
-
-  useEffect(() => {
-    const data = getStoredPlannerData();
-    setPlannerData(data);
-    setLoaded(true);
-  }, []);
+  const [plannerData] = useState(() => getStoredPlannerData());
+  const loaded = true;
 
   if (!loaded) {
     return (
