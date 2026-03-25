@@ -1419,19 +1419,51 @@ body { background: var(--color-deep-red); }
   position: absolute;
   top: 16px;
   right: 16px;
+  z-index: 3;
+}
+
+.account-settings-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  max-width: min(62vw, 260px);
+  padding: 4px 12px 4px 4px;
+  border-radius: 999px;
+  border: 1px solid rgba(212, 175, 55, 0.45);
+  background: rgba(255, 255, 255, 0.12);
+  color: var(--color-white);
+  font-family: 'Jost', sans-serif;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: transform 0.15s ease, background-color 0.2s ease;
+}
+
+.account-settings-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.account-settings-name-first {
+  display: none;
 }
 
 .user-avatar {
-  width: 36px;
-  height: 36px;
+  width: 34px;
+  height: 34px;
+  min-width: 34px;
+  min-height: 34px;
   border-radius: 50%;
   border: 2px solid var(--color-gold);
-  cursor: pointer;
-  transition: transform 0.15s;
+  object-fit: cover;
+  display: block;
+  background: rgba(255, 255, 255, 0.9);
 }
 
 .user-avatar-fallback {
-  display: flex;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
   background: linear-gradient(135deg, var(--color-gold), var(--color-gold-dark));
@@ -1440,12 +1472,48 @@ body { background: var(--color-deep-red); }
   font-family: 'Cormorant Garamond', serif;
 }
 
-.user-avatar:hover {
-  transform: scale(1.05);
+.account-settings-trigger:hover {
+  transform: translateY(-1px);
+  background: rgba(255, 255, 255, 0.2);
 }
 
-.user-avatar:active {
+.account-settings-trigger:active {
   transform: scale(0.95);
+}
+
+@media (max-width: 820px) {
+  .account-settings-trigger {
+    max-width: min(46vw, 170px);
+    padding-right: 10px;
+  }
+
+  .account-settings-name-full {
+    display: none;
+  }
+
+  .account-settings-name-first {
+    display: inline;
+  }
+}
+
+@media (max-width: 560px) {
+  .account-settings-trigger {
+    gap: 0;
+    padding: 0;
+    max-width: none;
+    border: none;
+    background: transparent;
+  }
+
+  .account-settings-name {
+    display: none;
+  }
+}
+
+@media (min-width: 1024px) {
+  .top-bar-user {
+    right: 24px;
+  }
 }
 
 @media (min-width: 1024px) {

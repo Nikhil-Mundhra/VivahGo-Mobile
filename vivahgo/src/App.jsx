@@ -62,6 +62,7 @@ export default function VivahGoApp() {
   const [isDesktopView, setIsDesktopView] = useState(() =>
     typeof window !== "undefined" ? window.matchMedia("(min-width: 1024px)").matches : false
   );
+  const [avatarLoadError, setAvatarLoadError] = useState(false);
   // Multi-marriage management
   const [marriages, setMarriages] = useState([]);
   const [activePlanId, setActivePlanId] = useState(null);
@@ -501,6 +502,10 @@ export default function VivahGoApp() {
   }, []);
 
   useEffect(() => {
+    setAvatarLoadError(false);
+  }, [user?.picture]);
+
+  useEffect(() => {
     const scrollHost = contentAreaRef.current;
 
     if (!scrollHost || screen !== "app" || !isDesktopView) {
@@ -879,6 +884,8 @@ export default function VivahGoApp() {
   }
 
   const saveLabel = saveState === "saving" ? "Saving..." : saveState === "saved" ? "Saved" : saveState === "error" ? "Save failed" : "";
+  const accountName = (user?.name || "Account").trim() || "Account";
+  const accountFirstName = accountName.split(/\s+/)[0] || accountName;
   const showOauthHelp = /invalid_client|no registered origin|origin.*not.*allowed|idpiframe/i.test(loginError);
 
   return (
@@ -954,19 +961,28 @@ export default function VivahGoApp() {
               {authMode === "google" && !planAccess.canEdit && <div className="top-bar-chip">View only</div>}
             </div>
             <div className="top-bar-user">
-              {user?.picture ? (
-                <img
-                  src={user.picture}
-                  alt={user?.name}
-                  className="user-avatar"
-                  onClick={openAccountSettings}
-                  title="Account settings"
-                />
-              ) : (
-                <button className="user-avatar user-avatar-fallback" onClick={openAccountSettings} title="Account settings">
-                  {(user?.name || "V").slice(0, 1).toUpperCase()}
-                </button>
-              )}
+              <button
+                type="button"
+                className="account-settings-trigger"
+                onClick={openAccountSettings}
+                title="Account settings"
+                aria-label="Open account settings"
+              >
+                {user?.picture && !avatarLoadError ? (
+                  <img
+                    src={user.picture}
+                    alt={user?.name || "Profile"}
+                    className="user-avatar"
+                    onError={() => setAvatarLoadError(true)}
+                  />
+                ) : (
+                  <span className="user-avatar user-avatar-fallback" aria-hidden="true">
+                    {(user?.name || "V").slice(0, 1).toUpperCase()}
+                  </span>
+                )}
+                <span className="account-settings-name account-settings-name-full">{accountName}</span>
+                <span className="account-settings-name account-settings-name-first">{accountFirstName}</span>
+              </button>
             </div>
           </div>
 

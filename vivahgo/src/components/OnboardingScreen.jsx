@@ -72,6 +72,12 @@ const POPULAR_WEDDING_LOCATIONS = {
 };
 
 function OnboardingScreen({ onComplete }) {
+  const today = useMemo(() => {
+    const now = new Date();
+    now.setHours(0, 0, 0, 0);
+    return now;
+  }, []);
+
   const STEPS = [
     { key: "template", label: "Wedding Template", emoji: "🪔", prompt: "First, pick a wedding template to pre-load the right ceremonies and tasks." },
     { key: "couple",   label: "The Couple",       emoji: "💑", prompt: "Who's getting married? Add the names — or skip and fill them in later." },
@@ -96,8 +102,39 @@ function OnboardingScreen({ onComplete }) {
   const addUser = (text) => setMessages(m => [...m, { role: "user", text }]);
 
   const isUaeSelected = form.country === "UAE";
-  const years = useMemo(() => Array.from({ length: 10 }, (_, i) => String(new Date().getFullYear() + i)), []);
+  const years = useMemo(() => Array.from({ length: 10 }, (_, i) => String(today.getFullYear() + i)), [today]);
   const templateOptions = useMemo(() => Object.values(MARRIAGE_TEMPLATES), []);
+  const selectedYear = Number(form.dateYear);
+  const selectedMonthIndex = MONTHS.indexOf(form.dateMonth);
+  const maxDayForMonth = selectedYear > 0 && selectedMonthIndex >= 0
+    ? new Date(selectedYear, selectedMonthIndex + 1, 0).getDate()
+    : 31;
+
+  const availableMonths = useMemo(() => {
+    if (!form.dateYear) return MONTHS;
+    const currentYear = today.getFullYear();
+
+    if (selectedYear > currentYear) {
+      return MONTHS;
+    }
+
+    return MONTHS.slice(today.getMonth());
+  }, [form.dateYear, selectedYear, today]);
+
+  const availableDays = useMemo(() => {
+    const allDays = Array.from({ length: maxDayForMonth }, (_, i) => String(i + 1));
+
+    if (!form.dateYear || selectedMonthIndex < 0) {
+      return allDays;
+    }
+
+    const isCurrentMonthOfCurrentYear = selectedYear === today.getFullYear() && selectedMonthIndex === today.getMonth();
+    if (!isCurrentMonthOfCurrentYear) {
+      return allDays;
+    }
+
+    return allDays.filter(day => Number(day) > today.getDate());
+  }, [form.dateYear, maxDayForMonth, selectedMonthIndex, selectedYear, today]);
   const states = useMemo(() => {
     if (!form.country || form.country === "UAE") return [];
     return Object.keys(POPULAR_WEDDING_LOCATIONS[form.country] || {});
@@ -108,6 +145,18 @@ function OnboardingScreen({ onComplete }) {
     if (!form.state) return [];
     return POPULAR_WEDDING_LOCATIONS[form.country]?.[form.state] || [];
   }, [form.country, form.state]);
+
+  useEffect(() => {
+    if (form.dateMonth && !availableMonths.includes(form.dateMonth)) {
+      setForm(current => ({ ...current, dateMonth: "", dateDay: "" }));
+    }
+  }, [availableMonths, form.dateMonth]);
+
+  useEffect(() => {
+    if (form.dateDay && !availableDays.includes(form.dateDay)) {
+      setForm(current => ({ ...current, dateDay: "" }));
+    }
+  }, [availableDays, form.dateDay]);
 
   function updateForm(field, value) {
     setForm(current => {
@@ -320,11 +369,11 @@ function OnboardingScreen({ onComplete }) {
             <div className="onboard-date-row">
               <select className="chat-input onboard-form-select" value={form.dateDay} onChange={e => updateForm("dateDay", e.target.value)}>
                 <option value="">Day</option>
-                {Array.from({ length: 31 }, (_, i) => String(i + 1)).map(d => <option key={d} value={d}>{d}</option>)}
+                {availableDays.map(d => <option key={d} value={d}>{d}</option>)}
               </select>
               <select className="chat-input onboard-form-select" value={form.dateMonth} onChange={e => updateForm("dateMonth", e.target.value)}>
                 <option value="">Month</option>
-                {MONTHS.map(m => <option key={m} value={m}>{m}</option>)}
+                {availableMonths.map(m => <option key={m} value={m}>{m}</option>)}
               </select>
               <select className="chat-input onboard-form-select" value={form.dateYear} onChange={e => updateForm("dateYear", e.target.value)}>
                 <option value="">Year</option>
