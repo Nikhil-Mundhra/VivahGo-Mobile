@@ -4,6 +4,7 @@ import { formatVendorBudgetRange, formatVendorPricePerPlate, formatVendorPriceTi
 import { FallbackImage, FallbackVideo } from "./MediaWithFallback";
 
 function VendorDetailScreen({ vendor, onBack, onToggleWishlist, onAddReview }) {
+  const initialVisibleTestimonials = 2;
   const quickFacts = getVendorQuickFacts(vendor);
   const media = Array.isArray(vendor.media) ? vendor.media : [];
   const coverItem = media.find(item => item?.isCover) || media[0] || null;
@@ -13,17 +14,17 @@ function VendorDetailScreen({ vendor, onBack, onToggleWishlist, onAddReview }) {
     return [...seeded, ...reviews];
   }, [vendor.reviews, vendor.testimonials]);
   const [reviewForm, setReviewForm] = useState({ name: "", rating: String(vendor.rating || 5), text: "" });
+  const [showAllTestimonials, setShowAllTestimonials] = useState(false);
+
+  const mapQuery = vendor.mapQuery || vendor.address || vendor.city || `${vendor.name} service area`;
+  const embeddedMapQuery = encodeURIComponent(mapQuery);
+  const visibleTestimonials = showAllTestimonials ? testimonials : testimonials.slice(0, initialVisibleTestimonials);
 
   function handleRequestService() {
     const message = encodeURIComponent(
       `Hello! I found ${vendor.name} on VivahGo and would like to request their ${vendor.type} services. Could you please help me with availability and booking details?`
     );
     window.open(`https://wa.me/${WHATSAPP_SUPPORT_NUMBER}?text=${message}`, "_blank", "noopener,noreferrer");
-  }
-
-  function handleViewMap() {
-    const query = encodeURIComponent(vendor.mapQuery || vendor.address || `${vendor.name} ${vendor.city}`);
-    window.open(`https://www.google.com/maps/search/?api=1&query=${query}`, "_blank", "noopener,noreferrer");
   }
 
   function submitReview(event) {
@@ -190,14 +191,28 @@ function VendorDetailScreen({ vendor, onBack, onToggleWishlist, onAddReview }) {
         {(vendor.address || vendor.type === "Venue") && (
           <div className="vendor-detail-map-card">
             <div className="vendor-detail-map-text">
-              <div style={{ fontWeight: 600, color: "var(--color-dark-text)" }}>Map location of the venue</div>
+              <div style={{ fontWeight: 600, color: "var(--color-dark-text)" }}>Map preview of the service area</div>
               <div style={{ fontSize: 12, color: "var(--color-light-text)", marginTop: 4 }}>
                 {vendor.address || `${vendor.city} service area`}
               </div>
             </div>
-            <button type="button" className="vendor-detail-map-btn" onClick={handleViewMap}>Open Map</button>
+            <div className="vendor-detail-map-embed">
+              <iframe
+                title={`${vendor.city || vendor.name} map`}
+                src={`https://www.google.com/maps?q=${embeddedMapQuery}&z=12&output=embed`}
+                loading="lazy"
+                referrerPolicy="no-referrer-when-downgrade"
+              />
+            </div>
           </div>
         )}
+      </div>
+
+      {/* Request Service */}
+      <div className="vendor-detail-cta">
+        <button className="vendor-request-btn" onClick={handleRequestService}>
+          <span style={{ fontSize: 20 }}>💬</span> Request Service via WhatsApp
+        </button>
       </div>
 
       <div className="vendor-detail-section">
@@ -205,7 +220,7 @@ function VendorDetailScreen({ vendor, onBack, onToggleWishlist, onAddReview }) {
         {testimonials.length === 0 && (
           <div className="vendor-detail-empty">No testimonials yet. Be the first to review this vendor.</div>
         )}
-        {testimonials.map((item, index) => (
+        {visibleTestimonials.map((item, index) => (
           <div className="vendor-detail-testimonial" key={`${item.author}-${index}`}>
             <div className="vendor-detail-testimonial-head">
               <strong>{item.author || "VivahGo Couple"}</strong>
@@ -214,6 +229,15 @@ function VendorDetailScreen({ vendor, onBack, onToggleWishlist, onAddReview }) {
             <div>{item.text}</div>
           </div>
         ))}
+        {testimonials.length > initialVisibleTestimonials && !showAllTestimonials && (
+          <button
+            type="button"
+            className="vendor-detail-more-btn"
+            onClick={() => setShowAllTestimonials(true)}
+          >
+            New More
+          </button>
+        )}
       </div>
 
       <div className="vendor-detail-section">
@@ -245,16 +269,6 @@ function VendorDetailScreen({ vendor, onBack, onToggleWishlist, onAddReview }) {
           />
           <button type="submit" className="vendor-secondary-btn">Submit Review</button>
         </form>
-      </div>
-
-      {/* Request Service */}
-      <div className="vendor-detail-cta">
-        <button className="vendor-secondary-btn" type="button" onClick={handleViewMap} style={{ marginBottom: 10 }}>
-          View Location on Map
-        </button>
-        <button className="vendor-request-btn" onClick={handleRequestService}>
-          <span style={{ fontSize: 20 }}>💬</span> Request Service via WhatsApp
-        </button>
       </div>
     </div>
   );
