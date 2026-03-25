@@ -2,6 +2,7 @@ const {
   connectDb,
   getPlannerModel,
   getUserModel,
+  getVendorModel,
   handlePreflight,
   setCorsHeaders,
   verifySession,
@@ -28,10 +29,12 @@ module.exports = async function handler(req, res) {
     await connectDb();
     const User = getUserModel();
     const Planner = getPlannerModel();
+    const Vendor = getVendorModel();
 
     await Promise.all([
       User.deleteOne({ googleId: auth.sub }),
       Planner.deleteOne({ googleId: auth.sub }),
+      Vendor.deleteOne({ googleId: auth.sub }),
     ]);
 
     return res.status(200).json({ ok: true });

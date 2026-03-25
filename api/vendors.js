@@ -28,7 +28,11 @@ module.exports = async function handler(req, res) {
         id: `db_${v._id}`,
         name: v.businessName,
         type: v.type,
+        subType: v.subType || '',
+        bundledServices: Array.isArray(v.bundledServices) ? v.bundledServices : [],
         description: v.description || '',
+        country: v.country || '',
+        state: v.state || '',
         city: v.city || '',
         phone: v.phone || '',
         website: v.website || '',
@@ -36,6 +40,12 @@ module.exports = async function handler(req, res) {
         rating: 0,
         priceLevel: null,
         booked: false,
+        locations: [
+          [v.city, v.state, v.country].filter(Boolean).join(', '),
+          ...(Array.isArray(v.coverageAreas)
+            ? v.coverageAreas.map(item => [item.city, item.state, item.country].filter(Boolean).join(', '))
+            : []),
+        ].filter(Boolean),
         media,
         coverImageUrl: coverMedia?.type === 'IMAGE' ? coverMedia.url : '',
       };

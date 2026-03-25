@@ -1,75 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { MARRIAGE_TEMPLATES } from "../plannerDefaults";
+import { POPULAR_WEDDING_LOCATIONS } from "../locationOptions";
 
 const MONTHS = [
   "Jan", "Feb", "Mar", "Apr", "May", "Jun",
   "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
 ];
 
-const POPULAR_WEDDING_LOCATIONS = {
-  India: {
-    // --- TIER 1: TOP DESTINATION & METRO HUBS ---
-    "Goa": ["North Goa", "South Goa", "Candolim", "Panaji"],
-    "Rajasthan": ["Jaipur", "Udaipur", "Jaisalmer", "Jodhpur", "Pushkar"],
-    "Delhi NCR": ["New Delhi", "Gurgaon", "Noida", "Faridabad", "Ghaziabad"],
-    "Maharashtra": ["Mumbai", "Pune", "Mahabaleshwar", "Nashik", "Nagpur"],
-
-    // --- TIER 2: REGIONAL ALPHABETICAL ---
-    "Andhra Pradesh": ["Guntur", "Tirupati", "Vijayawada", "Visakhapatnam"],
-    "Assam": ["Dibrugarh", "Guwahati", "Silchar"],
-    "Bihar": ["Bhagalpur", "Gaya", "Muzaffarpur", "Patna"],
-    "Chhattisgarh": ["Bhilai", "Bilaspur", "Raipur"],
-    "Gujarat": ["Ahmedabad", "Rajkot", "Surat", "Vadodara"],
-    "Haryana": ["Ambala", "Karnal", "Panipat", "Rohtak"],
-    "Himachal Pradesh": ["Dharamshala", "Manali", "Shimla"],
-    "Jammu & Kashmir": ["Jammu", "Srinagar"],
-    "Jharkhand": ["Dhanbad", "Jamshedpur", "Ranchi"],
-    "Karnataka": ["Bengaluru", "Hubli-Dharwad", "Mangaluru", "Mysuru"],
-    "Kerala": ["Alleppey", "Kochi", "Kozhikode", "Munnar", "Thiruvananthapuram"],
-    "Madhya Pradesh": ["Bhopal", "Gwalior", "Indore", "Jabalpur"],
-    "Odisha": ["Bhubaneswar", "Cuttack", "Puri"],
-    "Punjab": ["Amritsar", "Chandigarh", "Jalandhar", "Ludhiana", "Patiala"],
-    "Tamil Nadu": ["Chennai", "Coimbatore", "Madurai", "Salem"],
-    "Telangana": ["Hyderabad", "Nizamabad", "Warangal"],
-    "Uttar Pradesh": ["Agra", "Kanpur", "Lucknow", "Prayagraj", "Varanasi"],
-    "Uttarakhand": ["Dehradun", "Haldwani", "Mussoorie", "Nainital", "Rishikesh"],
-    "West Bengal": ["Durgapur", "Howrah", "Kolkata", "Siliguri"],
-    
-    // --- CATCH-ALL ---
-    "Other": ["Other City"]
-  },
-  UAE: {
-    "Dubai": ["Dubai"],
-    "Abu Dhabi": ["Abu Dhabi"],
-    "Sharjah": ["Sharjah"],
-    "Ajman": ["Ajman"],
-    "Ras Al Khaimah": ["Ras Al Khaimah"],
-    "Fujairah": ["Fujairah"],
-    "Umm Al Quwain": ["Umm Al Quwain"],
-  },
-  USA: {
-    "California": ["San Francisco", "Los Angeles", "San Diego"],
-    "New Jersey": ["Edison", "Jersey City"],
-    "Texas": ["Dallas", "Houston", "Austin"],
-  },
-  UK: {
-    "England": ["London", "Leicester", "Birmingham"],
-    "Scotland": ["Glasgow", "Edinburgh"],
-  },
-  Canada: {
-    "Ontario": ["Toronto", "Brampton", "Mississauga"],
-    "British Columbia": ["Vancouver", "Surrey"],
-    "Alberta": ["Calgary", "Edmonton"],
-  },
-  Australia: {
-    NSW: ["Sydney", "Parramatta"],
-    Victoria: ["Melbourne", "Geelong"],
-    Queensland: ["Brisbane", "Gold Coast"],
-  },
-  Singapore: {
-    Singapore: ["Singapore"],
-  },
-};
 
 function OnboardingScreen({ onComplete }) {
   const today = useMemo(() => {

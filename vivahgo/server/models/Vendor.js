@@ -11,17 +11,31 @@ const mediaSchema = new mongoose.Schema(
   { _id: true }
 );
 
+const coverageAreaSchema = new mongoose.Schema(
+  {
+    country: { type: String, default: '', trim: true },
+    state: { type: String, default: '', trim: true },
+    city: { type: String, default: '', trim: true },
+  },
+  { _id: true }
+);
+
 const vendorSchema = new mongoose.Schema(
   {
     googleId: { type: String, required: true, unique: true, index: true },
     businessName: { type: String, required: true, trim: true },
     type: {
       type: String,
-      enum: ['Venue', 'Photography', 'Catering', 'Decoration', 'Music', 'Pandit'],
+      enum: ['Venue', 'Photography', 'Catering', 'Wedding Invitations', 'Wedding Gifts', 'Music', 'Wedding Transportation', 'Tent House', 'Wedding Entertainment', 'Florists', 'Wedding Planners', 'Wedding Videography', 'Honeymoon', 'Wedding Decorators', 'Wedding Cakes', 'Wedding DJ', 'Pandit', 'Photobooth', 'Astrologers', 'Party Places', 'Choreographer', 'Bride', 'Groom'],
       required: true,
     },
+    subType: { type: String, default: '', trim: true },
+    bundledServices: { type: [String], default: [] },
+    country: { type: String, default: '', trim: true },
+    state: { type: String, default: '', trim: true },
     description: { type: String, default: '', trim: true },
     city: { type: String, default: '', trim: true },
+    coverageAreas: { type: [coverageAreaSchema], default: [] },
     phone: { type: String, default: '', trim: true },
     website: { type: String, default: '', trim: true },
     isApproved: { type: Boolean, default: false },

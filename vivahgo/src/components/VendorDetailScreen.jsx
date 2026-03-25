@@ -66,7 +66,7 @@ function VendorDetailScreen({ vendor, onBack, onToggleWishlist, onAddReview }) {
         )}
         <div className="vendor-detail-hero-info">
           <div className="vendor-detail-name">{vendor.name}</div>
-          <div className="vendor-detail-meta">{vendor.type} · {vendor.city}</div>
+          <div className="vendor-detail-meta">{vendor.type}{vendor.subType ? ` · ${vendor.subType}` : ""}{vendor.city ? ` · ${vendor.city}` : ""}</div>
           {quickFacts.length > 0 && (
             <div className="vendor-detail-facts-row">
               <div className="vendor-detail-meta-line">{quickFacts.join(" · ")}</div>
@@ -167,6 +167,17 @@ function VendorDetailScreen({ vendor, onBack, onToggleWishlist, onAddReview }) {
           </div>
         ))}
       </div>
+
+      {Array.isArray(vendor.bundledServices) && vendor.bundledServices.length > 0 && (
+        <div className="vendor-detail-section">
+          <div className="vendor-detail-section-title">Also Offers</div>
+          <div className="vendor-detail-locations">
+            {vendor.bundledServices.map((service, i) => (
+              <div className="vendor-detail-location-chip" key={`${service}-${i}`}>✨ {service}</div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Locations */}
       <div className="vendor-detail-section">

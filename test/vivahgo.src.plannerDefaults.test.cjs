@@ -35,7 +35,7 @@ describe('VivahGo/src/plannerDefaults.js', function () {
     assert.ok(demoA.events.length >= 6);
     assert.ok(demoA.marriages.length > 0, 'should have marriages');
     assert.ok(demoA.activePlanId, 'should have activePlanId');
-    assert.ok(demoA.vendors.some(vendor => vendor.name === 'Pandit Sharma Ji'));
+    assert.ok(demoA.vendors.some(vendor => vendor.name === "VivahGo's Choice Pandit"));
 
     demoA.events[0].name = 'Mutated Event';
     assert.notEqual(demoB.events[0].name, 'Mutated Event');

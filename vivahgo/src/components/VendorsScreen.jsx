@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { VENDOR_TYPES } from "../constants";
+import { BUNDLED_SERVICE_OPTIONS, VENDOR_SUBTYPE_OPTIONS, VENDOR_TYPES } from "../constants";
 import { DEFAULT_VENDORS } from "../data";
 import { formatVendorBudgetRange, formatVendorPriceTier, getVendorQuickFacts } from "../utils";
 import VendorDetailScreen from "./VendorDetailScreen";
@@ -8,6 +8,8 @@ import { fetchApprovedVendors } from "../api";
 function VendorsScreen({ vendors }) {
   const [activeTab, setActiveTab] = useState("All");
   const [locationFilter, setLocationFilter] = useState("all");
+  const [subtypeFilter, setSubtypeFilter] = useState("all");
+  const [bundledServiceFilter, setBundledServiceFilter] = useState("all");
   const [ratingFilter, setRatingFilter] = useState("all");
   const [budgetFilter, setBudgetFilter] = useState("all");
   const [priceSort, setPriceSort] = useState("none");
@@ -59,8 +61,18 @@ function VendorsScreen({ vendors }) {
     [hydratedVendors]
   );
 
+  const availableSubtypes = useMemo(() => {
+    if (activeTab !== "All") {
+      return VENDOR_SUBTYPE_OPTIONS[activeTab] || [];
+    }
+
+    return Array.from(new Set(hydratedVendors.map(v => v.subType).filter(Boolean))).sort((a, b) => a.localeCompare(b));
+  }, [activeTab, hydratedVendors]);
+
   const filtered = hydratedVendors
     .filter(v => activeTab === "All" ? true : v.type === activeTab)
+    .filter(v => subtypeFilter === "all" ? true : v.subType === subtypeFilter)
+    .filter(v => bundledServiceFilter === "all" ? true : Array.isArray(v.bundledServices) && v.bundledServices.includes(bundledServiceFilter))
     .filter(v => locationFilter === "all" ? true : v.city === locationFilter)
     .filter(v => ratingFilter === "all" ? true : Number(v.rating) >= Number(ratingFilter))
     .filter(v => {
@@ -125,13 +137,21 @@ function VendorsScreen({ vendors }) {
       </div>
       <div className="vendor-tabs">
         {VENDOR_TYPES.map(t=>(
-          <div key={t} className={`vendor-tab${activeTab===t?" active":""}`} onClick={()=>setActiveTab(t)}>{t}</div>
+          <div key={t} className={`vendor-tab${activeTab===t?" active":""}`} onClick={() => { setActiveTab(t); setSubtypeFilter("all"); setBundledServiceFilter("all"); }}>{t}</div>
         ))}
       </div>
       <div className="vendor-filter-grid vendor-filter-grid-primary">
+        <select className="select-field vendor-filter-select" value={subtypeFilter} onChange={e=>setSubtypeFilter(e.target.value)}>
+          <option value="all">{activeTab === "All" ? "All Subcategories" : `${activeTab} Subcategories`}</option>
+          {availableSubtypes.map(subtype => <option key={subtype} value={subtype}>{subtype}</option>)}
+        </select>
         <select className="select-field vendor-filter-select" value={locationFilter} onChange={e=>setLocationFilter(e.target.value)}>
           <option value="all">All Locations</option>
           {availableCities.map(city => <option key={city} value={city}>{city}</option>)}
+        </select>
+        <select className="select-field vendor-filter-select" value={bundledServiceFilter} onChange={e=>setBundledServiceFilter(e.target.value)}>
+          <option value="all">Also Offers</option>
+          {BUNDLED_SERVICE_OPTIONS.filter(option => option !== activeTab).map(option => <option key={option} value={option}>{option}</option>)}
         </select>
         <select className="select-field vendor-filter-select" value={ratingFilter} onChange={e=>setRatingFilter(e.target.value)}>
           <option value="all">Any Rating</option>
@@ -180,7 +200,7 @@ function VendorsScreen({ vendors }) {
             )}
             <div className="vendor-info">
               <div className="vendor-name">{v.name}</div>
-              <div className="vendor-type">{v.type} · {v.city}</div>
+              <div className="vendor-type">{v.type}{v.subType ? ` · ${v.subType}` : ""}{v.city ? ` · ${v.city}` : ""}</div>
               {v.featuredLabel && <div className="vendor-featured-chip">{v.featuredLabel}</div>}
               {quickFacts.length > 0 && (
                 <div className="vendor-facts-row">

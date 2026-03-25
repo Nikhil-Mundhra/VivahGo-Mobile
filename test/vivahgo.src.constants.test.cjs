@@ -20,8 +20,10 @@ describe('VivahGo/src/constants.js', function () {
 
     assert.ok(Array.isArray(mod.VENDOR_TYPES));
     assert.ok(mod.VENDOR_TYPES.includes('Venue'));
-    assert.ok(mod.VENDOR_TYPES.includes('Bartender'));
-    assert.ok(mod.VENDOR_TYPES.includes('Rent & Buy'));
+    assert.ok(mod.VENDOR_TYPES.includes('Wedding Planners'));
+    assert.ok(mod.VENDOR_TYPES.includes('Bride'));
+    assert.ok(mod.VENDOR_TYPES.includes('Groom'));
+    assert.ok(mod.VENDOR_TYPES.includes('Wedding Transportation'));
 
     assert.match(mod.WHATSAPP_SUPPORT_NUMBER, /^\d+$/);
     assert.equal(mod.FEEDBACK_APP_VERSION, '1.0.0');
