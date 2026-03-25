@@ -1,3 +1,5 @@
+import VendorMediaImage from './VendorMediaImage';
+
 function sortVisibleMedia(media) {
   return [...(Array.isArray(media) ? media : [])]
     .filter(item => item?.isVisible !== false)
@@ -22,10 +24,9 @@ function PreviewTile({ item, cover = false }) {
   }
 
   return (
-    <img
+    <VendorMediaImage
       src={item.url}
       alt={item.altText || item.filename || 'Portfolio image'}
-      loading="lazy"
       className={commonClassName}
     />
   );

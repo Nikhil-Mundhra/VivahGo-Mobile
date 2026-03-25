@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { fetchPresignedUrl, removeVendorMedia, saveVendorMedia, updateVendorMedia } from '../api';
+import VendorMediaImage from './VendorMediaImage';
 
 const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50 MB
 
@@ -44,10 +45,9 @@ function MediaPreview({ item }) {
   }
 
   return (
-    <img
+    <VendorMediaImage
       src={item.url}
       alt={item.altText || item.filename || 'Portfolio image'}
-      loading="lazy"
       className="w-full h-full object-cover"
     />
   );

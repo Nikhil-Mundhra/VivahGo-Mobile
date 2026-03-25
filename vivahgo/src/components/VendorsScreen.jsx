@@ -3,6 +3,7 @@ import { VENDOR_TYPES } from "../constants";
 import { DEFAULT_VENDORS } from "../data";
 import { formatVendorPriceTier, getVendorQuickFacts } from "../utils";
 import VendorDetailScreen from "./VendorDetailScreen";
+import VendorMediaImage from "./VendorMediaImage";
 import { fetchApprovedVendors } from "../api";
 
 function VendorsScreen({ vendors }) {
@@ -97,10 +98,10 @@ function VendorsScreen({ vendors }) {
         <div className="vendor-card vendor-card-clickable" key={v.id} onClick={()=>setSelectedVendor(v)}>
           <div className="vendor-top">
             {v.coverImageUrl ? (
-              <img
+              <VendorMediaImage
                 src={v.coverImageUrl}
                 alt={v.name}
-                style={{ width: 56, height: 56, borderRadius: 14, objectFit: "cover", flexShrink: 0 }}
+                style={{ width: 56, height: 56, borderRadius: 14, objectFit: "cover", flexShrink: 0, background: "#F6F1EA" }}
               />
             ) : (
               <div className="vendor-icon">{v.emoji}</div>

@@ -1,5 +1,6 @@
 import { WHATSAPP_SUPPORT_NUMBER } from "../constants";
 import { formatVendorPriceTier, getVendorQuickFacts } from "../utils";
+import VendorMediaImage from "./VendorMediaImage";
 
 function VendorDetailScreen({ vendor, onBack }) {
   const quickFacts = getVendorQuickFacts(vendor);
@@ -24,10 +25,10 @@ function VendorDetailScreen({ vendor, onBack }) {
       {/* Hero Card */}
       <div className="vendor-detail-hero">
         {vendor.coverImageUrl ? (
-          <img
+          <VendorMediaImage
             src={vendor.coverImageUrl}
             alt={vendor.name}
-            style={{ width: 82, height: 82, borderRadius: 22, objectFit: "cover", flexShrink: 0 }}
+            style={{ width: 82, height: 82, borderRadius: 22, objectFit: "cover", flexShrink: 0, background: "#F6F1EA" }}
           />
         ) : (
           <div className="vendor-detail-hero-icon">{vendor.emoji}</div>
@@ -64,7 +65,7 @@ function VendorDetailScreen({ vendor, onBack }) {
                   style={{ width: "100%", aspectRatio: "16 / 9", objectFit: "cover", display: "block" }}
                 />
               ) : (
-                <img
+                <VendorMediaImage
                   src={coverItem.url}
                   alt={coverItem.altText || coverItem.filename || vendor.name}
                   style={{ width: "100%", aspectRatio: "16 / 9", objectFit: "cover", display: "block" }}
@@ -85,7 +86,7 @@ function VendorDetailScreen({ vendor, onBack }) {
                           style={{ width: "100%", aspectRatio: "1 / 1", objectFit: "cover", display: "block" }}
                         />
                       ) : (
-                        <img
+                        <VendorMediaImage
                           src={item.url}
                           alt={item.altText || item.filename || vendor.name}
                           style={{ width: "100%", aspectRatio: "1 / 1", objectFit: "cover", display: "block" }}
