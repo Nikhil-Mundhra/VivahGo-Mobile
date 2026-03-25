@@ -154,6 +154,13 @@ const SAMPLE_GUESTS = [
   { id: 3, name: 'Vikram Singh', side: 'groom', phone: '+91 99887 56123', rsvp: 'pending', guestCount: 3 },
   { id: 4, name: 'Sunita Verma', side: 'groom', phone: '+91 91234 56789', rsvp: 'no', guestCount: 1 },
   { id: 5, name: 'Arjun Kapoor', side: 'bride', phone: '+91 87654 32109', rsvp: 'pending', guestCount: 5 },
+  { id: 6, name: 'Neha Bansal', side: 'bride', phone: '+91 98111 22334', rsvp: 'yes', guestCount: 2 },
+  { id: 7, name: 'Kunal Arora', side: 'groom', phone: '+91 98222 33445', rsvp: 'pending', guestCount: 2 },
+  { id: 8, name: 'Meera Iyer', side: 'bride', phone: '+91 98333 44556', rsvp: 'yes', guestCount: 3 },
+  { id: 9, name: 'Rohan Malhotra', side: 'groom', phone: '+91 98444 55667', rsvp: 'no', guestCount: 1 },
+  { id: 10, name: 'Ananya Rao', side: 'bride', phone: '+91 98555 66778', rsvp: 'pending', guestCount: 4 },
+  { id: 11, name: 'Siddharth Khanna', side: 'groom', phone: '+91 98666 77889', rsvp: 'yes', guestCount: 2 },
+  { id: 12, name: 'Pooja Nair', side: 'bride', phone: '+91 98777 88990', rsvp: 'pending', guestCount: 3 },
 ];
 
 const SAMPLE_EXPENSES = [
