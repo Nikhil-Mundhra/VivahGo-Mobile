@@ -28,7 +28,7 @@ VivahGo is a wedding planner web application with a React + Vite frontend and an
 .
 ├── api/              # Serverless API routes (Vercel)
 ├── test/             # Root test suite (Mocha)
-├── VivahGo/          # Main app (frontend + Express API server)
+├── vivahgo/          # Main app (frontend + Express API server)
 │   ├── src/          # React client
 │   └── server/       # Express backend
 ├── Makefile
@@ -64,7 +64,7 @@ npm install
 Install app dependencies:
 
 ```bash
-cd VivahGo
+cd vivahgo
 npm install
 ```
 
@@ -73,10 +73,10 @@ npm install
 Create a local environment file from the template:
 
 ```bash
-cp VivahGo/.env.example VivahGo/.env
+cp vivahgo/.env.example vivahgo/.env
 ```
 
-Set these variables in `VivahGo/.env`:
+Set these variables in `vivahgo/.env`:
 
 - `VITE_GOOGLE_CLIENT_ID`
 - `GOOGLE_CLIENT_ID`
@@ -104,7 +104,7 @@ Use the same Google Web Client ID for `VITE_GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT
 From the app directory:
 
 ```bash
-cd VivahGo
+cd vivahgo
 npm run dev
 ```
 
@@ -144,7 +144,7 @@ npm run test:coverage
 Run frontend/backend linting:
 
 ```bash
-cd VivahGo
+cd vivahgo
 npm run lint
 ```
 

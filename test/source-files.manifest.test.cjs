@@ -19,6 +19,7 @@ const SOURCE_JS_FILES = [
   appPath('server/models/Planner.js'),
   appPath('server/models/User.js'),
   appPath('src/api.js'),
+  appPath('src/appRoutes.js'),
   appPath('src/constants.js'),
   appPath('src/data.js'),
   appPath('src/hooks/useBackButtonClose.js'),

@@ -5,7 +5,7 @@ SHELL := /bin/bash
 build: build_frontend build_backend
 
 build_frontend:
-	cd VivahGo && npm run build
+	cd vivahgo && npm run build
 
 build_backend:
 	@echo "No backend build step is configured; skipping backend build."
@@ -21,13 +21,13 @@ coverage_check:
 	npm run coverage:check
 
 clean:
-	rm -rf coverage .nyc_output VivahGo/dist
+	rm -rf coverage .nyc_output vivahgo/dist
 
 run: build
-	cd VivahGo && npm run dev
+	cd vivahgo && npm run dev
 
 run_local: test build
-	cd VivahGo; \
+	cd vivahgo; \
 	npm run dev:server & \
 	SERVER_PID=$$!; \
 	trap 'kill $$SERVER_PID' EXIT INT TERM; \
