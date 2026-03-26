@@ -13,6 +13,7 @@ import AccountScreen from "./components/AccountScreen";
 import TermsConditionsModal from "../../components/TermsConditionsModal";
 import FeedbackModal from "../../components/FeedbackModal";
 import LegalFooter from "../../components/LegalFooter";
+import LoadingBar from "../../components/LoadingBar";
 import NavIcon from "../../components/NavIcon";
 import MarriagePlanSelector from "./components/MarriagePlanSelector";
 import NewMarriagePlanModal from "./components/NewMarriagePlanModal";
@@ -930,6 +931,7 @@ export default function PlannerShell() {
             <div className="login-logo">🪔</div>
             <h1 className="login-title">Loading your planner</h1>
             <p className="login-subtitle">Checking your saved session and wedding data.</p>
+            <LoadingBar className="login-hero-loading-bar" />
           </div>
         </div>
       </div>

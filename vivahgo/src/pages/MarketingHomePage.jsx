@@ -5,6 +5,7 @@ import TermsConditionsModal from "../components/TermsConditionsModal";
 import FeedbackModal from "../components/FeedbackModal";
 import LegalFooter from "../components/LegalFooter";
 import GoogleLoginButton from "../components/GoogleLoginButton";
+import LoadingBar from "../components/LoadingBar";
 import SubscriptionCheckoutSheet from "../components/SubscriptionCheckoutSheet";
 import SubscriptionCheckoutPage from "../components/SubscriptionCheckoutPage";
 import Dashboard from "../features/planner/screens/Dashboard";
@@ -879,7 +880,12 @@ export default function MarketingHomePage() {
               />
             </div>
 
-            {planLoginLoading && <p className="marketing-login-status">Signing you in...</p>}
+            {planLoginLoading && (
+              <div className="marketing-login-status">
+                <p>Signing you in...</p>
+                <LoadingBar compact className="marketing-login-loading-bar" />
+              </div>
+            )}
             {planLoginError && <p className="marketing-login-error">{planLoginError}</p>}
 
             <button

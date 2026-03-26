@@ -1,4 +1,5 @@
 import GoogleLoginButton from '../../../components/GoogleLoginButton';
+import LoadingBar from '../../../components/LoadingBar';
 import NavIcon from '../../../components/NavIcon';
 
 function LoginScreen({ onGoogleLogin, onDemoLogin, onGoToHome, onLoginError, isLoggingIn, errorMessage, showOauthHelp }) {
@@ -74,7 +75,12 @@ function LoginScreen({ onGoogleLogin, onDemoLogin, onGoToHome, onLoginError, isL
             </div>
           )}
 
-          {isLoggingIn && <div className="login-status">Signing you in and loading your planner...</div>}
+          {isLoggingIn && (
+            <div className="login-status">
+              <div>Signing you in and loading your planner...</div>
+              <LoadingBar compact className="login-status-loading-bar" />
+            </div>
+          )}
           {errorMessage && <div className="login-error">{errorMessage}</div>}
         </div>
 

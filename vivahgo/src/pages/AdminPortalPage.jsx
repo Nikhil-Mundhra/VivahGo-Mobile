@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import '../styles.css';
 import GoogleLoginButton from '../components/GoogleLoginButton';
+import LoadingBar from '../components/LoadingBar';
 import {
   addAdminStaff,
   fetchAdminApplications,
@@ -69,6 +70,7 @@ export default function AdminPortalPage() {
   const [applicationsLoading, setApplicationsLoading] = useState(false);
   const [staffLoading, setStaffLoading] = useState(false);
   const [error, setError] = useState('');
+  const [isSigningIn, setIsSigningIn] = useState(false);
   const [staffEmail, setStaffEmail] = useState('');
   const [staffRole, setStaffRole] = useState('viewer');
   const [staffActionError, setStaffActionError] = useState('');
@@ -182,6 +184,7 @@ export default function AdminPortalPage() {
   }), [applications]);
 
   async function handleLoginSuccess(credentialResponse) {
+    setIsSigningIn(true);
     try {
       const data = await loginWithGoogle(credentialResponse.credential);
       const newSession = {
@@ -194,6 +197,8 @@ export default function AdminPortalPage() {
       setSession(newSession);
     } catch (nextError) {
       setError(nextError.message || 'Could not sign in.');
+    } finally {
+      setIsSigningIn(false);
     }
   }
 
@@ -309,6 +314,11 @@ export default function AdminPortalPage() {
             </p>
           </div>
           <GoogleLoginButton onLoginSuccess={handleLoginSuccess} onLoginError={() => setError('Google login failed.')} />
+          {isSigningIn && (
+            <div className="mt-4">
+              <LoadingBar label="Signing you in with Google..." compact />
+            </div>
+          )}
           {error && <p className="mt-4 text-sm text-red-600 text-center">{error}</p>}
           <div className="mt-4 text-center">
             <a href="/home" className="text-sm text-rose-600 hover:underline">Back to Home</a>
@@ -321,7 +331,10 @@ export default function AdminPortalPage() {
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-stone-100 via-white to-rose-50 flex items-center justify-center">
-        <p className="text-sm text-stone-500">Loading staff console...</p>
+        <div className="w-full max-w-sm px-6 text-center">
+          <p className="text-sm text-stone-500">Loading staff console...</p>
+          <LoadingBar className="mt-4" />
+        </div>
       </div>
     );
   }

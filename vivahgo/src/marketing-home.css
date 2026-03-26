@@ -1338,6 +1338,23 @@ body[data-route='home'] #root {
   font-weight: 700;
 }
 
+.marketing-login-status p {
+  margin: 0;
+}
+
+.marketing-login-loading-bar .loading-bar-label {
+  color: var(--marketing-muted-strong);
+}
+
+.marketing-login-loading-bar .loading-bar-track {
+  background: rgba(125, 37, 18, 0.12);
+  box-shadow: inset 0 0 0 1px rgba(187, 77, 40, 0.14);
+}
+
+.marketing-login-loading-bar .loading-bar-fill {
+  background: linear-gradient(90deg, var(--marketing-accent-deep) 0%, var(--marketing-accent) 55%, var(--marketing-accent-soft) 100%);
+}
+
 .marketing-login-error {
   margin-top: 10px;
   color: #8b1a1a;

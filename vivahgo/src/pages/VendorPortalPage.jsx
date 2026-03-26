@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import '../vendor.css';
 import '../styles.css';
 import GoogleLoginButton from '../components/GoogleLoginButton';
+import LoadingBar from '../components/LoadingBar';
 import VendorRegistrationForm from '../components/VendorRegistrationForm';
 import VendorPortfolioManager from '../components/VendorPortfolioManager';
 import VendorDirectoryPreview from '../components/VendorDirectoryPreview';
@@ -36,6 +37,7 @@ export default function VendorPortalPage() {
   const [showSettingsMenu, setShowSettingsMenu] = useState(false);
   const [deleteError, setDeleteError] = useState('');
   const [isDeletingAccount, setIsDeletingAccount] = useState(false);
+  const [isSigningIn, setIsSigningIn] = useState(false);
   const [avatarLoadError, setAvatarLoadError] = useState(false);
   // Track which token we last completed a fetch for.
   // loadingVendor is derived: we have a token but haven't finished fetching for it yet.
@@ -76,6 +78,7 @@ export default function VendorPortalPage() {
   }, [session]);
 
   async function handleLoginSuccess(credentialResponse) {
+    setIsSigningIn(true);
     try {
       const data = await loginWithGoogle(credentialResponse.credential);
       const newSession = {
@@ -94,6 +97,8 @@ export default function VendorPortalPage() {
       setSession(newSession);
     } catch {
       // Error shown implicitly; user can retry
+    } finally {
+      setIsSigningIn(false);
     }
   }
 
@@ -146,6 +151,11 @@ export default function VendorPortalPage() {
             </p>
           </div>
           <GoogleLoginButton onLoginSuccess={handleLoginSuccess} onLoginError={() => {}} />
+          {isSigningIn && (
+            <div className="mt-4">
+              <LoadingBar label="Signing you in with Google..." compact />
+            </div>
+          )}
           <div className="mt-4 text-center">
             <a href="/home" className="text-sm text-rose-600 hover:underline">← Back to Home</a>
           </div>
@@ -157,7 +167,10 @@ export default function VendorPortalPage() {
   if (loadingVendor) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-rose-50 to-amber-50 flex items-center justify-center">
-        <p className="text-gray-500 text-sm">Loading your vendor profile…</p>
+        <div className="w-full max-w-sm px-6 text-center">
+          <p className="text-gray-500 text-sm">Loading your vendor profile…</p>
+          <LoadingBar className="mt-4" />
+        </div>
       </div>
     );
   }
