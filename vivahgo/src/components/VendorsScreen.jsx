@@ -34,9 +34,14 @@ function VendorsScreen({ vendors }) {
     const staticWithBooked = DEFAULT_VENDORS.map(v => ({
       ...v,
       booked: bookedById.get(v.id) ?? false,
+      isMarketplaceVendor: false,
+    }));
+    const liveVendors = dbVendors.map(v => ({
+      ...v,
+      isMarketplaceVendor: true,
     }));
     // DB vendors have ids prefixed with "db_" so they never collide with static ids
-    return [...staticWithBooked, ...dbVendors];
+    return [...staticWithBooked, ...liveVendors];
   }, [bookedById, dbVendors]);
 
   const hydratedVendors = useMemo(() => {
@@ -93,8 +98,11 @@ function VendorsScreen({ vendors }) {
       if (priceSort === "rating") {
         return (b.rating ?? 0) - (a.rating ?? 0);
       }
-      if (Boolean(b.featured) !== Boolean(a.featured)) {
-        return Number(Boolean(b.featured)) - Number(Boolean(a.featured));
+      if (Boolean(b.isMarketplaceVendor) !== Boolean(a.isMarketplaceVendor)) {
+        return Number(Boolean(b.isMarketplaceVendor)) - Number(Boolean(a.isMarketplaceVendor));
+      }
+      if (Boolean(a.featured) !== Boolean(b.featured)) {
+        return Number(Boolean(a.featured)) - Number(Boolean(b.featured));
       }
       return (b.rating ?? 0) - (a.rating ?? 0);
     });
