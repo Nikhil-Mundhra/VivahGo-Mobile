@@ -1,4 +1,4 @@
-const { getVendorModel, handlePreflight, normalizeEmail, normalizeStaffRole, setCorsHeaders } = require('./_lib/core');
+const { getBillingReceiptModel, getVendorModel, handlePreflight, normalizeEmail, normalizeStaffRole, setCorsHeaders } = require('./_lib/core');
 const { requireAdminSession, sanitizeStaffUser } = require('./_lib/admin');
 const { normalizeMediaList } = require('./_lib/r2');
 const { serializeApplication } = require('./careers');
@@ -49,6 +49,41 @@ function serializeAdminVendor(vendor = {}) {
     media,
     createdAt: vendor.createdAt || null,
     updatedAt: vendor.updatedAt || null,
+  };
+}
+
+function serializeBillingReceipt(receipt = {}) {
+  return {
+    id: String(receipt._id || ''),
+    receiptNumber: receipt.receiptNumber || '',
+    plan: receipt.plan || '',
+    billingCycle: receipt.billingCycle || '',
+    currency: receipt.currency || 'INR',
+    baseAmount: Number(receipt.baseAmount || 0),
+    amount: Number(receipt.amount || 0),
+    couponCode: receipt.couponCode || '',
+    discountPercent: Number(receipt.discountPercent || 0),
+    paymentProvider: receipt.paymentProvider || 'internal',
+    paymentReference: receipt.paymentReference || '',
+    status: receipt.status || 'issued',
+    emailDeliveryStatus: receipt.emailDeliveryStatus || 'pending',
+    emailDeliveryError: receipt.emailDeliveryError || '',
+    issuedAt: receipt.issuedAt || null,
+    currentPeriodEnd: receipt.currentPeriodEnd || null,
+  };
+}
+
+function serializeAdminSubscriber(user = {}, receipt = null) {
+  return {
+    id: String(user._id || user.googleId || ''),
+    googleId: user.googleId || '',
+    name: user.name || '',
+    email: user.email || '',
+    subscriptionTier: user.subscriptionTier || 'starter',
+    subscriptionStatus: user.subscriptionStatus || 'active',
+    subscriptionCurrentPeriodEnd: user.subscriptionCurrentPeriodEnd || null,
+    subscriptionId: user.subscriptionId || '',
+    latestReceipt: receipt ? serializeBillingReceipt(receipt) : null,
   };
 }
 
@@ -282,6 +317,54 @@ async function handleAdminApplications(req, res) {
 }
 
 /******************************************************************************
+ * /api/admin/subscribers
+ ******************************************************************************/
+
+async function handleAdminSubscribers(req, res) {
+  try {
+    if (req.method !== 'GET') {
+      res.setHeader('Allow', 'GET, OPTIONS');
+      return res.status(405).json({ error: 'Method not allowed.' });
+    }
+
+    const session = await requireAdminSession(req, 'viewer');
+    if (session.error) {
+      return res.status(session.status).json({ error: session.error });
+    }
+
+    const BillingReceipt = getBillingReceiptModel();
+    const users = await session.User.find({
+      $or: [
+        { subscriptionTier: { $in: ['premium', 'studio'] } },
+        { subscriptionId: { $exists: true, $ne: '' } },
+      ],
+    })
+      .select('-__v')
+      .sort({ subscriptionCurrentPeriodEnd: -1, updatedAt: -1 })
+      .lean();
+
+    const receipts = await BillingReceipt.find({})
+      .select('-__v')
+      .sort({ issuedAt: -1, createdAt: -1 })
+      .lean();
+
+    const latestReceiptByGoogleId = new Map();
+    receipts.forEach(receipt => {
+      if (receipt?.googleId && !latestReceiptByGoogleId.has(receipt.googleId)) {
+        latestReceiptByGoogleId.set(receipt.googleId, receipt);
+      }
+    });
+
+    return res.status(200).json({
+      subscribers: users.map(user => serializeAdminSubscriber(user, latestReceiptByGoogleId.get(user.googleId) || null)),
+    });
+  } catch (error) {
+    console.error('Admin subscriber management failed:', error);
+    return res.status(500).json({ error: 'Could not load subscribers.' });
+  }
+}
+
+/******************************************************************************
  * Main Entrypoint
  ******************************************************************************/
 
@@ -309,6 +392,10 @@ async function handler(req, res) {
     return handleAdminApplications(req, res);
   }
 
+  if (route === 'subscribers') {
+    return handleAdminSubscribers(req, res);
+  }
+
   res.setHeader('Allow', 'OPTIONS');
   return res.status(404).json({ error: 'Admin route not found.' });
 }
@@ -318,3 +405,4 @@ module.exports.handleAdminMe = handleAdminMe;
 module.exports.handleAdminStaff = handleAdminStaff;
 module.exports.handleAdminVendors = handleAdminVendors;
 module.exports.handleAdminApplications = handleAdminApplications;
+module.exports.handleAdminSubscribers = handleAdminSubscribers;

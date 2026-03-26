@@ -14,6 +14,10 @@ const defaultWebsiteSettings = {
   isActive: true,
   showCountdown: true,
   showCalendar: true,
+  theme: 'royal-maroon',
+  heroTagline: 'You are invited to celebrate',
+  welcomeMessage: '',
+  scheduleTitle: 'Wedding Calendar',
 };
 
 const ROLE_LEVEL = {
@@ -193,6 +197,10 @@ function getPlannerModel() {
         type: String,
         default: null,
       },
+      customTemplates: {
+        type: [mongoose.Schema.Types.Mixed],
+        default: [],
+      },
       wedding: { type: mongoose.Schema.Types.Mixed, default: () => ({}) },
       events: { type: [mongoose.Schema.Types.Mixed], default: [] },
       expenses: { type: [mongoose.Schema.Types.Mixed], default: [] },
@@ -204,6 +212,34 @@ function getPlannerModel() {
   );
 
   return mongoose.models.Planner || mongoose.model('Planner', schema);
+}
+
+function getBillingReceiptModel() {
+  const schema = new mongoose.Schema(
+    {
+      googleId: { type: String, required: true, index: true },
+      email: { type: String, required: true, trim: true, lowercase: true, index: true },
+      receiptNumber: { type: String, required: true, unique: true, index: true },
+      plan: { type: String, enum: ['premium', 'studio'], required: true },
+      billingCycle: { type: String, enum: ['monthly', 'yearly'], required: true },
+      currency: { type: String, default: 'INR' },
+      baseAmount: { type: Number, default: 0 },
+      amount: { type: Number, default: 0 },
+      couponCode: { type: String, default: '' },
+      discountPercent: { type: Number, default: 0 },
+      paymentProvider: { type: String, enum: ['razorpay', 'internal'], default: 'internal' },
+      paymentReference: { type: String, default: '' },
+      status: { type: String, enum: ['paid', 'issued', 'failed'], default: 'issued' },
+      emailDeliveryStatus: { type: String, enum: ['pending', 'sent', 'failed', 'skipped'], default: 'pending' },
+      emailDeliveryError: { type: String, default: '' },
+      issuedAt: { type: Date, default: () => new Date() },
+      currentPeriodEnd: { type: Date, default: null },
+      meta: { type: mongoose.Schema.Types.Mixed, default: () => ({}) },
+    },
+    { timestamps: true, minimize: false }
+  );
+
+  return mongoose.models.BillingReceipt || mongoose.model('BillingReceipt', schema);
 }
 
 function getCareerApplicationModel() {
@@ -263,6 +299,7 @@ function buildEmptyPlanner(options = {}) {
       },
     ],
     activePlanId: planId,
+    customTemplates: [],
     wedding: { ...emptyWedding },
     events: [],
     expenses: [],
@@ -388,6 +425,49 @@ function sanitizeMarriages(value) {
       createdAt: marriage.createdAt || new Date(),
     }))
     .filter(marriage => Boolean(marriage.id));
+}
+
+function sanitizeCustomTemplateEvents(value) {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value
+    .filter(isRecord)
+    .map((event, index) => ({
+      name: String(event.name || '').trim(),
+      emoji: String(event.emoji || '✨').trim() || '✨',
+      sortOrder: Number.isFinite(Number(event.sortOrder)) ? Number(event.sortOrder) : index,
+    }))
+    .filter(event => event.name)
+    .sort((a, b) => a.sortOrder - b.sortOrder)
+    .map((event, index) => ({ ...event, sortOrder: index }));
+}
+
+function sanitizeCustomTemplates(value) {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value
+    .filter(isRecord)
+    .map((template, index) => {
+      const id = typeof template.id === 'string' && template.id.trim()
+        ? template.id.trim()
+        : `custom_template_${index}`;
+      const events = sanitizeCustomTemplateEvents(template.events);
+      return {
+        id,
+        name: String(template.name || '').trim() || 'Custom Template',
+        description: String(template.description || '').trim() || 'Built for your wedding flow',
+        emoji: String(template.emoji || '✨').trim() || '✨',
+        culture: String(template.culture || 'Custom').trim() || 'Custom',
+        highlights: events.slice(0, 3).map(event => event.name),
+        eventCount: events.length,
+        events,
+        createdAt: template.createdAt || new Date(),
+      };
+    });
 }
 
 function slugifyWeddingNamePart(value) {
@@ -516,6 +596,7 @@ function sanitizePlanner(payload = {}, options = {}) {
   return {
     marriages,
     activePlanId,
+    customTemplates: sanitizeCustomTemplates(payload.customTemplates),
     wedding,
     events: sanitizePlanScopedCollection(payload.events, validPlanIds, activePlanId),
     expenses: sanitizePlanScopedCollection(payload.expenses, validPlanIds, activePlanId),
@@ -625,6 +706,7 @@ module.exports = {
   buildEmptyPlanner,
   connectDb,
   createSessionToken,
+  getBillingReceiptModel,
   getCollaboratorRoleForPlan,
   getPlannerModel,
   getCareerApplicationModel,

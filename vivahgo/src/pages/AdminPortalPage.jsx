@@ -5,6 +5,7 @@ import LoadingBar from '../components/LoadingBar';
 import {
   addAdminStaff,
   fetchAdminApplications,
+  fetchAdminSubscribers,
   fetchAdminSession,
   fetchAdminStaff,
   fetchAdminVendors,
@@ -64,10 +65,12 @@ export default function AdminPortalPage() {
   const [access, setAccess] = useState(null);
   const [vendors, setVendors] = useState([]);
   const [applications, setApplications] = useState([]);
+  const [subscribers, setSubscribers] = useState([]);
   const [staff, setStaff] = useState([]);
   const [loading, setLoading] = useState(Boolean(readSession()?.token));
   const [vendorsLoading, setVendorsLoading] = useState(false);
   const [applicationsLoading, setApplicationsLoading] = useState(false);
+  const [subscribersLoading, setSubscribersLoading] = useState(false);
   const [staffLoading, setStaffLoading] = useState(false);
   const [error, setError] = useState('');
   const [isSigningIn, setIsSigningIn] = useState(false);
@@ -88,6 +91,7 @@ export default function AdminPortalPage() {
       setAccess(null);
       setVendors([]);
       setApplications([]);
+      setSubscribers([]);
       setStaff([]);
       return;
     }
@@ -131,6 +135,19 @@ export default function AdminPortalPage() {
             }
           });
 
+        setSubscribersLoading(true);
+        const subscribersPromise = fetchAdminSubscribers(session.token)
+          .then(result => {
+            if (!cancelled) {
+              setSubscribers(Array.isArray(result?.subscribers) ? result.subscribers : []);
+            }
+          })
+          .finally(() => {
+            if (!cancelled) {
+              setSubscribersLoading(false);
+            }
+          });
+
         const staffPromise = data.access?.canManageStaff
           ? fetchAdminStaff(session.token)
             .then(result => {
@@ -151,7 +168,7 @@ export default function AdminPortalPage() {
           setStaff([]);
         }
 
-        await Promise.all([vendorsPromise, applicationsPromise, staffPromise]);
+        await Promise.all([vendorsPromise, applicationsPromise, subscribersPromise, staffPromise]);
       })
       .catch((nextError) => {
         if (cancelled) {
@@ -182,6 +199,12 @@ export default function AdminPortalPage() {
     total: applications.length,
     new: applications.filter(item => item.status === 'new').length,
   }), [applications]);
+
+  const subscriberCounts = useMemo(() => ({
+    total: subscribers.length,
+    premium: subscribers.filter(item => item.subscriptionTier === 'premium').length,
+    studio: subscribers.filter(item => item.subscriptionTier === 'studio').length,
+  }), [subscribers]);
 
   async function handleLoginSuccess(credentialResponse) {
     setIsSigningIn(true);
@@ -415,6 +438,21 @@ export default function AdminPortalPage() {
           </div>
         </section>
 
+        <section className="grid gap-4 md:grid-cols-3">
+          <div className="bg-white rounded-3xl border border-stone-200 p-5 shadow-sm">
+            <p className="text-sm text-stone-500">Subscribers</p>
+            <p className="mt-2 text-3xl font-bold text-stone-900">{subscriberCounts.total}</p>
+          </div>
+          <div className="bg-white rounded-3xl border border-sky-200 p-5 shadow-sm">
+            <p className="text-sm text-sky-700">Premium</p>
+            <p className="mt-2 text-3xl font-bold text-sky-900">{subscriberCounts.premium}</p>
+          </div>
+          <div className="bg-white rounded-3xl border border-violet-200 p-5 shadow-sm">
+            <p className="text-sm text-violet-700">Studio</p>
+            <p className="mt-2 text-3xl font-bold text-violet-900">{subscriberCounts.studio}</p>
+          </div>
+        </section>
+
         <section className="bg-white rounded-3xl border border-stone-200 shadow-sm overflow-hidden">
           <div className="px-5 py-4 border-b border-stone-200">
             <h2 className="text-lg font-semibold text-stone-900">Vendor approvals</h2>
@@ -469,6 +507,48 @@ export default function AdminPortalPage() {
                   >
                     {savingVendorId === vendor.id && vendor.isApproved ? 'Saving...' : 'Move to Pending'}
                   </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        <section className="bg-white rounded-3xl border border-stone-200 shadow-sm overflow-hidden">
+          <div className="px-5 py-4 border-b border-stone-200">
+            <h2 className="text-lg font-semibold text-stone-900">Subscribers</h2>
+            <p className="text-sm text-stone-500">Track active premium/studio customers, zero-rupee coupon activations, and latest receipt delivery status.</p>
+          </div>
+          <div className="divide-y divide-stone-100">
+            {subscribersLoading && (
+              <div className="px-5 py-10 text-sm text-stone-500">Loading subscribers...</div>
+            )}
+            {!subscribersLoading && subscribers.length === 0 && (
+              <div className="px-5 py-10 text-sm text-stone-500">No subscribers found yet.</div>
+            )}
+            {!subscribersLoading && subscribers.map(subscriber => (
+              <div key={subscriber.id} className="px-5 py-4 flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                <div className="min-w-0">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <h3 className="text-base font-semibold text-stone-900">{subscriber.name || subscriber.email}</h3>
+                    <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ${subscriber.subscriptionTier === 'studio' ? 'bg-violet-100 text-violet-700' : 'bg-sky-100 text-sky-700'}`}>
+                      {subscriber.subscriptionTier}
+                    </span>
+                    <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ${subscriber.subscriptionStatus === 'active' ? 'bg-emerald-100 text-emerald-700' : 'bg-stone-200 text-stone-700'}`}>
+                      {subscriber.subscriptionStatus}
+                    </span>
+                  </div>
+                  <p className="mt-1 text-sm text-stone-500">{subscriber.email}</p>
+                  <div className="mt-3 flex flex-wrap gap-4 text-xs text-stone-500">
+                    <span>Valid until: {formatDate(subscriber.subscriptionCurrentPeriodEnd)}</span>
+                    {subscriber.latestReceipt?.receiptNumber && <span>Receipt: {subscriber.latestReceipt.receiptNumber}</span>}
+                    {subscriber.latestReceipt?.couponCode && <span>Coupon: {subscriber.latestReceipt.couponCode}</span>}
+                    {subscriber.latestReceipt && <span>Amount: INR {(Number(subscriber.latestReceipt.amount || 0) / 100).toFixed(2)}</span>}
+                  </div>
+                </div>
+                <div className="text-sm text-stone-500 lg:text-right">
+                  <p>Email receipt: <span className="font-medium text-stone-700">{subscriber.latestReceipt?.emailDeliveryStatus || 'not sent'}</span></p>
+                  {subscriber.latestReceipt?.paymentProvider && <p className="mt-1">Provider: {subscriber.latestReceipt.paymentProvider}</p>}
+                  {subscriber.latestReceipt?.issuedAt && <p className="mt-1">Issued: {formatDate(subscriber.latestReceipt.issuedAt)}</p>}
                 </div>
               </div>
             ))}

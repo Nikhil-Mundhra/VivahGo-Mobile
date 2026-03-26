@@ -139,7 +139,7 @@ function AccountScreen({ user, authMode, wedding, setWedding, subscription, onCl
                 </p>
                 <a
                   className="btn-secondary"
-                  href="/home#pricing"
+                  href="/pricing"
                   style={{ display: "block", textAlign: "center", textDecoration: "none", marginTop: 10 }}
                 >
                   View Premium Plans
@@ -148,7 +148,7 @@ function AccountScreen({ user, authMode, wedding, setWedding, subscription, onCl
             ) : (
               <a
                 className="btn-primary"
-                href="/home#pricing"
+                href="/pricing"
                 style={{ display: "block", textAlign: "center", textDecoration: "none", marginTop: 10 }}
               >
                 Upgrade to Premium

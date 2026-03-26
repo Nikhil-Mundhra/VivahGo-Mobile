@@ -67,6 +67,10 @@ const plannerSchema = new mongoose.Schema(
       type: String,
       default: null,
     },
+    customTemplates: {
+      type: [mongoose.Schema.Types.Mixed],
+      default: [],
+    },
     // Legacy wedding field for backward compatibility
     wedding: {
       type: mongoose.Schema.Types.Mixed,

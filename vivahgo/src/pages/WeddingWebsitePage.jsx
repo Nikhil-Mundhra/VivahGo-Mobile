@@ -34,6 +34,30 @@ function getActiveCollection(planner, key) {
   return (planner[key] || []).filter(item => !activePlanId || item?.planId === activePlanId);
 }
 
+const WEBSITE_THEME_STYLES = {
+  "royal-maroon": {
+    pageBackground: "linear-gradient(160deg, #FFF8E7 0%, #FEFAF0 50%, #F5ECD7 100%)",
+    heroBackground: "linear-gradient(160deg, #6B0F0F 0%, #8B1A1A 60%, #A0200A 100%)",
+    accent: "#D4AF37",
+    accentSoft: "#F5ECD7",
+    textMuted: "#8B6060",
+  },
+  "garden-sage": {
+    pageBackground: "linear-gradient(160deg, #F3F7F0 0%, #FBF7EF 52%, #E2EBDD 100%)",
+    heroBackground: "linear-gradient(160deg, #3D5A4B 0%, #557A61 55%, #7B9B76 100%)",
+    accent: "#D9A441",
+    accentSoft: "#E8F0E3",
+    textMuted: "#5F6F66",
+  },
+  "midnight-navy": {
+    pageBackground: "linear-gradient(160deg, #F5F7FB 0%, #F9F1EB 50%, #E7ECF5 100%)",
+    heroBackground: "linear-gradient(160deg, #132238 0%, #223A57 55%, #34506F 100%)",
+    accent: "#E3B261",
+    accentSoft: "#E7ECF5",
+    textMuted: "#607089",
+  },
+};
+
 export default function WeddingWebsitePage({ websiteSlug = "" }) {
   const [plannerData, setPlannerData] = useState(() => (websiteSlug ? null : getStoredPlannerData()));
   const [loaded, setLoaded] = useState(() => !websiteSlug);
@@ -102,7 +126,12 @@ export default function WeddingWebsitePage({ websiteSlug = "" }) {
   const websiteSettings = {
     showCountdown: activePlan?.websiteSettings?.showCountdown !== false,
     showCalendar: activePlan?.websiteSettings?.showCalendar !== false,
+    theme: activePlan?.websiteSettings?.theme || "royal-maroon",
+    heroTagline: activePlan?.websiteSettings?.heroTagline || "You are invited to celebrate",
+    welcomeMessage: activePlan?.websiteSettings?.welcomeMessage || "",
+    scheduleTitle: activePlan?.websiteSettings?.scheduleTitle || "Wedding Calendar",
   };
+  const themeStyles = WEBSITE_THEME_STYLES[websiteSettings.theme] || WEBSITE_THEME_STYLES["royal-maroon"];
   const events = (isPublicWebsite ? plannerData.events || [] : getActiveCollection(plannerData, "events"))
     .filter(e => e?.isPublicWebsiteVisible !== false)
     .filter(e => e.date || e.venue)
@@ -124,15 +153,20 @@ export default function WeddingWebsitePage({ websiteSlug = "" }) {
     : brideName || groomName || "Our Wedding";
 
   return (
-    <div style={styles.page}>
+    <div style={{ ...styles.page, background: themeStyles.pageBackground }}>
       {/* Hero */}
-      <div style={styles.hero}>
-        <div style={styles.heroMandala} aria-hidden="true">✿</div>
+      <div style={{ ...styles.hero, background: themeStyles.heroBackground }}>
+        <div style={{ ...styles.heroMandala, color: themeStyles.accent }} aria-hidden="true">✿</div>
         <div style={styles.heroInner}>
-          <div style={styles.heroLabel}>You are invited to celebrate</div>
+          <div style={styles.heroLabel}>{websiteSettings.heroTagline}</div>
           <h1 style={styles.heroCouple}>{coupleDisplay}</h1>
           {weddingDate && <div style={styles.heroDate}>📅 {weddingDate}</div>}
           {weddingVenue && <div style={styles.heroVenue}>📍 {weddingVenue}</div>}
+          {websiteSettings.welcomeMessage ? (
+            <p style={{ ...styles.heroWelcome, borderColor: `${themeStyles.accent}55`, background: "rgba(255,255,255,0.08)" }}>
+              {websiteSettings.welcomeMessage}
+            </p>
+          ) : null}
         </div>
         <div style={styles.heroDivider}>✦ ✦ ✦</div>
       </div>
@@ -141,11 +175,11 @@ export default function WeddingWebsitePage({ websiteSlug = "" }) {
         <div style={styles.countdownWrap}>
           <div style={styles.countdownCard}>
             <div>
-              <div style={styles.countdownKicker}>Countdown</div>
+              <div style={{ ...styles.countdownKicker, color: themeStyles.textMuted }}>Countdown</div>
               <div style={styles.countdownTitle}>Until the celebration begins</div>
             </div>
-            <div style={styles.countdownValue}>{Math.max(countdownDays, 0)}</div>
-            <div style={styles.countdownDaysLabel}>days</div>
+            <div style={{ ...styles.countdownValue, color: themeStyles.accent }}>{Math.max(countdownDays, 0)}</div>
+            <div style={{ ...styles.countdownDaysLabel, color: themeStyles.textMuted }}>days</div>
           </div>
         </div>
       )}
@@ -153,7 +187,7 @@ export default function WeddingWebsitePage({ websiteSlug = "" }) {
       {/* Events Calendar */}
       {websiteSettings.showCalendar && (
         <div style={styles.section}>
-          <div style={styles.sectionTitle}>Wedding Calendar</div>
+          <div style={{ ...styles.sectionTitle, color: themeStyles.accent }}>{websiteSettings.scheduleTitle}</div>
           {events.length === 0 ? (
             <div style={styles.emptyEvents}>
               <p>No public events have been shared yet. Check back soon!</p>
@@ -199,7 +233,7 @@ export default function WeddingWebsitePage({ websiteSlug = "" }) {
 
       {/* Footer */}
       <div style={styles.footer}>
-        <div style={styles.footerBrand}>Created with VivahGo 💍</div>
+        <div style={{ ...styles.footerBrand, color: themeStyles.textMuted }}>Created with VivahGo 💍</div>
         <a href="/" style={styles.footerLink}>{isPublicWebsite ? "Create your own wedding workspace at VivahGo" : "Plan your wedding at vivahgo.com"}</a>
       </div>
     </div>
@@ -242,6 +276,16 @@ const styles = {
   heroInner: {
     position: "relative",
     zIndex: 1,
+  },
+  heroWelcome: {
+    margin: "18px auto 0",
+    maxWidth: 640,
+    padding: "14px 16px",
+    borderRadius: 16,
+    border: "1px solid rgba(212,175,55,0.3)",
+    color: "rgba(255,255,255,0.92)",
+    lineHeight: 1.6,
+    fontSize: 15,
   },
   heroLabel: {
     fontSize: 13,

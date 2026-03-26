@@ -10,15 +10,15 @@ const PLAN_LABELS = {
 
 const PLAN_PERKS = {
   premium: [
-    "Multiple wedding workspaces",
-    "Collaborator permissions",
-    "Priority planner sync",
+    "Unlimited wedding workspaces",
+    "Personalized wedding website",
+    "Advanced workspace management",
   ],
   studio: [
     "Everything in Premium",
     "Client-ready workspaces",
-    "Team collaboration",
-    "Admin visibility across plans",
+    "Create custom templates",
+    "Request for upto 2 custom features",
   ],
 };
 
@@ -121,6 +121,17 @@ export default function SubscriptionCheckoutPage({
     setQuoteError("");
 
     try {
+      if (quote?.amount === 0) {
+        const result = await confirmPayment(token, {
+          plan,
+          billingCycle,
+          couponCode: appliedCouponCode,
+        });
+        onSuccess?.(result);
+        setIsPaying(false);
+        return;
+      }
+
       const scriptLoaded = await loadRazorpayScript();
       if (!scriptLoaded || typeof window === "undefined" || !window.Razorpay) {
         throw new Error("Could not load Razorpay checkout.");
@@ -150,6 +161,7 @@ export default function SubscriptionCheckoutPage({
               orderId: response.razorpay_order_id,
               paymentId: response.razorpay_payment_id,
               signature: response.razorpay_signature,
+              couponCode: appliedCouponCode,
             });
             onSuccess?.();
           } catch (error) {
@@ -169,7 +181,7 @@ export default function SubscriptionCheckoutPage({
       onError?.(message);
       setIsPaying(false);
     }
-  }, [appliedCouponCode, billingCycle, confirmPayment, createSession, onError, onSuccess, plan, token]);
+  }, [appliedCouponCode, billingCycle, confirmPayment, createSession, onError, onSuccess, plan, quote?.amount, token]);
 
   const planLabel = PLAN_LABELS[plan] || "Premium";
   const amountLabel = useMemo(() => formatAmount(quote?.amount, quote?.currency), [quote]);
@@ -242,10 +254,13 @@ export default function SubscriptionCheckoutPage({
               </div>
             ) : null}
             <p>{amountLabel ? `Amount due: ${amountLabel}` : "Amount unavailable."}</p>
+            {quote?.amount === 0 ? (
+              <p>A zero-rupee bill will be generated instantly and emailed to your account. Razorpay will be skipped.</p>
+            ) : null}
             {quoteError && <p className="marketing-login-error">{quoteError}</p>}
             <div className="marketing-checkout-actions">
               <button type="button" className="marketing-price-action marketing-price-action-featured" onClick={handlePay} disabled={isPaying || isLoadingQuote || !quote} style={isPaying ? { opacity: 0.7, cursor: "not-allowed" } : undefined}>
-                {isPaying ? "Opening..." : "Pay with Razorpay"}
+                {isPaying ? (quote?.amount === 0 ? "Generating..." : "Opening...") : (quote?.amount === 0 ? "Generate 0 INR Bill" : "Pay with Razorpay")}
               </button>
               <button type="button" className="marketing-price-action marketing-price-action-ghost" onClick={() => refreshQuote({ force: true })} disabled={isLoadingQuote || isPaying}>
                 Refresh Price

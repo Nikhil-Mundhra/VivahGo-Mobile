@@ -13,7 +13,17 @@ export const DEFAULT_WEBSITE_SETTINGS = {
   isActive: true,
   showCountdown: true,
   showCalendar: true,
+  theme: 'royal-maroon',
+  heroTagline: 'You are invited to celebrate',
+  welcomeMessage: '',
+  scheduleTitle: 'Wedding Calendar',
 };
+
+export const WEDDING_WEBSITE_THEMES = [
+  { id: 'royal-maroon', name: 'Royal Maroon' },
+  { id: 'garden-sage', name: 'Garden Sage' },
+  { id: 'midnight-navy', name: 'Midnight Navy' },
+];
 
 function slugifyWeddingNamePart(value) {
   return String(value || '')
@@ -259,6 +269,66 @@ function resolveTemplateId(templateId) {
   return LEGACY_TEMPLATE_MAP[templateId] || 'blank';
 }
 
+function normalizeCustomTemplateEvents(events) {
+  if (!Array.isArray(events)) {
+    return [];
+  }
+
+  return events
+    .filter(event => event && typeof event === 'object')
+    .map((event, index) => ({
+      name: String(event.name || '').trim(),
+      emoji: String(event.emoji || '✨').trim() || '✨',
+      sortOrder: Number.isFinite(Number(event.sortOrder)) ? Number(event.sortOrder) : index,
+    }))
+    .filter(event => event.name)
+    .sort((a, b) => a.sortOrder - b.sortOrder)
+    .map((event, index) => ({ ...event, sortOrder: index }));
+}
+
+export function normalizeCustomTemplates(templates) {
+  if (!Array.isArray(templates)) {
+    return [];
+  }
+
+  const byId = new Map();
+
+  templates
+    .filter(template => template && typeof template === 'object')
+    .forEach((template, index) => {
+      const id = typeof template.id === 'string' && template.id.trim()
+        ? template.id.trim()
+        : `custom_template_${index}`;
+      const events = normalizeCustomTemplateEvents(template.events);
+
+      byId.set(id, {
+        id,
+        name: String(template.name || '').trim() || 'Custom Template',
+        description: String(template.description || '').trim() || 'Built for your wedding flow',
+        emoji: String(template.emoji || '✨').trim() || '✨',
+        culture: String(template.culture || 'Custom').trim() || 'Custom',
+        highlights: events.slice(0, 3).map(event => event.name),
+        eventCount: events.length,
+        events,
+        createdAt: template.createdAt || new Date(),
+        isCustom: true,
+      });
+    });
+
+  return [...byId.values()];
+}
+
+function getTemplateDefinition(templateId, customTemplates = []) {
+  const resolvedTemplateId = resolveTemplateId(templateId);
+  if (resolvedTemplateId !== 'blank') {
+    if (MARRIAGE_TEMPLATES[resolvedTemplateId]) {
+      return { ...MARRIAGE_TEMPLATES[resolvedTemplateId], isCustom: false };
+    }
+  }
+
+  return normalizeCustomTemplates(customTemplates).find(template => template.id === templateId) || null;
+}
+
 function cloneCollection(items) {
   return items.map(item => ({ ...item }));
 }
@@ -287,13 +357,15 @@ function normalizePlanScopedItems(items, activePlanId, validPlanIds) {
     });
 }
 
-function createTemplateEvents(templateId, planId) {
-  const resolvedTemplateId = resolveTemplateId(templateId);
-  if (resolvedTemplateId === 'blank') {
+function createTemplateEvents(templateId, planId, customTemplates = []) {
+  const templateDefinition = getTemplateDefinition(templateId, customTemplates);
+  if (!templateDefinition) {
     return [];
   }
 
-  const templateEvents = TEMPLATE_EVENT_SETS[resolvedTemplateId] || [];
+  const templateEvents = templateDefinition.isCustom
+    ? templateDefinition.events || []
+    : TEMPLATE_EVENT_SETS[templateDefinition.id] || [];
 
   return cloneCollection(templateEvents).map((event, index) => ({
     ...event,
@@ -308,9 +380,9 @@ function createTemplateEvents(templateId, planId) {
   }));
 }
 
-function createTemplateTasks(templateId, planId, events) {
-  const resolvedTemplateId = resolveTemplateId(templateId);
-  if (resolvedTemplateId === 'blank') {
+function createTemplateTasks(templateId, planId, events, customTemplates = []) {
+  const templateDefinition = getTemplateDefinition(templateId, customTemplates);
+  if (!templateDefinition) {
     return [];
   }
 
@@ -340,9 +412,9 @@ function createTemplateTasks(templateId, planId, events) {
   return [...planningTasks, ...eventTasks];
 }
 
-function createTemplateVendors(templateId, planId) {
-  const resolvedTemplateId = resolveTemplateId(templateId);
-  if (resolvedTemplateId === 'blank') {
+function createTemplateVendors(templateId, planId, customTemplates = []) {
+  const templateDefinition = getTemplateDefinition(templateId, customTemplates);
+  if (!templateDefinition) {
     return [];
   }
 
@@ -354,15 +426,15 @@ function createTemplateVendors(templateId, planId) {
   }));
 }
 
-export function createTemplatePlanCollections(templateId, planId) {
-  const events = createTemplateEvents(templateId, planId);
+export function createTemplatePlanCollections(templateId, planId, customTemplates = []) {
+  const events = createTemplateEvents(templateId, planId, customTemplates);
 
   return {
     events,
     expenses: [],
     guests: [],
-    vendors: createTemplateVendors(templateId, planId),
-    tasks: createTemplateTasks(templateId, planId, events),
+    vendors: createTemplateVendors(templateId, planId, customTemplates),
+    tasks: createTemplateTasks(templateId, planId, events, customTemplates),
   };
 }
 
@@ -422,6 +494,7 @@ export function createBlankPlanner() {
   return {
     marriages: [createBlankMarriagePlan(planId)],
     activePlanId: planId,
+    customTemplates: [],
     wedding: { ...EMPTY_WEDDING },
     events: [],
     expenses: [],
@@ -439,6 +512,7 @@ export function createDemoPlanner() {
   return {
     marriages: [demoMarriage],
     activePlanId: planId,
+    customTemplates: [],
     wedding: {
       bride: 'Aarohi',
       groom: 'Kabir',
@@ -548,6 +622,7 @@ export function normalizePlanner(planner) {
   return {
     marriages,
     activePlanId,
+    customTemplates: normalizeCustomTemplates(planner.customTemplates),
     wedding,
     events: normalizedEventsWithVisibility,
     expenses: normalizedExpenses,

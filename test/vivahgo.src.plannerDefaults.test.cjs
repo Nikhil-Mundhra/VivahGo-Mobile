@@ -11,11 +11,12 @@ describe('VivahGo/src/plannerDefaults.js', function () {
     const mod = await loadModule();
     const planner = mod.createBlankPlanner();
 
-    assert.deepEqual(Object.keys(planner).sort(), ['activePlanId', 'events', 'expenses', 'guests', 'marriages', 'tasks', 'vendors', 'wedding']);
+    assert.deepEqual(Object.keys(planner).sort(), ['activePlanId', 'customTemplates', 'events', 'expenses', 'guests', 'marriages', 'tasks', 'vendors', 'wedding']);
     assert.ok(planner.activePlanId, 'activePlanId should exist');
     assert.ok(planner.activePlanId.startsWith('plan_'), 'activePlanId should start with plan_');
     assert.deepEqual(planner.marriages.length, 1, 'should have one marriage plan');
     assert.equal(planner.marriages[0].id, planner.activePlanId, 'marriage id should match activePlanId');
+    assert.deepEqual(planner.customTemplates, []);
     assert.deepEqual(planner.wedding, mod.EMPTY_WEDDING);
     assert.deepEqual(planner.events, []);
     assert.deepEqual(planner.expenses, []);
@@ -100,7 +101,7 @@ describe('VivahGo/src/plannerDefaults.js', function () {
 
     const normalized = mod.normalizePlanner({
       marriages: [
-        { id: 'plan_site', bride: 'Asha', groom: 'Rohan', websiteSettings: { isActive: false, showCountdown: false } },
+        { id: 'plan_site', bride: 'Asha', groom: 'Rohan', websiteSettings: { isActive: false, showCountdown: false, theme: 'garden-sage', heroTagline: 'Celebrate with us' } },
       ],
       activePlanId: 'plan_site',
     });
@@ -108,6 +109,35 @@ describe('VivahGo/src/plannerDefaults.js', function () {
     assert.equal(normalized.marriages[0].websiteSettings.isActive, false);
     assert.equal(normalized.marriages[0].websiteSettings.showCountdown, false);
     assert.equal(normalized.marriages[0].websiteSettings.showCalendar, true);
+    assert.equal(normalized.marriages[0].websiteSettings.theme, 'garden-sage');
+    assert.equal(normalized.marriages[0].websiteSettings.heroTagline, 'Celebrate with us');
+    assert.equal(normalized.marriages[0].websiteSettings.scheduleTitle, 'Wedding Calendar');
+  });
+
+  it('normalizes and uses custom templates for plan collections', async function () {
+    const mod = await loadModule();
+    const planner = mod.normalizePlanner({
+      customTemplates: [
+        {
+          id: 'custom_template_a',
+          name: 'Temple Wedding',
+          culture: 'Custom',
+          emoji: '🛕',
+          events: [
+            { name: 'Welcome Dinner', emoji: '🍽️' },
+            { name: 'Temple Ceremony', emoji: '🛕' },
+          ],
+        },
+      ],
+    });
+
+    assert.equal(planner.customTemplates.length, 1);
+    assert.equal(planner.customTemplates[0].eventCount, 2);
+
+    const collections = mod.createTemplatePlanCollections('custom_template_a', planner.activePlanId, planner.customTemplates);
+    assert.equal(collections.events.length, 2);
+    assert.equal(collections.events[0].name, 'Welcome Dinner');
+    assert.equal(collections.tasks.some(task => task.name.includes('Temple Ceremony')), true);
   });
 
   it('normalizePlanner migrates missing planId records to the active plan once', async function () {

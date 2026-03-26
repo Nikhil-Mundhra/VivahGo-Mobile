@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { EVENT_COLORS } from "../../../constants";
 import { DEFAULT_EVENTS } from "../../../data";
+import { WEDDING_WEBSITE_THEMES } from "../../../plannerDefaults";
 import { fmt } from "../../../utils";
 import { useSwipeDown } from "../../../hooks/useSwipeDown";
 import { useBackButtonClose } from "../../../hooks/useBackButtonClose";
@@ -42,7 +43,7 @@ function ToggleRow({ label, description, checked, onChange }) {
   );
 }
 
-function EventsScreen({ events, setEvents, expenses, setExpenses, onOpenBudget, initialEditingEventId, planId, websitePath = "/wedding", websiteSettings, onSaveWebsiteSettings }) {
+function EventsScreen({ events, setEvents, expenses, setExpenses, onOpenBudget, initialEditingEventId, planId, websitePath = "/wedding", websiteSettings, subscriptionTier = "starter", onSaveWebsiteSettings }) {
   const [editing, setEditing] = useState(() => {
     const initialEvent = events.find(event => String(event.id) === String(initialEditingEventId));
     return initialEvent ? { isPublicWebsiteVisible: true, ...initialEvent, ...parseTimeParts(initialEvent.time) } : null;
@@ -56,6 +57,10 @@ function EventsScreen({ events, setEvents, expenses, setExpenses, onOpenBudget, 
     isActive: websiteSettings?.isActive !== false,
     showCountdown: websiteSettings?.showCountdown !== false,
     showCalendar: websiteSettings?.showCalendar !== false,
+    theme: websiteSettings?.theme || "royal-maroon",
+    heroTagline: websiteSettings?.heroTagline || "You are invited to celebrate",
+    welcomeMessage: websiteSettings?.welcomeMessage || "",
+    scheduleTitle: websiteSettings?.scheduleTitle || "Wedding Calendar",
   }));
   const editingSwipe = useSwipeDown(() => { setEditing(null); setConfirmDelete(false); });
   const websiteSwipe = useSwipeDown(() => setShowWebsiteModal(false));
@@ -77,6 +82,10 @@ function EventsScreen({ events, setEvents, expenses, setExpenses, onOpenBudget, 
       isActive: websiteSettings?.isActive !== false,
       showCountdown: websiteSettings?.showCountdown !== false,
       showCalendar: websiteSettings?.showCalendar !== false,
+      theme: websiteSettings?.theme || "royal-maroon",
+      heroTagline: websiteSettings?.heroTagline || "You are invited to celebrate",
+      welcomeMessage: websiteSettings?.welcomeMessage || "",
+      scheduleTitle: websiteSettings?.scheduleTitle || "Wedding Calendar",
     });
   }
 
@@ -89,6 +98,10 @@ function EventsScreen({ events, setEvents, expenses, setExpenses, onOpenBudget, 
       isActive: websiteSettings?.isActive !== false,
       showCountdown: websiteSettings?.showCountdown !== false,
       showCalendar: websiteSettings?.showCalendar !== false,
+      theme: websiteSettings?.theme || "royal-maroon",
+      heroTagline: websiteSettings?.heroTagline || "You are invited to celebrate",
+      welcomeMessage: websiteSettings?.welcomeMessage || "",
+      scheduleTitle: websiteSettings?.scheduleTitle || "Wedding Calendar",
     });
     setShowWebsiteModal(true);
   }
@@ -101,6 +114,7 @@ function EventsScreen({ events, setEvents, expenses, setExpenses, onOpenBudget, 
 
   const usedNames = new Set(events.map(e => e.name));
   const availablePresets = DEFAULT_EVENTS.filter(e => !usedNames.has(e.name));
+  const canPersonalizeWebsite = subscriptionTier === "premium" || subscriptionTier === "studio";
 
   function handlePresetChange(val) {
     setSelectedPreset(val);
@@ -481,6 +495,49 @@ function EventsScreen({ events, setEvents, expenses, setExpenses, onOpenBudget, 
                 checked={websiteForm.showCalendar}
                 onChange={e => applyWebsiteSetting({ showCalendar: e.target.checked })}
               />
+            </div>
+            <div className="input-group">
+              <div className="input-label">Personalization</div>
+              {canPersonalizeWebsite ? (
+                <>
+                  <div className="website-settings-note" style={{ marginBottom: 10 }}>
+                    Premium lets you personalize the guest-facing website with your own theme and copy.
+                  </div>
+                  <select
+                    className="select-field"
+                    value={websiteForm.theme}
+                    onChange={e => applyWebsiteSetting({ theme: e.target.value })}
+                  >
+                    {WEDDING_WEBSITE_THEMES.map(theme => (
+                      <option key={theme.id} value={theme.id}>{theme.name}</option>
+                    ))}
+                  </select>
+                  <input
+                    className="input-field"
+                    value={websiteForm.heroTagline}
+                    onChange={e => applyWebsiteSetting({ heroTagline: e.target.value })}
+                    placeholder="Hero tagline"
+                  />
+                  <input
+                    className="input-field"
+                    value={websiteForm.scheduleTitle}
+                    onChange={e => applyWebsiteSetting({ scheduleTitle: e.target.value })}
+                    placeholder="Schedule heading"
+                  />
+                  <textarea
+                    className="input-field"
+                    value={websiteForm.welcomeMessage}
+                    onChange={e => applyWebsiteSetting({ welcomeMessage: e.target.value })}
+                    placeholder="Add a welcome note for your guests"
+                    rows={4}
+                    style={{ resize: "vertical", minHeight: 110 }}
+                  />
+                </>
+              ) : (
+                <div className="website-settings-note">
+                  Upgrade to Premium to personalize your wedding website with custom messaging, section titles, and color themes.
+                </div>
+              )}
             </div>
             <button className="btn-secondary" onClick={closeWebsiteModal}>Cancel</button>
             {websiteForm.isActive ? (

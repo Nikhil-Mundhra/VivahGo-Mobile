@@ -15,6 +15,7 @@ import Planner from './models/Planner.js';
 import User from './models/User.js';
 import Vendor from './models/Vendor.js';
 import CareerApplication from './models/CareerApplication.js';
+import BillingReceipt from './models/BillingReceipt.js';
 import googleDriveHelpers from '../../api/_lib/googleDrive.js';
 
 const port = Number(process.env.PORT || 4000);
@@ -35,6 +36,10 @@ const defaultWebsiteSettings = {
   isActive: true,
   showCountdown: true,
   showCalendar: true,
+  theme: 'royal-maroon',
+  heroTagline: 'You are invited to celebrate',
+  welcomeMessage: '',
+  scheduleTitle: 'Wedding Calendar',
 };
 
 const ROLE_LEVEL = {
@@ -113,7 +118,7 @@ function readCareerCatalog() {
   }
 }
 
-function resolveCoupon(couponCode) {
+function resolveCoupon(couponCode, plan) {
   const normalizedCode = typeof couponCode === 'string' ? couponCode.trim().toUpperCase() : '';
   if (!normalizedCode) {
     return null;
@@ -130,14 +135,22 @@ function resolveCoupon(couponCode) {
   }
 
   const discountPercent = Number(coupon.discountPercent);
-  if (!Number.isFinite(discountPercent) || discountPercent <= 0 || discountPercent >= 100) {
+  if (!Number.isFinite(discountPercent) || discountPercent <= 0 || discountPercent > 100) {
     throw new Error('Coupon discount is invalid.');
+  }
+
+  const applicablePlans = Array.isArray(coupon.applicablePlans)
+    ? coupon.applicablePlans.filter(entry => entry === 'premium' || entry === 'studio')
+    : [];
+  if (plan && applicablePlans.length > 0 && !applicablePlans.includes(plan)) {
+    throw new Error('Coupon code is not valid for this plan.');
   }
 
   return {
     code: normalizedCode,
     expiresAt: coupon.expiresAt,
     discountPercent,
+    applicablePlans,
   };
 }
 
@@ -329,6 +342,7 @@ export function buildEmptyPlanner(options = {}) {
       },
     ],
     activePlanId: planId,
+    customTemplates: [],
     wedding: { ...emptyWedding },
     events: [],
     expenses: [],
@@ -488,6 +502,49 @@ function sanitizeMarriages(value, ownerEmail, ownerId) {
     .filter(marriage => Boolean(marriage.id));
 }
 
+function sanitizeCustomTemplateEvents(value) {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value
+    .filter(isRecord)
+    .map((event, index) => ({
+      name: String(event.name || '').trim(),
+      emoji: String(event.emoji || '✨').trim() || '✨',
+      sortOrder: Number.isFinite(Number(event.sortOrder)) ? Number(event.sortOrder) : index,
+    }))
+    .filter(event => event.name)
+    .sort((a, b) => a.sortOrder - b.sortOrder)
+    .map((event, index) => ({ ...event, sortOrder: index }));
+}
+
+function sanitizeCustomTemplates(value) {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value
+    .filter(isRecord)
+    .map((template, index) => {
+      const id = typeof template.id === 'string' && template.id.trim()
+        ? template.id.trim()
+        : `custom_template_${index}`;
+      const events = sanitizeCustomTemplateEvents(template.events);
+      return {
+        id,
+        name: String(template.name || '').trim() || 'Custom Template',
+        description: String(template.description || '').trim() || 'Built for your wedding flow',
+        emoji: String(template.emoji || '✨').trim() || '✨',
+        culture: String(template.culture || 'Custom').trim() || 'Custom',
+        highlights: events.slice(0, 3).map(event => event.name),
+        eventCount: events.length,
+        events,
+        createdAt: template.createdAt || new Date(),
+      };
+    });
+}
+
 function sanitizePlanScopedCollection(items, validPlanIds, activePlanId) {
   return sanitizeCollection(items).map(item => {
     if (typeof item.planId === 'string' && validPlanIds.has(item.planId)) {
@@ -535,6 +592,7 @@ export function sanitizePlanner(payload = {}, options = {}) {
   return {
     marriages,
     activePlanId,
+    customTemplates: sanitizeCustomTemplates(payload.customTemplates),
     wedding,
     events: sanitizePlanScopedCollection(payload.events, validPlanIds, activePlanId),
     expenses: sanitizePlanScopedCollection(payload.expenses, validPlanIds, activePlanId),
@@ -912,6 +970,7 @@ export function createApp(options = {}) {
     UserModel = User,
     VendorModel = Vendor,
     CareerApplicationModel = CareerApplication,
+    BillingReceiptModel = BillingReceipt,
     uploadCareerResume = uploadPdfToDrive,
   } = options;
 
@@ -1579,6 +1638,56 @@ export function createApp(options = {}) {
     }
   });
 
+  app.get('/api/admin/subscribers', (req, res, next) => authMiddleware(req, res, next, injectedJwtSecret), async (req, res) => {
+    try {
+      const session = await resolveAdminSession(UserModel, req.auth, 'viewer');
+      if (session.error) {
+        return res.status(session.status).json({ error: session.error });
+      }
+
+      const users = await session.User.find({
+        $or: [
+          { subscriptionTier: { $in: ['premium', 'studio'] } },
+          { subscriptionId: { $exists: true, $ne: '' } },
+        ],
+      })
+        .select('-__v')
+        .sort({ subscriptionCurrentPeriodEnd: -1, updatedAt: -1 })
+        .lean();
+
+      const receipts = await BillingReceiptModel.find({})
+        .select('-__v')
+        .sort({ issuedAt: -1, createdAt: -1 })
+        .lean();
+
+      const latestReceiptByGoogleId = new Map();
+      receipts.forEach(receipt => {
+        if (receipt?.googleId && !latestReceiptByGoogleId.has(receipt.googleId)) {
+          latestReceiptByGoogleId.set(receipt.googleId, receipt);
+        }
+      });
+
+      return res.json({
+        subscribers: users.map(user => ({
+          id: String(user._id || user.googleId || ''),
+          googleId: user.googleId || '',
+          name: user.name || '',
+          email: user.email || '',
+          subscriptionTier: user.subscriptionTier || 'starter',
+          subscriptionStatus: user.subscriptionStatus || 'active',
+          subscriptionCurrentPeriodEnd: user.subscriptionCurrentPeriodEnd || null,
+          subscriptionId: user.subscriptionId || '',
+          latestReceipt: latestReceiptByGoogleId.has(user.googleId)
+            ? serializeBillingReceipt(latestReceiptByGoogleId.get(user.googleId))
+            : null,
+        })),
+      });
+    } catch (error) {
+      console.error('Admin subscribers fetch failed:', error);
+      return res.status(500).json({ error: 'Could not load subscribers.' });
+    }
+  });
+
   app.get('/api/planner/me', (req, res, next) => authMiddleware(req, res, next, injectedJwtSecret), async (req, res) => {
     try {
       req.auth.plannerOwnerId = req.query?.plannerOwnerId || '';
@@ -1759,12 +1868,6 @@ export function createApp(options = {}) {
       const plannerDoc = await PlannerModel.findOne({ googleId: plannerOwnerId });
       if (!plannerDoc) {
         return res.status(404).json({ error: 'Planner not found.' });
-      }
-
-      // Subscription gate: only Premium / Studio can add collaborators
-      const tier = await getUserSubscriptionTier(UserModel, req.auth.sub);
-      if (tier === 'starter') {
-        return res.status(403).json({ error: 'Collaborators require a Premium or Studio subscription.', code: 'UPGRADE_REQUIRED' });
       }
 
       const email = normalizeEmail(req.auth.email);
@@ -1991,7 +2094,7 @@ export function createApp(options = {}) {
     }
 
     try {
-      const coupon = resolveCoupon(couponCode);
+      const coupon = resolveCoupon(couponCode, plan);
       const amount = applyCouponDiscount(baseAmount, coupon);
       return res.json({
         amount,
@@ -2000,6 +2103,7 @@ export function createApp(options = {}) {
         appliedCoupon: coupon,
         plan,
         billingCycle: cycle,
+        requiresPayment: amount > 0,
       });
     } catch (error) {
       const statusCode = /coupon/i.test(error?.message || '') ? 400 : 500;
@@ -2008,12 +2112,6 @@ export function createApp(options = {}) {
   });
 
   app.post('/api/subscription/checkout', (req, res, next) => authMiddleware(req, res, next, injectedJwtSecret), async (req, res) => {
-    const razorpayKeyId = process.env.RAZORPAY_KEY_ID;
-    const razorpayKeySecret = process.env.RAZORPAY_KEY_SECRET;
-    if (!razorpayKeyId || !razorpayKeySecret) {
-      return res.status(500).json({ error: 'Payment gateway is not configured.' });
-    }
-
     const { plan, billingCycle, couponCode } = req.body || {};
     if (!plan || !['premium', 'studio'].includes(plan)) {
       return res.status(400).json({ error: 'Invalid plan. Must be "premium" or "studio".' });
@@ -2029,8 +2127,30 @@ export function createApp(options = {}) {
       const user = await UserModel.findOne({ googleId: req.auth.sub }).lean();
       if (!user) return res.status(404).json({ error: 'User not found.' });
 
-      const coupon = resolveCoupon(couponCode);
+      const coupon = resolveCoupon(couponCode, plan);
       const amount = applyCouponDiscount(baseAmount, coupon);
+
+      if (amount === 0) {
+        return res.json({
+          checkoutMode: 'internal_free',
+          amount,
+          baseAmount,
+          currency: 'INR',
+          appliedCoupon: coupon,
+          name: 'VivahGo',
+          description: `${plan === 'studio' ? 'Studio' : 'Premium'} ${cycle === 'yearly' ? 'yearly' : 'monthly'} plan`,
+          prefill: {
+            name: user.name,
+            email: user.email,
+          },
+        });
+      }
+
+      const razorpayKeyId = process.env.RAZORPAY_KEY_ID;
+      const razorpayKeySecret = process.env.RAZORPAY_KEY_SECRET;
+      if (!razorpayKeyId || !razorpayKeySecret) {
+        return res.status(500).json({ error: 'Payment gateway is not configured.' });
+      }
 
       const razorpay = new Razorpay({ key_id: razorpayKeyId, key_secret: razorpayKeySecret });
       const order = await razorpay.orders.create({
@@ -2060,6 +2180,7 @@ export function createApp(options = {}) {
           email: user.email,
         },
         notes: order.notes || {},
+        checkoutMode: 'razorpay',
       });
     } catch (error) {
       console.error('Razorpay order creation failed:', error);
@@ -2069,40 +2190,56 @@ export function createApp(options = {}) {
   });
 
   app.post('/api/subscription/confirm', (req, res, next) => authMiddleware(req, res, next, injectedJwtSecret), async (req, res) => {
-    const razorpayKeySecret = process.env.RAZORPAY_KEY_SECRET;
-    if (!razorpayKeySecret) {
-      return res.status(500).json({ error: 'Payment gateway is not configured.' });
-    }
-
-    const { plan, billingCycle, orderId, paymentId, signature } = req.body || {};
+    const { plan, billingCycle, orderId, paymentId, signature, couponCode } = req.body || {};
     if (!plan || !['premium', 'studio'].includes(plan)) {
       return res.status(400).json({ error: 'Invalid plan.' });
     }
 
-    if (!orderId || !paymentId || !signature) {
-      return res.status(400).json({ error: 'Payment confirmation is incomplete.' });
-    }
-
     const cycle = billingCycle === 'yearly' ? 'yearly' : 'monthly';
-    const isValid = verifyRazorpayPaymentSignature(orderId, paymentId, signature, razorpayKeySecret);
-    if (!isValid) {
-      return res.status(400).json({ error: 'Payment signature verification failed.' });
-    }
 
     try {
-      await UserModel.updateOne(
-        { googleId: req.auth.sub },
-        {
-          $set: {
-            subscriptionId: paymentId,
-            subscriptionTier: tierForPlan(plan),
-            subscriptionStatus: 'active',
-            subscriptionCurrentPeriodEnd: buildSubscriptionPeriodEnd(cycle),
-          },
-        }
-      );
+      const user = await UserModel.findOne({ googleId: req.auth.sub }).lean();
+      if (!user) {
+        return res.status(404).json({ error: 'User not found.' });
+      }
 
-      return res.json({ success: true });
+      const baseAmount = resolveSubscriptionAmount(plan, cycle);
+      if (!baseAmount) {
+        return res.status(500).json({ error: `Amount for ${plan} (${cycle}) is not configured.` });
+      }
+
+      const coupon = resolveCoupon(couponCode, plan);
+      const amount = applyCouponDiscount(baseAmount, coupon);
+
+      if (amount > 0) {
+        const razorpayKeySecret = process.env.RAZORPAY_KEY_SECRET;
+        if (!razorpayKeySecret) {
+          return res.status(500).json({ error: 'Payment gateway is not configured.' });
+        }
+        if (!orderId || !paymentId || !signature) {
+          return res.status(400).json({ error: 'Payment confirmation is incomplete.' });
+        }
+        const isValid = verifyRazorpayPaymentSignature(orderId, paymentId, signature, razorpayKeySecret);
+        if (!isValid) {
+          return res.status(400).json({ error: 'Payment signature verification failed.' });
+        }
+      }
+
+      const result = await persistReceiptAndSubscription({
+        BillingReceiptModel,
+        UserModel,
+        auth: req.auth,
+        user,
+        plan,
+        cycle,
+        baseAmount,
+        amount,
+        coupon,
+        paymentProvider: amount === 0 ? 'internal' : 'razorpay',
+        paymentReference: amount === 0 ? '' : paymentId,
+      });
+
+      return res.json({ success: true, receipt: result.receipt, checkoutMode: amount === 0 ? 'internal_free' : 'razorpay' });
     } catch (error) {
       console.error('Razorpay payment confirmation failed:', error);
       return res.status(500).json({ error: 'Failed to confirm payment.' });
@@ -2128,20 +2265,6 @@ export function createApp(options = {}) {
       const event = JSON.parse(req.body.toString('utf8'));
       const payment = event?.payload?.payment?.entity;
       const notes = payment?.notes || {};
-
-      if (event?.event === 'payment.captured' && notes.googleId && notes.plan) {
-        await UserModel.updateOne(
-          { googleId: notes.googleId },
-          {
-            $set: {
-              subscriptionId: payment.id,
-              subscriptionTier: tierForPlan(notes.plan),
-              subscriptionStatus: 'active',
-              subscriptionCurrentPeriodEnd: buildSubscriptionPeriodEnd(notes.billingCycle),
-            },
-          }
-        );
-      }
 
       if (event?.event === 'payment.failed' && notes.googleId) {
         await UserModel.updateOne(
@@ -2177,6 +2300,158 @@ function tierForPlan(plan) {
   if (plan === 'studio') return 'studio';
   if (plan === 'premium') return 'premium';
   return 'starter';
+}
+
+function generateReceiptNumber(plan) {
+  const prefix = plan === 'studio' ? 'VGS' : 'VGP';
+  return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8).toUpperCase()}`;
+}
+
+function serializeBillingReceipt(receipt = {}) {
+  const plain = typeof receipt?.toObject === 'function' ? receipt.toObject() : receipt;
+  return {
+    id: String(plain._id || ''),
+    receiptNumber: plain.receiptNumber || '',
+    email: plain.email || '',
+    plan: plain.plan || '',
+    billingCycle: plain.billingCycle || '',
+    currency: plain.currency || 'INR',
+    baseAmount: Number(plain.baseAmount || 0),
+    amount: Number(plain.amount || 0),
+    couponCode: plain.couponCode || '',
+    discountPercent: Number(plain.discountPercent || 0),
+    paymentProvider: plain.paymentProvider || 'internal',
+    paymentReference: plain.paymentReference || '',
+    status: plain.status || 'issued',
+    emailDeliveryStatus: plain.emailDeliveryStatus || 'pending',
+    emailDeliveryError: plain.emailDeliveryError || '',
+    issuedAt: plain.issuedAt || null,
+    currentPeriodEnd: plain.currentPeriodEnd || null,
+  };
+}
+
+async function sendBillingReceiptEmail({ toEmail, userName, receipt }) {
+  const resendApiKey = process.env.RESEND_API_KEY;
+  const billingFromEmail = process.env.BILLING_FROM_EMAIL;
+  if (!resendApiKey || !billingFromEmail || !toEmail) {
+    return { status: 'skipped', error: '' };
+  }
+
+  const periodEnd = receipt.currentPeriodEnd
+    ? new Date(receipt.currentPeriodEnd).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
+    : 'Not available';
+
+  const amountInRupees = (Number(receipt.amount || 0) / 100).toFixed(2);
+  const baseAmountInRupees = (Number(receipt.baseAmount || 0) / 100).toFixed(2);
+
+  const html = `
+    <div style="font-family: Arial, sans-serif; color: #1f2937; line-height: 1.6;">
+      <h2 style="margin-bottom: 8px;">VivahGo Billing Receipt</h2>
+      <p>Hello ${userName || 'there'},</p>
+      <p>Your ${receipt.plan} plan receipt has been generated successfully.</p>
+      <table style="border-collapse: collapse; width: 100%; max-width: 560px;">
+        <tr><td style="padding: 6px 0; font-weight: 600;">Receipt number</td><td style="padding: 6px 0;">${receipt.receiptNumber}</td></tr>
+        <tr><td style="padding: 6px 0; font-weight: 600;">Plan</td><td style="padding: 6px 0; text-transform: capitalize;">${receipt.plan}</td></tr>
+        <tr><td style="padding: 6px 0; font-weight: 600;">Billing cycle</td><td style="padding: 6px 0; text-transform: capitalize;">${receipt.billingCycle}</td></tr>
+        <tr><td style="padding: 6px 0; font-weight: 600;">Base amount</td><td style="padding: 6px 0;">INR ${baseAmountInRupees}</td></tr>
+        <tr><td style="padding: 6px 0; font-weight: 600;">Discount</td><td style="padding: 6px 0;">${receipt.discountPercent}%${receipt.couponCode ? ` (${receipt.couponCode})` : ''}</td></tr>
+        <tr><td style="padding: 6px 0; font-weight: 600;">Amount billed</td><td style="padding: 6px 0;">INR ${amountInRupees}</td></tr>
+        <tr><td style="padding: 6px 0; font-weight: 600;">Valid until</td><td style="padding: 6px 0;">${periodEnd}</td></tr>
+      </table>
+      <p style="margin-top: 18px;">Thank you for choosing VivahGo.</p>
+    </div>
+  `;
+
+  const response = await fetch('https://api.resend.com/emails', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${resendApiKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      from: billingFromEmail,
+      to: [toEmail],
+      subject: `VivahGo receipt ${receipt.receiptNumber}`,
+      html,
+    }),
+  });
+
+  if (!response.ok) {
+    const data = await response.json().catch(() => ({}));
+    throw new Error(data?.message || `Email delivery failed (${response.status}).`);
+  }
+
+  return { status: 'sent', error: '' };
+}
+
+async function persistReceiptAndSubscription({ BillingReceiptModel, UserModel, auth, user, plan, cycle, baseAmount, amount, coupon, paymentProvider, paymentReference }) {
+  const currentPeriodEnd = buildSubscriptionPeriodEnd(cycle);
+  const createdReceipt = await BillingReceiptModel.create({
+    googleId: auth.sub,
+    email: user.email,
+    receiptNumber: generateReceiptNumber(plan),
+    plan,
+    billingCycle: cycle,
+    currency: 'INR',
+    baseAmount,
+    amount,
+    couponCode: coupon?.code || '',
+    discountPercent: Number(coupon?.discountPercent || 0),
+    paymentProvider,
+    paymentReference: paymentReference || '',
+    status: amount === 0 ? 'issued' : 'paid',
+    emailDeliveryStatus: 'pending',
+    issuedAt: new Date(),
+    currentPeriodEnd,
+    meta: {
+      applicablePlans: coupon?.applicablePlans || [],
+    },
+  });
+
+  await UserModel.updateOne(
+    { googleId: auth.sub },
+    {
+      $set: {
+        subscriptionId: paymentReference || createdReceipt.receiptNumber,
+        subscriptionTier: tierForPlan(plan),
+        subscriptionStatus: 'active',
+        subscriptionCurrentPeriodEnd: currentPeriodEnd,
+      },
+    }
+  );
+
+  try {
+    const emailResult = await sendBillingReceiptEmail({
+      toEmail: user.email,
+      userName: user.name,
+      receipt: serializeBillingReceipt(createdReceipt),
+    });
+    await BillingReceiptModel.updateOne(
+      { _id: createdReceipt._id },
+      { $set: { emailDeliveryStatus: emailResult.status, emailDeliveryError: emailResult.error || '' } }
+    );
+    return {
+      receipt: {
+        ...serializeBillingReceipt(createdReceipt),
+        emailDeliveryStatus: emailResult.status,
+        emailDeliveryError: emailResult.error || '',
+      },
+      currentPeriodEnd,
+    };
+  } catch (error) {
+    await BillingReceiptModel.updateOne(
+      { _id: createdReceipt._id },
+      { $set: { emailDeliveryStatus: 'failed', emailDeliveryError: error.message || 'Email delivery failed.' } }
+    );
+    return {
+      receipt: {
+        ...serializeBillingReceipt(createdReceipt),
+        emailDeliveryStatus: 'failed',
+        emailDeliveryError: error.message || 'Email delivery failed.',
+      },
+      currentPeriodEnd,
+    };
+  }
 }
 
 async function getUserSubscriptionTier(UserModel, googleId) {

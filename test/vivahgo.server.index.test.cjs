@@ -52,6 +52,7 @@ describe('VivahGo/server/index.js', function () {
     assert.equal(Array.isArray(emptyPlanner.marriages), true);
     assert.equal(emptyPlanner.marriages.length, 1);
     assert.ok(emptyPlanner.activePlanId);
+    assert.deepEqual(emptyPlanner.customTemplates, []);
     assert.deepEqual(emptyPlanner.wedding, { bride: '', groom: '', date: '', venue: '', guests: '', budget: '' });
     assert.deepEqual(emptyPlanner.events, []);
     assert.deepEqual(emptyPlanner.expenses, []);
@@ -69,6 +70,7 @@ describe('VivahGo/server/index.js', function () {
       wedding: { bride: 'Aarohi' },
       events: [{ id: 1 }, null],
       tasks: ['bad', { id: 2 }],
+      customTemplates: [{ id: 'custom_template_a', name: 'Custom', events: [{ name: 'Haldi', emoji: '🌿' }] }],
     });
 
     assert.equal(sanitized.wedding.bride, 'Aarohi');
@@ -79,6 +81,8 @@ describe('VivahGo/server/index.js', function () {
     assert.equal(sanitized.events[0].planId, sanitized.activePlanId);
     assert.equal(sanitized.tasks[0].id, 2);
     assert.equal(sanitized.tasks[0].planId, sanitized.activePlanId);
+    assert.equal(sanitized.customTemplates.length, 1);
+    assert.equal(sanitized.customTemplates[0].eventCount, 1);
 
     const normalizedCollaborators = mod.sanitizePlanner(
       {

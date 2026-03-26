@@ -7,6 +7,7 @@ const {
   buildEmptyPlanner,
   createSessionToken,
   getPlannerModel,
+  getBillingReceiptModel,
   getUserModel,
   handlePreflight,
   sanitizePlanner,
@@ -117,7 +118,7 @@ describe('core helpers', function () {
     it('preserves websiteSlug on marriages', function () {
       const result = sanitizePlanner({
         marriages: [
-          { id: 'plan_site', bride: 'Asha', groom: 'Rohan', websiteSlug: 'asha-rohan-3', websiteSettings: { isActive: false, showCalendar: false } },
+          { id: 'plan_site', bride: 'Asha', groom: 'Rohan', websiteSlug: 'asha-rohan-3', websiteSettings: { isActive: false, showCalendar: false, theme: 'midnight-navy' } },
         ],
         activePlanId: 'plan_site',
       });
@@ -126,6 +127,26 @@ describe('core helpers', function () {
       assert.equal(result.marriages[0].websiteSettings.isActive, false);
       assert.equal(result.marriages[0].websiteSettings.showCalendar, false);
       assert.equal(result.marriages[0].websiteSettings.showCountdown, true);
+      assert.equal(result.marriages[0].websiteSettings.theme, 'midnight-navy');
+      assert.equal(result.marriages[0].websiteSettings.scheduleTitle, 'Wedding Calendar');
+    });
+
+    it('keeps normalized custom templates on the planner', function () {
+      const result = sanitizePlanner({
+        customTemplates: [
+          {
+            id: 'custom_template_a',
+            name: 'Planner Signature',
+            culture: 'Custom',
+            emoji: '✨',
+            events: [{ name: 'Family Brunch', emoji: '🍽️' }],
+          },
+        ],
+      });
+
+      assert.equal(result.customTemplates.length, 1);
+      assert.equal(result.customTemplates[0].name, 'Planner Signature');
+      assert.equal(result.customTemplates[0].eventCount, 1);
     });
   });
 
@@ -353,6 +374,18 @@ describe('core helpers', function () {
       const second = getPlannerModel();
 
       assert.equal(first, second);
+    });
+  });
+
+  describe('getBillingReceiptModel', function () {
+    it('returns a mongoose model with expected schema paths', function () {
+      const BillingReceipt = getBillingReceiptModel();
+
+      assert.equal(typeof BillingReceipt, 'function');
+      assert.ok(BillingReceipt.schema.path('googleId'));
+      assert.ok(BillingReceipt.schema.path('receiptNumber'));
+      assert.ok(BillingReceipt.schema.path('plan'));
+      assert.ok(BillingReceipt.schema.path('amount'));
     });
   });
 });

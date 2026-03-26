@@ -19,6 +19,7 @@ describe('VivahGo/src/appRoutes.js', function () {
 
     assert.equal(mod.getRouteInfo('/').bodyRoute, 'app');
     assert.equal(mod.getRouteInfo('/home').isMarketingHomeRoute, true);
+    assert.equal(mod.getRouteInfo('/pricing').isPricingRoute, true);
     assert.equal(mod.getRouteInfo('/careers').isCareersRoute, true);
     assert.equal(mod.getRouteInfo('/wedding').isWeddingWebsiteRoute, true);
     assert.equal(mod.getRouteInfo('/vendor').isVendorRoute, true);
@@ -30,6 +31,7 @@ describe('VivahGo/src/appRoutes.js', function () {
 
     assert.equal(mod.getRouteInfo('/riya-arjun').publicWeddingSlug, 'riya-arjun');
     assert.equal(mod.getRouteInfo('/home').publicWeddingSlug, '');
+    assert.equal(mod.getRouteInfo('/pricing').publicWeddingSlug, '');
     assert.equal(mod.getRouteInfo('/admin').publicWeddingSlug, '');
     assert.equal(mod.getRouteInfo('/wedding').bodyRoute, 'wedding');
     assert.equal(mod.getRouteInfo('/riya-arjun').bodyRoute, 'wedding');

@@ -357,11 +357,6 @@ async function handlePlannerCollaborators(req, res) {
     const nextCollaborators = [...(plan.collaborators || [])];
 
     if (req.method === 'POST') {
-      const tier = await getSubscriptionTier(auth.sub);
-      if (tier === 'starter') {
-        return res.status(403).json({ error: 'Collaborators require a Premium or Studio subscription.', code: 'UPGRADE_REQUIRED' });
-      }
-
       const collaboratorEmail = normalizeEmail(req.body?.email);
       const role = normalizeRole(req.body?.role);
 

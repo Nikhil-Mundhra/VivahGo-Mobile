@@ -30,7 +30,11 @@ export default function App() {
   }
 
   if (routeInfo.isMarketingHomeRoute) {
-    return <MarketingHomePage />;
+    return <MarketingHomePage page="home" />;
+  }
+
+  if (routeInfo.isPricingRoute) {
+    return <MarketingHomePage page="pricing" />;
   }
 
   if (routeInfo.isWeddingWebsiteRoute) {

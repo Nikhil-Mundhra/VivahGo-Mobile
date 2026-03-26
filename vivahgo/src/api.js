@@ -245,6 +245,10 @@ export function fetchAdminApplications(token) {
   return request('/admin/applications', { token });
 }
 
+export function fetchAdminSubscribers(token) {
+  return request('/admin/subscribers', { token });
+}
+
 export function updateAdminVendorApproval(token, payload) {
   return request('/admin/vendors', {
     method: 'PATCH',

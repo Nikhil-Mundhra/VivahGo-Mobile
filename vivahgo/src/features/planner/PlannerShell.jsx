@@ -31,7 +31,7 @@ import {
   savePlanner,
   updatePlanCollaboratorRole,
 } from "../../api";
-import { DEFAULT_WEBSITE_SETTINGS, EMPTY_WEDDING, buildWeddingWebsitePath, createBlankPlanner, createDemoPlanner, hasWeddingProfile, normalizePlanner, generatePlanId, createTemplatePlanCollections } from "../../plannerDefaults";
+import { DEFAULT_WEBSITE_SETTINGS, EMPTY_WEDDING, buildWeddingWebsitePath, createBlankPlanner, createDemoPlanner, hasWeddingProfile, normalizePlanner, generatePlanId, createTemplatePlanCollections, normalizeCustomTemplates } from "../../plannerDefaults";
 import { useSwipeDown } from "../../hooks/useSwipeDown";
 
 const SESSION_STORAGE_KEY = "vivahgo.session";
@@ -76,6 +76,7 @@ export default function PlannerShell() {
   const [plannerOwnerId, setPlannerOwnerId] = useState("");
   const [accessibleWorkspaces, setAccessibleWorkspaces] = useState([]);
   const [isSwitchingWorkspace, setIsSwitchingWorkspace] = useState(false);
+  const [customTemplates, setCustomTemplates] = useState([]);
   // Subscription
   const [subscription, setSubscription] = useState({ tier: "starter", status: "active", currentPeriodEnd: null });
   const [showUpgradePrompt, setShowUpgradePrompt] = useState(false);
@@ -169,6 +170,7 @@ export default function PlannerShell() {
     const planner = normalizePlanner(nextPlanner);
     setMarriages(planner.marriages || []);
     setActivePlanId(planner.activePlanId);
+    setCustomTemplates(planner.customTemplates || []);
     setWedding(planner.wedding);
     setEvents(planner.events);
     setExpenses(planner.expenses);
@@ -319,7 +321,7 @@ export default function PlannerShell() {
     }
 
     const newPlanId = generatePlanId();
-    const seededCollections = createTemplatePlanCollections(formData.template, newPlanId);
+    const seededCollections = createTemplatePlanCollections(formData.template, newPlanId, customTemplates);
     const newMarriage = {
       id: newPlanId,
       bride: formData.bride,
@@ -354,6 +356,29 @@ export default function PlannerShell() {
     setCollaborators(newMarriage.collaborators || []);
     setPlanAccess({ role: "owner", canEdit: true, canManageSharing: true });
     setShowNewPlanModal(false);
+  }
+
+  function createCustomTemplate(templateData) {
+    if (subscription.tier !== "studio") {
+      setUpgradePromptMessage("Custom templates are available on the Studio plan.");
+      setShowUpgradePrompt(true);
+      return null;
+    }
+
+    const nextTemplate = {
+      id: `custom_template_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+      name: templateData.name,
+      description: templateData.description,
+      culture: templateData.culture,
+      emoji: templateData.emoji,
+      events: templateData.events,
+      createdAt: new Date(),
+      isCustom: true,
+    };
+
+    const normalizedTemplate = normalizeCustomTemplates([nextTemplate])[0];
+    setCustomTemplates(current => [...current, normalizedTemplate]);
+    return normalizedTemplate;
   }
 
   function deleteMarriage(planId) {
@@ -448,19 +473,10 @@ export default function PlannerShell() {
     }
 
     if (authMode === "google" && authToken) {
-      try {
-        const response = await addPlanCollaborator(authToken, { planId: targetPlanId, email, role, plannerOwnerId });
-        const next = Array.isArray(response.collaborators) ? response.collaborators : [];
-        syncPlanCollaborators(targetPlanId, next);
-        await refreshAccessibleWorkspaces(authToken);
-      } catch (err) {
-        if (err.message && err.message.includes("Premium")) {
-          setUpgradePromptMessage("Collaborators require a Premium or Studio subscription.");
-          setShowUpgradePrompt(true);
-        } else {
-          throw err;
-        }
-      }
+      const response = await addPlanCollaborator(authToken, { planId: targetPlanId, email, role, plannerOwnerId });
+      const next = Array.isArray(response.collaborators) ? response.collaborators : [];
+      syncPlanCollaborators(targetPlanId, next);
+      await refreshAccessibleWorkspaces(authToken);
       return;
     }
 
@@ -701,6 +717,7 @@ export default function PlannerShell() {
     const planner = {
       marriages,
       activePlanId,
+      customTemplates,
       wedding,
       events,
       expenses,
@@ -740,7 +757,7 @@ export default function PlannerShell() {
     return () => {
       clearTimeout(saveTimerRef.current);
     };
-  }, [authMode, authToken, expenses, events, guests, isBootstrapping, tasks, vendors, wedding, marriages, activePlanId, planAccess.canEdit, plannerOwnerId]);
+  }, [authMode, authToken, customTemplates, expenses, events, guests, isBootstrapping, tasks, vendors, wedding, marriages, activePlanId, planAccess.canEdit, plannerOwnerId]);
 
   function handleDemoLogin() {
     const demoUser = {
@@ -828,7 +845,7 @@ export default function PlannerShell() {
 
   function handleOnboardComplete(answers) {
     const selectedTemplate = answers?.template || "blank";
-    const seededCollections = createTemplatePlanCollections(selectedTemplate, activePlanId);
+    const seededCollections = createTemplatePlanCollections(selectedTemplate, activePlanId, customTemplates);
     const { template: _template, ...answerFields } = answers || {};
     const nextWedding = {
       ...EMPTY_WEDDING,
@@ -1045,7 +1062,7 @@ export default function PlannerShell() {
           {/* Content */}
           <div className={`content-area ${!planAccess.canEdit ? "content-area-readonly" : ""}`} ref={contentAreaRef}>
             {tab==="home" && <Dashboard wedding={wedding} events={activeEvents} expenses={activeExpenses} guests={activeGuests} budget={wedding.budget} onTabChange={setTab} onEditEvent={openEventEditorFromCalendar}/>}
-            {tab==="events" && <EventsScreen events={activeEvents} setEvents={setActiveEvents} expenses={activeExpenses} setExpenses={setActiveExpenses} planId={activePlanId} websitePath={activeWeddingWebsitePath} websiteSettings={activeMarriage?.websiteSettings || DEFAULT_WEBSITE_SETTINGS} onSaveWebsiteSettings={updateActiveMarriageWebsiteSettings} onOpenBudget={() => setTab("budget")} initialEditingEventId={eventToEditId}/>}
+            {tab==="events" && <EventsScreen events={activeEvents} setEvents={setActiveEvents} expenses={activeExpenses} setExpenses={setActiveExpenses} planId={activePlanId} websitePath={activeWeddingWebsitePath} websiteSettings={activeMarriage?.websiteSettings || DEFAULT_WEBSITE_SETTINGS} subscriptionTier={subscription.tier} onSaveWebsiteSettings={updateActiveMarriageWebsiteSettings} onOpenBudget={() => setTab("budget")} initialEditingEventId={eventToEditId}/>}
             {tab==="budget" && <BudgetScreen expenses={activeExpenses} setExpenses={setActiveExpenses} wedding={wedding} events={activeEvents} planId={activePlanId}/>} 
             {tab==="guests" && <GuestsScreen guests={activeGuests} setGuests={setActiveGuests} planId={activePlanId}/>} 
             {tab==="vendors" && <VendorsScreen vendors={activeVendors}/>} 
@@ -1096,7 +1113,7 @@ export default function PlannerShell() {
                 </p>
                 <a
                   className="btn-primary"
-                  href="/home#pricing"
+                  href="/pricing"
                   style={{ display: "block", textAlign: "center", textDecoration: "none" }}
                   onClick={() => setShowUpgradePrompt(false)}
                 >
@@ -1122,6 +1139,9 @@ export default function PlannerShell() {
           {showNewPlanModal && (
             <NewMarriagePlanModal
               onClose={() => setShowNewPlanModal(false)}
+              subscriptionTier={subscription.tier}
+              customTemplates={customTemplates}
+              onCreateCustomTemplate={createCustomTemplate}
               onCreate={createNewMarriage}
             />
           )}

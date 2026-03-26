@@ -108,6 +108,38 @@ describe('api/planner.js -> collaborators route', function () {
     );
   });
 
+  it('allows starter users to add collaborators', async function () {
+    User.findOne = () => ({ lean: async () => ({ subscriptionTier: 'starter', subscriptionStatus: 'active' }) });
+    Planner.findOne = async () => makePlannerDoc();
+    Planner.findOneAndUpdate = async (_filter, update) => ({
+      toObject: () => ({
+        ...makePlannerDoc().toObject(),
+        marriages: update.$set.marriages,
+      }),
+    });
+
+    const req = {
+      method: 'POST',
+      headers: { authorization: `Bearer ${makeToken()}` },
+      body: {
+        plannerOwnerId: 'owner-sub',
+        planId: 'plan-1',
+        email: 'starterperson@test.com',
+        role: 'viewer',
+      },
+      query: {},
+    };
+    const res = createRes();
+
+    await handler(req, res);
+
+    assert.equal(res.statusCode, 200);
+    assert.equal(
+      res.body.collaborators.some(item => item.email === 'starterperson@test.com' && item.role === 'viewer'),
+      true
+    );
+  });
+
   it('prevents editors from changing collaborator roles', async function () {
     Planner.findOne = async () => makePlannerDoc();
 

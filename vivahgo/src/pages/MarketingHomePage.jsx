@@ -68,14 +68,14 @@ const plans = [
     monthlyPrice: 0,
     yearlyPrice: 0,
     description: "Best for getting your wedding out of chats and into one clear workspace.",
-    features: ["1 wedding workspace", "Events, guests, budget, and vendor tracking", "Google sign-in", "Shareable planning foundation"],
+    features: ["1 Unified Wedding Workspace", "Track and manage events, guest lists, budgets, and vendors", "Checklist & Progress Tracking", "WhatsApp Guest Reminders", "Culture-Specific Wedding Templates", "Invite Collaborators"],
   },
   {
     name: "Premium",
     monthlyPrice: 2000,
     yearlyPrice: 1600,
     description: "Best for active planning with more family involvement and tighter coordination.",
-    features: ["Everything in Starter", "Multiple wedding workspaces", "Collaborator permissions", "Priority planner sync"],
+    features: ["Everything in Starter", "Unlimited Wedding Workspaces", "Personalized Wedding Website", "Advanced workspace management"],
     featured: true,
   },
   {
@@ -83,7 +83,7 @@ const plans = [
     monthlyPrice: 5000,
     yearlyPrice: 4000,
     description: "Best for planners and studios running multiple client weddings.",
-    features: ["Everything in Premium", "Client-ready workspaces", "Team collaboration", "Admin visibility across plans"],
+    features: ["Everything in Premium", "Client-ready workspaces", "Create Custom Templates", "Request for upto 2 Custom Features"],
   },
 ];
 
@@ -227,7 +227,7 @@ function SocialIcon({ name }) {
   );
 }
 
-export default function MarketingHomePage() {
+export default function MarketingHomePage({ page = "home" }) {
   const [session, setSession] = useState(() => readStoredSession());
   const [billingCycle, setBillingCycle] = useState("monthly");
   const [showTermsModal, setShowTermsModal] = useState(false);
@@ -240,6 +240,7 @@ export default function MarketingHomePage() {
   const [planLoginError, setPlanLoginError] = useState("");
   const [subscriptionBanner, setSubscriptionBanner] = useState(null);
   const [checkoutRoute, setCheckoutRoute] = useState(() => readCheckoutRouteFromUrl());
+  const isPricingPage = page === "pricing";
 
   useEffect(() => {
     const syncSession = () => {
@@ -252,7 +253,7 @@ export default function MarketingHomePage() {
       }
     };
 
-    document.title = "VivahGo | Home";
+    document.title = isPricingPage ? "VivahGo | Pricing" : "VivahGo | Home";
     syncSession();
 
     window.addEventListener("storage", syncSession);
@@ -264,7 +265,7 @@ export default function MarketingHomePage() {
       window.removeEventListener("focus", syncSession);
       document.removeEventListener("visibilitychange", handleVisibility);
     };
-  }, []);
+  }, [isPricingPage]);
 
   useEffect(() => {
     const handlePopState = () => {
@@ -373,6 +374,84 @@ export default function MarketingHomePage() {
     setCheckoutRoute(null);
   }
 
+  function renderPricingSection() {
+    return (
+      <section className="marketing-section" id="pricing">
+        <div className="marketing-section-heading">
+          <p className="marketing-section-kicker">Pricing</p>
+          <p>Costs less than 0.1% of a typical Indian wedding but prevents expensive mistakes.</p>
+          <div className="marketing-billing-toggle" role="group" aria-label="Billing period">
+            <button
+              type="button"
+              className={`marketing-billing-option${!isYearlyBilling ? " marketing-billing-option-active" : ""}`}
+              onClick={() => setBillingCycle("monthly")}
+            >
+              Monthly
+            </button>
+            <button
+              type="button"
+              className={`marketing-billing-option${isYearlyBilling ? " marketing-billing-option-active" : ""}`}
+              onClick={() => setBillingCycle("yearly")}
+            >
+              Yearly <span>Save 20%</span>
+            </button>
+          </div>
+          <h2>Start simple. Upgrade when the wedding gets bigger.</h2>
+          <p>Start free, set up your workspace, and move up only when planning gets more collaborative.</p>
+        </div>
+
+        <div className="marketing-pricing-grid">
+          {plans.map((plan) => (
+            <article className={`marketing-price-card${plan.featured ? " marketing-price-card-featured" : ""}`} key={plan.name}>
+              {plan.featured && <span className="marketing-price-ribbon">Most Popular</span>}
+              <h3>{plan.name}</h3>
+              <p className="marketing-price-value">
+                <strong>
+                  {(isYearlyBilling ? plan.yearlyPrice : plan.monthlyPrice) === 0 ? (
+                    "Free"
+                  ) : (
+                    <>
+                      <span className="marketing-price-currency">₹</span>
+                      {(isYearlyBilling ? plan.yearlyPrice : plan.monthlyPrice).toLocaleString("en-IN")}
+                    </>
+                  )}
+                </strong>
+                <span>{(isYearlyBilling ? plan.yearlyPrice : plan.monthlyPrice) === 0 ? "forever" : "/month"}</span>
+              </p>
+              {isYearlyBilling && (isYearlyBilling ? plan.yearlyPrice : plan.monthlyPrice) !== 0 && (
+                <span className="marketing-price-billed-yearly">Billed Yearly</span>
+              )}
+              <p className="marketing-price-description">{plan.description}</p>
+              <ul>
+                {plan.features.map((item) => (
+                  <li key={item}>{item}</li>
+                ))}
+              </ul>
+              {plan.name === "Starter" ? (
+                <a
+                  className="marketing-price-action marketing-price-action-ghost"
+                  href="/"
+                >
+                  Start Your Wedding Plan Free
+                </a>
+              ) : (
+                <button
+                  type="button"
+                  className={`marketing-price-action ${plan.featured ? "marketing-price-action-featured" : "marketing-price-action-ghost"}`}
+                  onClick={() => handleChoosePlan(plan.name)}
+                  disabled={checkoutLoadingPlan === plan.name.toLowerCase() || Boolean(checkoutSheetPlan) || Boolean(checkoutRoute)}
+                  style={checkoutLoadingPlan === plan.name.toLowerCase() || checkoutSheetPlan || checkoutRoute ? { opacity: 0.7, cursor: "not-allowed" } : undefined}
+                >
+                  {checkoutLoadingPlan === plan.name.toLowerCase() ? "Loading checkout..." : plan.name === "Studio" ? "Talk to Sales" : "Upgrade Your Workspace"}
+                </button>
+              )}
+            </article>
+          ))}
+        </div>
+      </section>
+    );
+  }
+
   if (checkoutRoute) {
     return (
       <SubscriptionCheckoutPage
@@ -387,11 +466,240 @@ export default function MarketingHomePage() {
         onError={(message) => {
           setSubscriptionBanner({ type: "error", message });
         }}
-        onSuccess={() => {
-          setSubscriptionBanner({ type: "success", message: "Payment received. Your plan is now active." });
+        onSuccess={(result) => {
+          const isFreeBill = result?.checkoutMode === "internal_free";
+          const receiptNumber = result?.receipt?.receiptNumber;
+          setSubscriptionBanner({
+            type: "success",
+            message: isFreeBill
+              ? `Your 0 INR bill${receiptNumber ? ` (${receiptNumber})` : ""} has been generated and your plan is now active.`
+              : "Payment received. Your plan is now active.",
+          });
           closeCheckoutPage();
         }}
       />
+    );
+  }
+
+  if (isPricingPage) {
+    return (
+      <div className="marketing-home-shell">
+        {subscriptionBanner && (
+          <div style={{
+            position: "sticky", top: 0, zIndex: 100,
+            padding: "12px 24px", textAlign: "center",
+            fontSize: 14, fontWeight: 600,
+            background: subscriptionBanner.type === "success"
+              ? "rgba(46,125,50,0.92)"
+              : subscriptionBanner.type === "error"
+                ? "rgba(183,28,28,0.92)"
+                : "rgba(30,60,114,0.92)",
+            color: "#fff",
+            backdropFilter: "blur(6px)",
+          }}>
+            {subscriptionBanner.message}
+            <button
+              type="button"
+              onClick={() => setSubscriptionBanner(null)}
+              style={{
+                marginLeft: 16, background: "transparent", border: "none",
+                color: "#fff", cursor: "pointer", fontSize: 16, lineHeight: 1,
+              }}
+              aria-label="Dismiss"
+            >✕</button>
+          </div>
+        )}
+        <header className="marketing-header">
+          <a className="marketing-brand" href="/home" aria-label="VivahGo home page">
+            <img src="/Thumbnail.png" alt="VivahGo" className="marketing-brand-mark" />
+          </a>
+
+          <nav className="marketing-nav marketing-page-toggle" aria-label="Marketing pages">
+            <a className={!isPricingPage ? "marketing-nav-link-active" : ""} href="/home">Home</a>
+            <a className={isPricingPage ? "marketing-nav-link-active" : ""} href="/pricing">Pricing</a>
+          </nav>
+
+          <div className="marketing-auth">
+            <a className="marketing-header-link-button" href="/vendor">
+              For Vendors
+            </a>
+            <a className="marketing-auth-button" href="/">
+              {primaryCtaLabel}
+              {isSignedIn && (
+                session?.user?.picture ? (
+                  <img
+                    src={session.user.picture}
+                    alt={`${firstName} profile`}
+                    className="marketing-auth-avatar"
+                  />
+                ) : (
+                  <span className="marketing-auth-avatar marketing-auth-avatar-fallback" aria-hidden="true">
+                    {profileInitial}
+                  </span>
+                )
+              )}
+            </a>
+          </div>
+        </header>
+
+        <main className="marketing-main">
+          <section className="marketing-section marketing-pricing-page-intro">
+            <div className="marketing-section-heading">
+              <p className="marketing-section-kicker">Pricing</p>
+              <h1>Choose the workspace that fits your wedding.</h1>
+              <p>Start free, upgrade when you need more coordination, and keep billing simple as your planning grows.</p>
+            </div>
+          </section>
+
+          {renderPricingSection()}
+
+          <section className="marketing-section marketing-final-cta">
+            <div className="marketing-section-heading">
+              <h2 className="marketing-final-cta-title">Start planning early. Avoid chaos later.</h2>
+              <p>Create your wedding workspace today.</p>
+            </div>
+            <div className="marketing-hero-actions marketing-final-actions">
+              <a className="marketing-primary-action" href="/">
+                Start for free
+              </a>
+            </div>
+          </section>
+        </main>
+
+        <footer className="marketing-footer" id="social">
+          <div className="marketing-footer-copy">
+            <p className="marketing-section-kicker">Stay Connected</p>
+            <h2>Follow VivahGo</h2>
+            <p>Product updates, planning ideas, and early release news.</p>
+          </div>
+
+          <div className="marketing-social-links">
+            {socialLinks.map((link) => (
+              <a key={link.name} href={link.href} target="_blank" rel="noreferrer" aria-label={link.label} className="marketing-social-link">
+                <span className="marketing-social-icon">
+                  <SocialIcon name={link.name} />
+                </span>
+                <span>{link.name}</span>
+              </a>
+            ))}
+          </div>
+        </footer>
+
+        <LegalFooter
+          className="marketing-legal-footer"
+          hasBottomNav={false}
+          onOpenTerms={() => setShowTermsModal(true)}
+          onOpenFeedback={() => setShowFeedbackModal(true)}
+        />
+
+        {showLoginBeforePlanModal && (
+          <div className="marketing-login-overlay" onClick={() => {
+            if (!planLoginLoading) {
+              setShowLoginBeforePlanModal(false);
+              setPendingPlanSelection(null);
+              setPlanLoginError("");
+            }
+          }} role="presentation">
+            <div className="marketing-login-dialog" role="dialog" aria-modal="true" aria-label="Sign in to choose a premium plan" onClick={(event) => event.stopPropagation()}>
+              <button
+                type="button"
+                className="marketing-login-close"
+                onClick={() => {
+                  if (!planLoginLoading) {
+                    setShowLoginBeforePlanModal(false);
+                    setPendingPlanSelection(null);
+                    setPlanLoginError("");
+                  }
+                }}
+                aria-label="Close login prompt"
+                disabled={planLoginLoading}
+              >
+                x
+              </button>
+
+              <p className="marketing-login-kicker">Sign in required</p>
+              <h3>Continue with Google before choosing a premium plan</h3>
+              <p>
+                {pendingPlanSelection ? `You selected ${pendingPlanSelection.name}.` : "Sign in to continue with checkout."}
+              </p>
+
+              <div className="marketing-login-google-wrap">
+                <GoogleLoginButton
+                  onLoginSuccess={handlePlanLoginSuccess}
+                  onLoginError={handlePlanLoginError}
+                />
+              </div>
+
+              {planLoginLoading && (
+                <div className="marketing-login-status">
+                  <p>Signing you in...</p>
+                  <LoadingBar compact className="marketing-login-loading-bar" />
+                </div>
+              )}
+              {planLoginError && <p className="marketing-login-error">{planLoginError}</p>}
+
+              <button
+                type="button"
+                className="marketing-price-action marketing-price-action-ghost marketing-login-cancel"
+                onClick={() => {
+                  if (!planLoginLoading) {
+                    setShowLoginBeforePlanModal(false);
+                    setPendingPlanSelection(null);
+                    setPlanLoginError("");
+                  }
+                }}
+                disabled={planLoginLoading}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        )}
+
+        {checkoutSheetPlan && (
+          <SubscriptionCheckoutSheet
+            token={checkoutSheetPlan.token}
+            plan={checkoutSheetPlan.key}
+            planName={checkoutSheetPlan.name}
+            billingCycle={billingCycle}
+            onPlanChange={(nextPlanKey, nextPlanName) => {
+              setCheckoutSheetPlan((current) => {
+                if (!current) {
+                  return current;
+                }
+
+                return {
+                  ...current,
+                  key: nextPlanKey,
+                  name: nextPlanName,
+                };
+              });
+            }}
+            onBillingCycleChange={setBillingCycle}
+            onReady={() => setCheckoutLoadingPlan(null)}
+            onLoadingStart={() => setCheckoutLoadingPlan(checkoutSheetPlan.key)}
+            onClose={() => {
+              setCheckoutLoadingPlan(null);
+              setCheckoutSheetPlan(null);
+            }}
+            onError={(message) => {
+              setCheckoutLoadingPlan(null);
+              setSubscriptionBanner({ type: "error", message });
+            }}
+            onProceed={({ plan, billingCycle: nextBillingCycle, couponCode }) => {
+              openCheckoutPage({
+                plan,
+                billingCycle: nextBillingCycle,
+                couponCode,
+              });
+            }}
+            fetchQuote={getCheckoutQuote}
+          />
+        )}
+
+        {showTermsModal && <TermsConditionsModal onClose={() => setShowTermsModal(false)} />}
+        {showFeedbackModal && <FeedbackModal onClose={() => setShowFeedbackModal(false)} />}
+      </div>
     );
   }
 
@@ -427,11 +735,9 @@ export default function MarketingHomePage() {
           <img src="/Thumbnail.png" alt="VivahGo" className="marketing-brand-mark" />
         </a>
 
-        <nav className="marketing-nav" aria-label="Homepage sections">
-          <a href="#problem">Why It Matters</a>
-          <a href="#product">Product</a>
-          <a href="#pricing">Pricing</a>
-          <a href="#faqs">FAQs</a>
+        <nav className="marketing-nav marketing-page-toggle" aria-label="Marketing pages">
+          <a className={!isPricingPage ? "marketing-nav-link-active" : ""} href="/home">Home</a>
+          <a className={isPricingPage ? "marketing-nav-link-active" : ""} href="/pricing">Pricing</a>
         </nav>
 
         <div className="marketing-auth">
@@ -713,80 +1019,6 @@ export default function MarketingHomePage() {
           </div>
         </section>
 
-        <section className="marketing-section" id="pricing">
-          <div className="marketing-section-heading">
-            <p className="marketing-section-kicker">Pricing</p>
-            <p>Costs less than 0.1% of a typical Indian wedding but prevents expensive mistakes.</p>
-            <div className="marketing-billing-toggle" role="group" aria-label="Billing period">
-              <button
-                type="button"
-                className={`marketing-billing-option${!isYearlyBilling ? " marketing-billing-option-active" : ""}`}
-                onClick={() => setBillingCycle("monthly")}
-              >
-                Monthly
-              </button>
-              <button
-                type="button"
-                className={`marketing-billing-option${isYearlyBilling ? " marketing-billing-option-active" : ""}`}
-                onClick={() => setBillingCycle("yearly")}
-              >
-                Yearly <span>Save 20%</span>
-              </button>
-            </div>
-            <h2>Start simple. Upgrade when the wedding gets bigger.</h2>
-            <p>Start free, set up your workspace, and move up only when planning gets more collaborative.</p>
-          </div>
-
-          <div className="marketing-pricing-grid">
-            {plans.map((plan) => (
-              <article className={`marketing-price-card${plan.featured ? " marketing-price-card-featured" : ""}`} key={plan.name}>
-                {plan.featured && <span className="marketing-price-ribbon">Most Popular</span>}
-                <h3>{plan.name}</h3>
-                <p className="marketing-price-value">
-                  <strong>
-                    {(isYearlyBilling ? plan.yearlyPrice : plan.monthlyPrice) === 0 ? (
-                      "Free"
-                    ) : (
-                      <>
-                        <span className="marketing-price-currency">₹</span>
-                        {(isYearlyBilling ? plan.yearlyPrice : plan.monthlyPrice).toLocaleString("en-IN")}
-                      </>
-                    )}
-                  </strong>
-                  <span>{(isYearlyBilling ? plan.yearlyPrice : plan.monthlyPrice) === 0 ? "forever" : "/month"}</span>
-                </p>
-                {isYearlyBilling && (isYearlyBilling ? plan.yearlyPrice : plan.monthlyPrice) !== 0 && (
-                  <span className="marketing-price-billed-yearly">Billed Yearly</span>
-                )}
-                <p className="marketing-price-description">{plan.description}</p>
-                <ul>
-                  {plan.features.map((item) => (
-                    <li key={item}>{item}</li>
-                  ))}
-                </ul>
-                {plan.name === "Starter" ? (
-                  <a
-                    className="marketing-price-action marketing-price-action-ghost"
-                    href="/"
-                  >
-                    Start Your Wedding Plan Free
-                  </a>
-                ) : (
-                  <button
-                    type="button"
-                    className={`marketing-price-action ${plan.featured ? "marketing-price-action-featured" : "marketing-price-action-ghost"}`}
-                    onClick={() => handleChoosePlan(plan.name)}
-                    disabled={checkoutLoadingPlan === plan.name.toLowerCase() || Boolean(checkoutSheetPlan) || Boolean(checkoutRoute)}
-                    style={checkoutLoadingPlan === plan.name.toLowerCase() || checkoutSheetPlan || checkoutRoute ? { opacity: 0.7, cursor: "not-allowed" } : undefined}
-                  >
-                    {checkoutLoadingPlan === plan.name.toLowerCase() ? "Loading checkout..." : plan.name === "Studio" ? "Talk to Sales" : "Upgrade Your Workspace"}
-                  </button>
-                )}
-              </article>
-            ))}
-          </div>
-        </section>
-
         <section className="marketing-section" id="faqs">
           <div className="marketing-section-heading">
             <p className="marketing-section-kicker">FAQs</p>
@@ -811,6 +1043,9 @@ export default function MarketingHomePage() {
           <div className="marketing-hero-actions marketing-final-actions">
             <a className="marketing-primary-action" href="/">
               Start for free
+            </a>
+            <a className="marketing-secondary-action marketing-secondary-action-gold" href="/pricing">
+              View Pricing
             </a>
           </div>
         </section>
