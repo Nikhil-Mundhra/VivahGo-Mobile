@@ -4,7 +4,7 @@ const path = require('node:path');
 const plannerModule = require('./planner');
 
 const DEFAULT_SITE_URL = 'https://vivahgo.com';
-const DEFAULT_IMAGE_PATH = '/Thumbnail.png';
+const DEFAULT_IMAGE_PATH = '/social-preview.jpg';
 const HOME_FAQS = [
   {
     question: 'Is VivahGo for couples or planners?',
@@ -135,7 +135,7 @@ function buildSeoMarkup(meta, req) {
     `    <meta property="og:description" content="${description}" />`,
     `    <meta property="og:url" content="${canonicalUrl}" />`,
     `    <meta property="og:image" content="${imageUrl}" />`,
-    `    <meta property="og:image:type" content="image/png" />`,
+    `    <meta property="og:image:type" content="image/jpeg" />`,
     `    <meta property="og:image:width" content="1200" />`,
     `    <meta property="og:image:height" content="630" />`,
     `    <meta property="og:image:alt" content="${imageAlt}" />`,

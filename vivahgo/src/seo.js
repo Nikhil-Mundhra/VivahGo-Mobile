@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 
 export const DEFAULT_SITE_URL = "https://vivahgo.com";
-export const DEFAULT_SEO_IMAGE_PATH = "/Thumbnail.png";
+export const DEFAULT_SEO_IMAGE_PATH = "/social-preview.jpg";
 const LOCAL_HOST_PATTERN = /^(localhost|127(?:\.\d{1,3}){3})$/;
 
 function getRuntimeEnv() {

@@ -50,7 +50,7 @@ describe('VivahGo/src/seo.js', function () {
       title: 'VivahGo Pricing',
       description: 'Compare plans.',
       path: '/pricing',
-      image: '/Thumbnail.png',
+      image: '/social-preview.jpg',
       structuredData: { '@context': 'https://schema.org', '@type': 'WebPage', name: 'Pricing' },
     }, {
       doc: dom.window.document,
@@ -69,7 +69,7 @@ describe('VivahGo/src/seo.js', function () {
     );
     assert.equal(
       dom.window.document.querySelector('meta[name="twitter:image"]').getAttribute('content'),
-      'https://vivahgo.com/Thumbnail.png'
+      'https://vivahgo.com/social-preview.jpg'
     );
     assert.equal(
       dom.window.document.querySelector('link[rel="canonical"]').getAttribute('href'),
