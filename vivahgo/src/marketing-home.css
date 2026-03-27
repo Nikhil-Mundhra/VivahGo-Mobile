@@ -2299,6 +2299,28 @@ body[data-route='home'] #root {
     font: inherit;
   }
 
+  .marketing-mobile-menu-group {
+    display: grid;
+    gap: 6px;
+  }
+
+  .marketing-mobile-menu-trigger {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .marketing-mobile-menu-trigger-open {
+    color: var(--marketing-accent-deep);
+    background: rgba(187, 77, 40, 0.14);
+  }
+
+  .marketing-mobile-submenu {
+    display: grid;
+    gap: 6px;
+    padding-left: 12px;
+  }
+
   .marketing-mobile-menu-backdrop {
     position: fixed;
     inset: 0;

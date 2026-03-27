@@ -353,7 +353,7 @@ body { background: var(--color-deep-red); }
   bottom: 0; left: 0;
   width: 100%;
   background: var(--color-white);
-  border-top: 1px solid rgba(139,26,26,0.1);
+  border-top: none;
   display: flex;
   padding: 8px 0 20px;
   z-index: 100;
@@ -2717,7 +2717,7 @@ body { background: var(--color-deep-red); }
     gap: 0;
     padding: 18px 0;
     border-top: none;
-    border-right: 1px solid rgba(139, 26, 26, 0.12);
+    border-right: none;
     box-shadow: none;
     background: linear-gradient(180deg, #fffdfa 0%, #fff7eb 100%);
     z-index: 120;
