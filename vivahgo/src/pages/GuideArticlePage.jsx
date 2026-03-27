@@ -179,7 +179,6 @@ export default function GuideArticlePage({ guideSlug = "" }) {
 
               <div className="marketing-guide-article-meta">
                 <span>{guide.readTime}</span>
-                <span>{guide.sections.length} sections</span>
               </div>
 
               <div className="marketing-keyword-chip-cloud" aria-label={`${guide.title} keywords`}>
@@ -208,30 +207,28 @@ export default function GuideArticlePage({ guideSlug = "" }) {
           </div>
         </section>
 
-        {guide.sections.map((section) => (
-          <section className="marketing-section marketing-guide-section" key={section.heading}>
-            <div className="marketing-section-heading">
-              <p className="marketing-section-kicker">Section</p>
-              <h2>{section.heading}</h2>
-            </div>
+        <section className="marketing-section marketing-guide-section">
+          <div className="marketing-guide-body">
+            {guide.sections.map((section) => (
+              <div className="marketing-guide-subsection" key={section.heading}>
+                <h2>{section.heading}</h2>
+                {section.paragraphs.map((paragraph) => (
+                  <p key={paragraph}>{paragraph}</p>
+                ))}
 
-            <div className="marketing-guide-body">
-              {section.paragraphs.map((paragraph) => (
-                <p key={paragraph}>{paragraph}</p>
-              ))}
+                {Array.isArray(section.bullets) && section.bullets.length ? (
+                  <ul className="marketing-guide-list">
+                    {section.bullets.map((bullet) => (
+                      <li key={bullet}>{bullet}</li>
+                    ))}
+                  </ul>
+                ) : null}
+              </div>
+            ))}
+          </div>
+        </section>
 
-              {Array.isArray(section.bullets) && section.bullets.length ? (
-                <ul className="marketing-guide-list">
-                  {section.bullets.map((bullet) => (
-                    <li key={bullet}>{bullet}</li>
-                  ))}
-                </ul>
-              ) : null}
-            </div>
-          </section>
-        ))}
-
-        <section className="marketing-section marketing-section-contrast">
+        <section className="marketing-section marketing-section-contrast marketing-guide-conversion-section">
           <div className="marketing-section-heading">
             <p className="marketing-section-kicker">Use The Product</p>
             <h2>Turn the guide into an actual working plan.</h2>

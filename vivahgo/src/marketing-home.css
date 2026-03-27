@@ -1268,13 +1268,23 @@ body[data-route='home'] #root {
   line-height: 1.7;
 }
 
-.marketing-guide-section .marketing-section-heading {
-  max-width: 56rem;
-}
-
 .marketing-guide-body {
   max-width: 56rem;
-  margin: 28px auto 0;
+  margin: 0;
+  text-align: left;
+}
+
+.marketing-guide-subsection + .marketing-guide-subsection {
+  margin-top: 42px;
+}
+
+.marketing-guide-subsection h2 {
+  margin: 0 0 18px;
+  font-size: clamp(2rem, 3.5vw, 3.2rem);
+  line-height: 1.06;
+  letter-spacing: -0.03em;
+  color: var(--marketing-ink);
+  text-align: left;
 }
 
 .marketing-guide-body p {
@@ -1290,6 +1300,16 @@ body[data-route='home'] #root {
   color: var(--marketing-muted-strong);
   display: grid;
   gap: 10px;
+}
+
+.marketing-guide-conversion-section .marketing-section-heading {
+  max-width: 56rem;
+  margin-inline: 0;
+  text-align: left;
+}
+
+.marketing-guide-conversion-section .marketing-guide-cta {
+  justify-content: flex-start;
 }
 
 .marketing-guide-list li {
