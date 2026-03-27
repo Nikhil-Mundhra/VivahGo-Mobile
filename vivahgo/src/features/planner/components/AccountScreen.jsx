@@ -34,6 +34,9 @@ function AccountScreen({ user, authMode, wedding, setWedding, subscription, onCl
     studio: { bg: "rgba(30,60,114,0.10)", text: "#1a3a7c", border: "rgba(30,60,114,0.25)" },
   };
   const tierColor = tierColors[tier] || tierColors.starter;
+  const activeUntilLabel = subscription?.currentPeriodEnd && tier !== "starter"
+    ? new Date(subscription.currentPeriodEnd).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })
+    : "";
 
   return (
     <div className="modal-overlay" onClick={onClose}>
@@ -116,20 +119,28 @@ function AccountScreen({ user, authMode, wedding, setWedding, subscription, onCl
             }}>
               Subscription
             </div>
-            <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-              <span style={{
-                fontSize: 12, fontWeight: 700,
-                borderRadius: 8, padding: "3px 11px",
-                background: tierColor.bg,
+            <div style={{
+              borderRadius: 14,
+              padding: "14px 16px",
+              background: tierColor.bg,
+              border: `1px solid ${tierColor.border}`,
+              textAlign: "center",
+            }}>
+              <div style={{
+                fontSize: 14,
+                fontWeight: 700,
                 color: tierColor.text,
-                border: `1px solid ${tierColor.border}`,
               }}>
                 {tierLabel} Plan
-              </span>
-              {subscription?.currentPeriodEnd && tier !== "starter" && (
-                <span style={{ fontSize: 11, color: "var(--color-light-text)" }}>
-                  Active until {new Date(subscription.currentPeriodEnd).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}
-                </span>
+              </div>
+              {activeUntilLabel && (
+                <div style={{
+                  fontSize: 11,
+                  color: "var(--color-light-text)",
+                  marginTop: 6,
+                }}>
+                  Active until {activeUntilLabel}
+                </div>
               )}
             </div>
             {tier !== "starter" ? (
@@ -137,13 +148,15 @@ function AccountScreen({ user, authMode, wedding, setWedding, subscription, onCl
                 <p style={{ fontSize: 12, color: "var(--color-light-text)", marginTop: 8 }}>
                   Need to renew or switch plans? Open pricing and complete the next Razorpay payment cycle there.
                 </p>
-                <a
-                  className="btn-secondary"
-                  href="/pricing"
-                  style={{ display: "block", textAlign: "center", textDecoration: "none", marginTop: 10 }}
-                >
-                  View Premium Plans
-                </a>
+                {tier !== "studio" && (
+                  <a
+                    className="btn-secondary"
+                    href="/pricing"
+                    style={{ display: "block", textAlign: "center", textDecoration: "none", marginTop: 10 }}
+                  >
+                    View Plans
+                  </a>
+                )}
               </>
             ) : (
               <a
