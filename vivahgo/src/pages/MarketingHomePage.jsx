@@ -1,4 +1,6 @@
+import { AnimatePresence, motion } from "framer-motion";
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import "../styles.css";
 import "../marketing-home.css";
 import TermsConditionsModal from "../components/TermsConditionsModal";
@@ -227,9 +229,51 @@ function SocialIcon({ name }) {
   );
 }
 
+function MobileMenuOverlay({ isOpen, onClose }) {
+  if (typeof document === "undefined") {
+    return null;
+  }
+
+  return createPortal(
+    <AnimatePresence>
+      {isOpen ? (
+        <>
+          <motion.button
+            key="backdrop"
+            type="button"
+            className="marketing-mobile-menu-backdrop"
+            aria-label="Close navigation menu"
+            onClick={onClose}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.18, ease: "easeOut" }}
+          />
+          <motion.div
+            key="menu"
+            id="marketing-mobile-menu"
+            className="marketing-mobile-menu marketing-mobile-menu-open"
+            initial={{ opacity: 0, y: -16, scale: 0.96 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -12, scale: 0.98 }}
+            transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
+          >
+            <a href="/home" onClick={onClose}>Home</a>
+            <a href="/pricing" onClick={onClose}>Pricing</a>
+            <a href="/careers" onClick={onClose}>Careers</a>
+            <a href="/vendor" onClick={onClose}>Vendor Login</a>
+          </motion.div>
+        </>
+      ) : null}
+    </AnimatePresence>,
+    document.body
+  );
+}
+
 export default function MarketingHomePage({ page = "home" }) {
   const [session, setSession] = useState(() => readStoredSession());
   const [billingCycle, setBillingCycle] = useState("monthly");
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [showTermsModal, setShowTermsModal] = useState(false);
   const [showFeedbackModal, setShowFeedbackModal] = useState(false);
   const [checkoutLoadingPlan, setCheckoutLoadingPlan] = useState(null);
@@ -283,6 +327,62 @@ export default function MarketingHomePage({ page = "home" }) {
   const firstName = session?.user?.given_name || session?.user?.name?.split(" ")[0] || "there";
   const profileInitial = firstName.trim().charAt(0).toUpperCase() || "Y";
   const primaryCtaLabel = "Start Planning Now";
+  const mobileCtaLabel = "Plan Now";
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return undefined;
+    }
+
+    const handleResize = () => {
+      if (window.innerWidth > 720) {
+        setMobileNavOpen(false);
+      }
+    };
+
+    window.addEventListener("resize", handleResize);
+    return () => {
+      window.removeEventListener("resize", handleResize);
+    };
+  }, []);
+
+  function closeMobileNav() {
+    setMobileNavOpen(false);
+  }
+
+  useEffect(() => {
+    if (typeof document === "undefined") {
+      return undefined;
+    }
+
+    const { body } = document;
+    const previousOverflow = body.style.overflow;
+
+    if (mobileNavOpen) {
+      body.style.overflow = "hidden";
+    }
+
+    return () => {
+      body.style.overflow = previousOverflow;
+    };
+  }, [mobileNavOpen]);
+
+  useEffect(() => {
+    if (!mobileNavOpen || typeof window === "undefined") {
+      return undefined;
+    }
+
+    const handleKeyDown = (event) => {
+      if (event.key === "Escape") {
+        setMobileNavOpen(false);
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [mobileNavOpen]);
 
   function handleChoosePlan(planName) {
     const planKey = planName.toLowerCase();
@@ -510,6 +610,18 @@ export default function MarketingHomePage({ page = "home" }) {
           </div>
         )}
         <header className="marketing-header">
+          <button
+            type="button"
+            className="marketing-mobile-menu-toggle"
+            aria-label={mobileNavOpen ? "Close navigation menu" : "Open navigation menu"}
+            aria-expanded={mobileNavOpen}
+            aria-controls="marketing-mobile-menu"
+            onClick={() => setMobileNavOpen((current) => !current)}
+          >
+            <span />
+            <span />
+            <span />
+          </button>
           <a className="marketing-brand" href="/home" aria-label="VivahGo home page">
             <img src="/Thumbnail.png" alt="VivahGo" className="marketing-brand-mark" />
           </a>
@@ -517,6 +629,7 @@ export default function MarketingHomePage({ page = "home" }) {
           <nav className="marketing-nav marketing-page-toggle" aria-label="Marketing pages">
             <a className={!isPricingPage ? "marketing-nav-link-active" : ""} href="/home">Home</a>
             <a className={isPricingPage ? "marketing-nav-link-active" : ""} href="/pricing">Pricing</a>
+            <a href="/careers">Careers</a>
           </nav>
 
           <div className="marketing-auth">
@@ -524,7 +637,8 @@ export default function MarketingHomePage({ page = "home" }) {
               For Vendors
             </a>
             <a className="marketing-auth-button" href="/">
-              {primaryCtaLabel}
+              <span className="marketing-auth-button-label marketing-auth-button-label-desktop">{primaryCtaLabel}</span>
+              <span className="marketing-auth-button-label marketing-auth-button-label-mobile">{mobileCtaLabel}</span>
               {isSignedIn && (
                 session?.user?.picture ? (
                   <img
@@ -541,6 +655,7 @@ export default function MarketingHomePage({ page = "home" }) {
             </a>
           </div>
         </header>
+        <MobileMenuOverlay isOpen={mobileNavOpen} onClose={closeMobileNav} />
 
         <main className="marketing-main">
           <section className="marketing-section marketing-pricing-page-intro">
@@ -731,6 +846,18 @@ export default function MarketingHomePage({ page = "home" }) {
         </div>
       )}
       <header className="marketing-header">
+        <button
+          type="button"
+          className="marketing-mobile-menu-toggle"
+          aria-label={mobileNavOpen ? "Close navigation menu" : "Open navigation menu"}
+          aria-expanded={mobileNavOpen}
+          aria-controls="marketing-mobile-menu"
+          onClick={() => setMobileNavOpen((current) => !current)}
+        >
+          <span />
+          <span />
+          <span />
+        </button>
         <a className="marketing-brand" href="/home" aria-label="VivahGo home page">
           <img src="/Thumbnail.png" alt="VivahGo" className="marketing-brand-mark" />
         </a>
@@ -738,6 +865,7 @@ export default function MarketingHomePage({ page = "home" }) {
         <nav className="marketing-nav marketing-page-toggle" aria-label="Marketing pages">
           <a className={!isPricingPage ? "marketing-nav-link-active" : ""} href="/home">Home</a>
           <a className={isPricingPage ? "marketing-nav-link-active" : ""} href="/pricing">Pricing</a>
+          <a href="/careers">Careers</a>
         </nav>
 
         <div className="marketing-auth">
@@ -745,7 +873,8 @@ export default function MarketingHomePage({ page = "home" }) {
             For Vendors
           </a>
           <a className="marketing-auth-button" href="/">
-            {primaryCtaLabel}
+            <span className="marketing-auth-button-label marketing-auth-button-label-desktop">{primaryCtaLabel}</span>
+            <span className="marketing-auth-button-label marketing-auth-button-label-mobile">{mobileCtaLabel}</span>
             {isSignedIn && (
               session?.user?.picture ? (
                 <img
@@ -762,6 +891,7 @@ export default function MarketingHomePage({ page = "home" }) {
           </a>
         </div>
       </header>
+      <MobileMenuOverlay isOpen={mobileNavOpen} onClose={closeMobileNav} />
 
       <main className="marketing-main">
         <section className="marketing-hero">

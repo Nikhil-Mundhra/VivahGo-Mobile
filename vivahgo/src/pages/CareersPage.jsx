@@ -34,6 +34,7 @@ export default function CareersPage() {
   const [resumeLabel, setResumeLabel] = useState('');
   const [showTermsModal, setShowTermsModal] = useState(false);
   const [showFeedbackModal, setShowFeedbackModal] = useState(false);
+  const [session, setSession] = useState(null);
   const formRef = useRef(null);
   const [form, setForm] = useState({
     jobId: '',
@@ -49,6 +50,19 @@ export default function CareersPage() {
 
   useEffect(() => {
     document.title = 'VivahGo | Careers';
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return;
+    }
+
+    try {
+      const raw = window.localStorage.getItem('vivahgo.session');
+      setSession(raw ? JSON.parse(raw) : null);
+    } catch {
+      setSession(null);
+    }
   }, []);
 
   useEffect(() => {
@@ -88,6 +102,9 @@ export default function CareersPage() {
     () => careers.find((career) => career.id === form.jobId) || careers[0] || null,
     [careers, form.jobId]
   );
+  const isSignedIn = Boolean(session?.mode && (session?.user || session?.token));
+  const firstName = session?.user?.given_name || session?.user?.name?.split(' ')[0] || 'there';
+  const profileInitial = firstName.trim().charAt(0).toUpperCase() || 'Y';
 
   function updateForm(field, value) {
     setForm((current) => ({ ...current, [field]: value }));
@@ -185,16 +202,35 @@ export default function CareersPage() {
 
   return (
     <div className="min-h-screen bg-[linear-gradient(180deg,#f8f3ee_0%,#fffdf8_42%,#fff_100%)] text-stone-900">
-      <header className="border-b border-stone-200/80 bg-white/80 backdrop-blur">
-        <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-4 sm:px-6">
-          <a href="/home" className="flex items-center gap-3">
-            <img src="/Thumbnail.png" alt="VivahGo" className="h-10" />
-            <span className="text-sm font-semibold tracking-[0.2em] text-stone-500 uppercase">Careers</span>
+      <header className="marketing-header">
+        <a className="marketing-brand" href="/home" aria-label="VivahGo home page">
+          <img src="/Thumbnail.png" alt="VivahGo" className="marketing-brand-mark" />
+        </a>
+        <nav className="marketing-nav marketing-page-toggle" aria-label="Marketing pages">
+          <a href="/home">Home</a>
+          <a href="/pricing">Pricing</a>
+          <a className="marketing-nav-link-active" href="/careers">Careers</a>
+        </nav>
+        <div className="marketing-auth">
+          <a className="marketing-header-link-button" href="/vendor">
+            For Vendors
           </a>
-          <div className="flex items-center gap-4 text-sm">
-            <a href="/home" className="text-stone-600 transition hover:text-rose-600">Home</a>
-            <a href="/admin" className="text-stone-600 transition hover:text-rose-600">Admin</a>
-          </div>
+          <a className="marketing-auth-button" href="/">
+            Plan Now
+            {isSignedIn && (
+              session?.user?.picture ? (
+                <img
+                  src={session.user.picture}
+                  alt={`${firstName} profile`}
+                  className="marketing-auth-avatar"
+                />
+              ) : (
+                <span className="marketing-auth-avatar marketing-auth-avatar-fallback" aria-hidden="true">
+                  {profileInitial}
+                </span>
+              )
+            )}
+          </a>
         </div>
       </header>
 
