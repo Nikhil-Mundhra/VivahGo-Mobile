@@ -140,7 +140,13 @@ export default function MarketingSiteHeader({
         </button>
 
         <a className="marketing-brand" href="/home" aria-label="VivahGo home page">
-          <img src="/Thumbnail.png" alt="VivahGo" className="marketing-brand-mark" />
+          <img
+            src="/Thumbnail.png"
+            alt="VivahGo"
+            className="marketing-brand-mark"
+            decoding="async"
+            fetchPriority="high"
+          />
         </a>
 
         <nav className="marketing-nav marketing-page-toggle" aria-label="Marketing pages">

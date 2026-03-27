@@ -1,15 +1,20 @@
-import { useEffect } from "react";
-import PlannerPage from "./pages/PlannerPage.jsx";
-import MarketingHomePage from "./pages/MarketingHomePage.jsx";
-import CareersPage from "./pages/CareersPage.jsx";
-import GuidesPage from "./pages/GuidesPage.jsx";
-import GuideArticlePage from "./pages/GuideArticlePage.jsx";
-import GuestRsvpPage from "./pages/GuestRsvpPage.jsx";
-import WeddingWebsitePage from "./pages/WeddingWebsitePage.jsx";
-import VendorPortalPage from "./pages/VendorPortalPage.jsx";
-import AdminPortalPage from "./pages/AdminPortalPage.jsx";
+import { Suspense, lazy, useEffect } from "react";
 import { getRouteInfo } from "./appRoutes.js";
 import { usePageSeo } from "./seo.js";
+
+const PlannerPage = lazy(() => import("./pages/PlannerPage.jsx"));
+const MarketingHomePage = lazy(() => import("./pages/MarketingHomePage.jsx"));
+const CareersPage = lazy(() => import("./pages/CareersPage.jsx"));
+const GuidesPage = lazy(() => import("./pages/GuidesPage.jsx"));
+const GuideArticlePage = lazy(() => import("./pages/GuideArticlePage.jsx"));
+const GuestRsvpPage = lazy(() => import("./pages/GuestRsvpPage.jsx"));
+const WeddingWebsitePage = lazy(() => import("./pages/WeddingWebsitePage.jsx"));
+const VendorPortalPage = lazy(() => import("./pages/VendorPortalPage.jsx"));
+const AdminPortalPage = lazy(() => import("./pages/AdminPortalPage.jsx"));
+
+function PageFallback() {
+  return <div className="app-page-fallback" aria-hidden="true" />;
+}
 
 export default function App() {
   const pathname = typeof window !== "undefined" ? window.location.pathname : "/";
@@ -94,45 +99,29 @@ export default function App() {
 
   usePageSeo(fallbackSeo);
 
+  let page = <PlannerPage />;
+
   if (routeInfo.isVendorRoute) {
-    return <VendorPortalPage />;
+    page = <VendorPortalPage />;
+  } else if (routeInfo.isAdminRoute) {
+    page = <AdminPortalPage />;
+  } else if (routeInfo.isCareersRoute) {
+    page = <CareersPage />;
+  } else if (routeInfo.isGuidesRoute) {
+    page = <GuidesPage />;
+  } else if (routeInfo.guideSlug) {
+    page = <GuideArticlePage guideSlug={routeInfo.guideSlug} />;
+  } else if (routeInfo.isMarketingHomeRoute) {
+    page = <MarketingHomePage page="home" />;
+  } else if (routeInfo.isPricingRoute) {
+    page = <MarketingHomePage page="pricing" />;
+  } else if (routeInfo.isWeddingWebsiteRoute) {
+    page = <WeddingWebsitePage />;
+  } else if (routeInfo.rsvpToken) {
+    page = <GuestRsvpPage rsvpToken={routeInfo.rsvpToken} />;
+  } else if (routeInfo.publicWeddingSlug) {
+    page = <WeddingWebsitePage websiteSlug={routeInfo.publicWeddingSlug} />;
   }
 
-  if (routeInfo.isAdminRoute) {
-    return <AdminPortalPage />;
-  }
-
-  if (routeInfo.isCareersRoute) {
-    return <CareersPage />;
-  }
-
-  if (routeInfo.isGuidesRoute) {
-    return <GuidesPage />;
-  }
-
-  if (routeInfo.guideSlug) {
-    return <GuideArticlePage guideSlug={routeInfo.guideSlug} />;
-  }
-
-  if (routeInfo.isMarketingHomeRoute) {
-    return <MarketingHomePage page="home" />;
-  }
-
-  if (routeInfo.isPricingRoute) {
-    return <MarketingHomePage page="pricing" />;
-  }
-
-  if (routeInfo.isWeddingWebsiteRoute) {
-    return <WeddingWebsitePage />;
-  }
-
-  if (routeInfo.rsvpToken) {
-    return <GuestRsvpPage rsvpToken={routeInfo.rsvpToken} />;
-  }
-
-  if (routeInfo.publicWeddingSlug) {
-    return <WeddingWebsitePage websiteSlug={routeInfo.publicWeddingSlug} />;
-  }
-
-  return <PlannerPage />;
+  return <Suspense fallback={<PageFallback />}>{page}</Suspense>;
 }

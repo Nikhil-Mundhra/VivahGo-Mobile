@@ -1028,7 +1028,12 @@ export default function MarketingHomePage({ page = "home" }) {
           <div className="marketing-band-copy marketing-band-copy-centered">
             <p className="marketing-section-kicker">The Fix</p>
             <div className="marketing-band-mark-frame">
-              <img src="/Thumbnail.png" alt="VivahGo" className="marketing-band-mark" />
+              <img
+                src="/Thumbnail.png"
+                alt="VivahGo"
+                className="marketing-band-mark"
+                decoding="async"
+              />
             </div>
             <p>The operating system for Indian weddings</p>
             <div className="marketing-band-points marketing-band-points-inline">

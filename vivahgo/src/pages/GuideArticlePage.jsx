@@ -191,7 +191,13 @@ export default function GuideArticlePage({ guideSlug = "" }) {
 
             <div className="marketing-guide-article-media">
               {guide.coverImage ? (
-                <img src={guide.coverImage} alt={guide.coverAlt || guide.title} className="marketing-guide-card-image" />
+                <img
+                  src={guide.coverImage}
+                  alt={guide.coverAlt || guide.title}
+                  className="marketing-guide-card-image"
+                  decoding="async"
+                  fetchPriority="high"
+                />
               ) : (
                 <div className="marketing-guide-card-image-placeholder marketing-guide-card-image-placeholder-large" aria-label={`${guide.title} image placeholder`}>
                   <span>Guide Hero Image Slot</span>
@@ -253,7 +259,13 @@ export default function GuideArticlePage({ guideSlug = "" }) {
               <article className="marketing-guide-card" key={item.slug}>
                 <div className="marketing-guide-card-media">
                   {item.coverImage ? (
-                    <img src={item.coverImage} alt={item.coverAlt || item.title} className="marketing-guide-card-image" />
+                    <img
+                      src={item.coverImage}
+                      alt={item.coverAlt || item.title}
+                      className="marketing-guide-card-image"
+                      loading="lazy"
+                      decoding="async"
+                    />
                   ) : (
                     <div className="marketing-guide-card-image-placeholder" aria-label={`${item.title} image placeholder`}>
                       <span>Guide Cover Slot</span>

@@ -158,11 +158,11 @@ body[data-route='home'] #root {
   display: inline-flex;
   align-items: center;
   gap: 22px;
-  padding: 10px 16px;
-  background: rgba(255, 251, 246, 0.62);
-  border: 1px solid var(--marketing-line);
-  border-radius: 999px;
-  backdrop-filter: blur(18px);
+  padding: 0;
+  background: transparent;
+  border-radius: 0;
+  box-shadow: none;
+  backdrop-filter: none;
 }
 
 .marketing-nav a,
@@ -171,9 +171,9 @@ body[data-route='home'] #root {
   font-size: 0.95rem;
   font-weight: 600;
   color: var(--marketing-muted-strong);
-  padding: 8px 14px;
-  border-radius: 999px;
-  transition: background-color 180ms ease, color 180ms ease, transform 180ms ease;
+  padding: 8px 0;
+  border-radius: 0;
+  transition: color 180ms ease;
 }
 
 .marketing-nav-button {
@@ -184,8 +184,8 @@ body[data-route='home'] #root {
 }
 
 .marketing-nav-link-active {
-  background: rgba(187, 77, 40, 0.14);
-  color: var(--marketing-accent-deep);
+  color: var(--marketing-ink);
+  font-weight: 800;
 }
 
 .marketing-nav-dropdown {
@@ -347,6 +347,12 @@ body[data-route='home'] #root {
 .marketing-nav-dropdown-link:hover,
 .marketing-nav-dropdown-action:hover {
   transform: translateY(-1px);
+}
+
+.marketing-nav a:hover,
+.marketing-nav button:hover {
+  transform: none;
+  color: var(--marketing-ink);
 }
 
 .marketing-main {
@@ -923,6 +929,18 @@ body[data-route='home'] #root {
   line-height: 1.7;
 }
 
+.marketing-faq-inline-link {
+  color: #c62828;
+  font-weight: 800;
+  text-decoration: none;
+}
+
+.marketing-faq-inline-link:hover,
+.marketing-faq-inline-link:focus-visible {
+  color: #1d4ed8;
+  text-decoration: none;
+}
+
 .marketing-product-shot {
   display: grid;
   grid-template-rows: minmax(28px, auto) minmax(0, 1fr) auto;
@@ -1286,6 +1304,7 @@ body[data-route='home'] #root {
   background:
     linear-gradient(180deg, rgba(255, 250, 244, 0.98) 0%, rgba(247, 235, 218, 0.94) 100%),
     var(--marketing-surface);
+  margin-top: 24px;
 }
 
 .marketing-guide-article-breadcrumbs {

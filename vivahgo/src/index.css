@@ -70,6 +70,10 @@ body[data-route='home'] {
   box-sizing: border-box;
 }
 
+.app-page-fallback {
+  min-height: 100svh;
+}
+
 h1,
 h2 {
   font-family: var(--heading);

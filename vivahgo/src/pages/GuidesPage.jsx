@@ -6,21 +6,35 @@ import LegalFooter from "../components/LegalFooter";
 import TermsConditionsModal from "../components/TermsConditionsModal";
 import MarketingSiteHeader from "../components/MarketingSiteHeader.jsx";
 import { DEFAULT_SITE_URL, usePageSeo } from "../seo.js";
-import seoKeywordLibrary from "../generated/seo-keywords.json";
 import guides from "../content/guides.json";
 
 const guideFaqs = [
   {
-    question: "Why split guides into separate pages?",
-    answer: "Separate guide URLs make each topic easier to rank, easier to share, and easier to expand with richer content, images, and internal links over time.",
+    question: "Which guide should I start with if I am planning from scratch?",
+    answer: (
+      <>
+        Start with the{" "}
+        <a className="marketing-faq-inline-link" href="/guides/indian-wedding-checklist">
+          Indian Wedding Planning Checklist
+        </a>
+        . It gives you the broad structure first, then you can move into the budget, guest list, vendor, or
+        ceremony-specific guides based on the decision you need to make next.
+      </>
+    ),
+    structuredAnswer:
+      "Start with the Indian Wedding Planning Checklist. It gives you the broad structure first, then you can move into the budget, guest list, vendor, or ceremony-specific guides based on the decision you need to make next.",
   },
   {
-    question: "Can images be added later?",
-    answer: "Yes. Each guide card and article now has a dedicated image slot so cover images can be added without redesigning the layout.",
+    question: "Do I need to read every guide, or can I jump to the topic I need right now?",
+    answer: "You can jump straight to the guide that matches your current problem. Each page is written to stand on its own, whether you are fixing your budget, organizing RSVPs, coordinating vendors, or planning a specific wedding timeline.",
+    structuredAnswer:
+      "You can jump straight to the guide that matches your current problem. Each page is written to stand on its own, whether you are fixing your budget, organizing RSVPs, coordinating vendors, or planning a specific wedding timeline.",
   },
   {
-    question: "Will VivahGo add more guide pages?",
-    answer: "Yes. This hub is designed to expand into more city, culture, budgeting, RSVP, vendor, and destination planning topics.",
+    question: "Are these guides actually useful for Indian weddings with multiple ceremonies and family involvement?",
+    answer: "Yes. The guides are built around real Indian wedding planning work, including multiple functions, shared family decision-making, guest coordination, vendor follow-ups, and ceremony-level timelines instead of generic wedding advice.",
+    structuredAnswer:
+      "Yes. The guides are built around real Indian wedding planning work, including multiple functions, shared family decision-making, guest coordination, vendor follow-ups, and ceremony-level timelines instead of generic wedding advice.",
   },
 ];
 
@@ -69,7 +83,7 @@ const guideStructuredData = [
       name: item.question,
       acceptedAnswer: {
         "@type": "Answer",
-        text: item.answer,
+        text: item.structuredAnswer,
       },
     })),
   },
@@ -92,24 +106,10 @@ function readStoredSession() {
   }
 }
 
-function formatDisplayLabel(value = "") {
-  return String(value)
-    .split(/\s+/)
-    .filter(Boolean)
-    .map((word) =>
-      word
-        .split("-")
-        .map((part) => (part ? part.charAt(0).toUpperCase() + part.slice(1) : part))
-        .join("-")
-    )
-    .join(" ");
-}
-
 export default function GuidesPage() {
   const [session, setSession] = useState(() => readStoredSession());
   const [showTermsModal, setShowTermsModal] = useState(false);
   const [showFeedbackModal, setShowFeedbackModal] = useState(false);
-  const topicChips = seoKeywordLibrary.clusters.primary.slice(0, 8);
 
   usePageSeo({
     title: "VivahGo Guides | Indian Wedding Planning Resources",
@@ -143,47 +143,20 @@ export default function GuidesPage() {
       <main className="marketing-main">
         <section className="marketing-hero">
           <div className="marketing-hero-copy">
-            <p className="marketing-kicker">Guides for real Indian wedding planning work</p>
-            <h1>Browse neat, focused wedding guides instead of one overloaded resources page.</h1>
+            <p className="marketing-kicker">Wedding planning help for every stage of your celebration</p>
+            <h1>Find the guide you need.</h1>
             <p className="marketing-summary">
-              Each guide now has its own dedicated URL, making the hub cleaner for readers and stronger for search.
+              Whether you are just getting started or already deep into decisions, these guides help you plan your
+              Indian wedding with more clarity and less stress.
             </p>
 
             <div className="marketing-hero-actions">
               <a className="marketing-primary-action" href="/">
-                Start Your Wedding Plan Free
+                Start Planning Free
               </a>
               <a className="marketing-secondary-action marketing-secondary-action-gold" href="/pricing">
-                View Pricing
+                See Pricing
               </a>
-            </div>
-
-            <div className="marketing-keyword-chip-cloud marketing-keyword-chip-cloud-wide" aria-label="Guide topics">
-              {topicChips.map((topic) => (
-                <span className="marketing-keyword-chip" key={topic}>{formatDisplayLabel(topic)}</span>
-              ))}
-            </div>
-          </div>
-
-          <div className="marketing-hero-panel" aria-label="Guide hub overview">
-            <div className="marketing-panel-card marketing-panel-primary">
-              <span className="marketing-panel-label">What changed</span>
-              <h2>The guide hub is now a proper index page.</h2>
-              <ul>
-                <li><span>Dedicated guide URLs</span></li>
-                <li><span>Neat cards with summaries</span></li>
-                <li><span>Image slots ready to fill</span></li>
-              </ul>
-            </div>
-            <div className="marketing-panel-stack">
-              <article className="marketing-panel-card">
-                <span className="marketing-panel-metric">{guides.length} guide pages</span>
-                <p>Each one can grow independently with richer copy, visuals, and internal links.</p>
-              </article>
-              <article className="marketing-panel-card">
-                <span className="marketing-panel-metric">{seoKeywordLibrary.summary.keywordCount.toLocaleString("en-IN")} keywords mapped</span>
-                <p>The guide system still sits on top of the source-backed SEO library generated from the product itself.</p>
-              </article>
             </div>
           </div>
         </section>
@@ -200,7 +173,13 @@ export default function GuidesPage() {
               <article className="marketing-guide-card" key={guide.slug}>
                 <div className="marketing-guide-card-media">
                   {guide.coverImage ? (
-                    <img src={guide.coverImage} alt={guide.coverAlt || guide.title} className="marketing-guide-card-image" />
+                    <img
+                      src={guide.coverImage}
+                      alt={guide.coverAlt || guide.title}
+                      className="marketing-guide-card-image"
+                      loading="lazy"
+                      decoding="async"
+                    />
                   ) : (
                     <div className="marketing-guide-card-image-placeholder" aria-label={`${guide.title} image placeholder`}>
                       <span>Guide Cover Slot</span>
@@ -229,7 +208,7 @@ export default function GuidesPage() {
         <section className="marketing-section" id="guide-faqs">
           <div className="marketing-section-heading">
             <p className="marketing-section-kicker">Guide FAQs</p>
-            <h2>Questions about the guide hub</h2>
+            <h2>Common questions before you start reading</h2>
           </div>
 
           <div className="marketing-faq-list">
