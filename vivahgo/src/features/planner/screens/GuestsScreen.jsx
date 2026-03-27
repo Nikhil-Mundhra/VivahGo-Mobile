@@ -4,7 +4,7 @@ import { initials } from "../../../utils";
 import { useSwipeDown } from "../../../hooks/useSwipeDown";
 import { useBackButtonClose } from "../../../hooks/useBackButtonClose";
 
-const DEFAULT_BULK_MESSAGE = "Dear {name},\n\nWith great joy, we invite you to celebrate the wedding of {couple}. Your presence would mean so much to us.\n\nPlease share your RSVP here: {rsvp_link}\n\nWith love,\n{couple}";
+const DEFAULT_BULK_MESSAGE = "Dear *{name}*,\n\nWe would be delighted to have you join us as we celebrate our wedding. Please kindly RSVP yourself and your family at your earliest convenience using the link below:\n\n{rsvp_link}\n\nWe look forward to celebrating with you!\n\n{couple}";
 
 
 const GUEST_TITLES = new Set(["mr", "mrs", "ms", "miss", "dr", "prof", "shri", "smt", "km", "kum"]);
@@ -213,7 +213,7 @@ function GuestsScreen({ guests, setGuests, planId, authToken, plannerOwnerId }) 
       setWhatsAppError("");
       const guestName = getDisplayName(guest) || "there";
       const { rsvpUrl, coupleName } = await createRsvpLinkForGuest(guest);
-      const message = encodeURIComponent(`Dear ${guestName}, with great joy we invite you to celebrate the wedding of ${coupleName}. Please RSVP here: ${rsvpUrl}`);
+      const message = encodeURIComponent(`Dear *${guestName}*,\n\nWe would be delighted to have you join us as we celebrate our wedding. Please kindly RSVP yourself and your family at your earliest convenience using the link below:\n\n${rsvpUrl}\n\nWe look forward to celebrating with you!\n\n${coupleName}`);
       const url = `https://api.whatsapp.com/send/?phone=${phone}&text=${message}`;
       window.open(url, "_blank", "noopener,noreferrer");
     } catch (error) {
