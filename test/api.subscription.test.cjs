@@ -113,7 +113,9 @@ describe('api/subscription.js', function () {
     assert.equal(res.body.receipt.amount, 0);
     assert.equal(res.body.receipt.couponCode, 'VIVAHGO100');
     assert.equal(res.body.receipt.paymentProvider, 'internal');
+    assert.equal(res.body.receipt.status, 'payment_due');
     assert.equal(createdReceipt.plan, 'studio');
+    assert.equal(createdReceipt.status, 'payment_due');
     assert.equal(updatedUser.subscriptionTier, 'studio');
   });
 });

@@ -61,7 +61,7 @@ const billingReceiptSchema = new mongoose.Schema(
     },
     status: {
       type: String,
-      enum: ['paid', 'issued', 'failed'],
+      enum: ['paid', 'issued', 'payment_due', 'failed'],
       default: 'issued',
     },
     emailDeliveryStatus: {

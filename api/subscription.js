@@ -114,6 +114,19 @@ function serializeReceipt(receipt = {}) {
   };
 }
 
+function getBillingDocumentMeta(receipt = {}) {
+  const isPaymentDue = receipt.status === 'payment_due';
+  return {
+    title: isPaymentDue ? 'Bill' : 'Receipt',
+    subject: isPaymentDue ? 'bill' : 'receipt',
+    intro: isPaymentDue
+      ? `Your ${receipt.plan} plan bill has been generated successfully.`
+      : `Your ${receipt.plan} plan receipt has been generated successfully.`,
+    totalLabel: isPaymentDue ? 'Payment due' : 'Amount paid',
+    statusLabel: isPaymentDue ? 'Payment due' : 'Paid',
+  };
+}
+
 async function sendBillingReceiptEmail({ toEmail, userName, receipt }) {
   const resendApiKey = process.env.RESEND_API_KEY;
   const billingFromEmail = process.env.BILLING_FROM_EMAIL;
@@ -127,19 +140,21 @@ async function sendBillingReceiptEmail({ toEmail, userName, receipt }) {
 
   const amountInRupees = (Number(receipt.amount || 0) / 100).toFixed(2);
   const baseAmountInRupees = (Number(receipt.baseAmount || 0) / 100).toFixed(2);
+  const documentMeta = getBillingDocumentMeta(receipt);
 
   const html = `
     <div style="font-family: Arial, sans-serif; color: #1f2937; line-height: 1.6;">
-      <h2 style="margin-bottom: 8px;">VivahGo Billing Receipt</h2>
+      <h2 style="margin-bottom: 8px;">VivahGo ${documentMeta.title}</h2>
       <p>Hello ${userName || 'there'},</p>
-      <p>Your ${receipt.plan} plan receipt has been generated successfully.</p>
+      <p>${documentMeta.intro}</p>
       <table style="border-collapse: collapse; width: 100%; max-width: 560px;">
         <tr><td style="padding: 6px 0; font-weight: 600;">Receipt number</td><td style="padding: 6px 0;">${receipt.receiptNumber}</td></tr>
+        <tr><td style="padding: 6px 0; font-weight: 600;">Status</td><td style="padding: 6px 0;">${documentMeta.statusLabel}</td></tr>
         <tr><td style="padding: 6px 0; font-weight: 600;">Plan</td><td style="padding: 6px 0; text-transform: capitalize;">${receipt.plan}</td></tr>
         <tr><td style="padding: 6px 0; font-weight: 600;">Billing cycle</td><td style="padding: 6px 0; text-transform: capitalize;">${receipt.billingCycle}</td></tr>
         <tr><td style="padding: 6px 0; font-weight: 600;">Base amount</td><td style="padding: 6px 0;">INR ${baseAmountInRupees}</td></tr>
         <tr><td style="padding: 6px 0; font-weight: 600;">Discount</td><td style="padding: 6px 0;">${receipt.discountPercent}%${receipt.couponCode ? ` (${receipt.couponCode})` : ''}</td></tr>
-        <tr><td style="padding: 6px 0; font-weight: 600;">Amount billed</td><td style="padding: 6px 0;">INR ${amountInRupees}</td></tr>
+        <tr><td style="padding: 6px 0; font-weight: 600;">${documentMeta.totalLabel}</td><td style="padding: 6px 0;">INR ${amountInRupees}</td></tr>
         <tr><td style="padding: 6px 0; font-weight: 600;">Valid until</td><td style="padding: 6px 0;">${periodEnd}</td></tr>
       </table>
       <p style="margin-top: 18px;">Thank you for choosing VivahGo.</p>
@@ -155,7 +170,7 @@ async function sendBillingReceiptEmail({ toEmail, userName, receipt }) {
     body: JSON.stringify({
       from: billingFromEmail,
       to: [toEmail],
-      subject: `VivahGo receipt ${receipt.receiptNumber}`,
+      subject: `VivahGo ${documentMeta.subject} ${receipt.receiptNumber}`,
       html,
     }),
   });
@@ -185,7 +200,7 @@ async function persistReceiptAndSubscription({ auth, user, plan, cycle, baseAmou
     discountPercent: Number(coupon?.discountPercent || 0),
     paymentProvider,
     paymentReference: paymentReference || '',
-    status: amount === 0 ? 'issued' : 'paid',
+    status: amount === 0 ? 'payment_due' : 'paid',
     emailDeliveryStatus: 'pending',
     issuedAt: new Date(),
     currentPeriodEnd,

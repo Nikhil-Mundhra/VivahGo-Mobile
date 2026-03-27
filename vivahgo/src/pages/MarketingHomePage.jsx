@@ -14,7 +14,7 @@ import Dashboard from "../features/planner/screens/Dashboard";
 import EventsScreen from "../features/planner/screens/EventsScreen";
 import BudgetScreen from "../features/planner/screens/BudgetScreen";
 import GuestsScreen from "../features/planner/screens/GuestsScreen";
-import { confirmCheckoutPayment, createCheckoutSession, getCheckoutQuote, loginWithGoogle } from "../api";
+import { confirmCheckoutPayment, createCheckoutSession, getCheckoutQuote, getSubscriptionStatus, loginWithGoogle } from "../api";
 import { createDemoPlanner } from "../plannerDefaults";
 
 const SESSION_STORAGE_KEY = "vivahgo.session";
@@ -284,6 +284,7 @@ export default function MarketingHomePage({ page = "home" }) {
   const [planLoginError, setPlanLoginError] = useState("");
   const [subscriptionBanner, setSubscriptionBanner] = useState(null);
   const [checkoutRoute, setCheckoutRoute] = useState(() => readCheckoutRouteFromUrl());
+  const [subscription, setSubscription] = useState(null);
   const isPricingPage = page === "pricing";
 
   useEffect(() => {
@@ -328,6 +329,8 @@ export default function MarketingHomePage({ page = "home" }) {
   const profileInitial = firstName.trim().charAt(0).toUpperCase() || "Y";
   const primaryCtaLabel = "Start Planning Now";
   const mobileCtaLabel = "Plan Now";
+  const subscriptionTier = subscription?.tier || "starter";
+  const hasActivePaidPlan = subscription?.status === "active" && (subscriptionTier === "premium" || subscriptionTier === "studio");
 
   useEffect(() => {
     if (typeof window === "undefined") {
@@ -368,6 +371,31 @@ export default function MarketingHomePage({ page = "home" }) {
   }, [mobileNavOpen]);
 
   useEffect(() => {
+    let active = true;
+
+    if (!session?.token) {
+      setSubscription(null);
+      return undefined;
+    }
+
+    getSubscriptionStatus(session.token)
+      .then((result) => {
+        if (active) {
+          setSubscription(result);
+        }
+      })
+      .catch(() => {
+        if (active) {
+          setSubscription(null);
+        }
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [session?.token]);
+
+  useEffect(() => {
     if (!mobileNavOpen || typeof window === "undefined") {
       return undefined;
     }
@@ -386,6 +414,10 @@ export default function MarketingHomePage({ page = "home" }) {
 
   function handleChoosePlan(planName) {
     const planKey = planName.toLowerCase();
+    if (planKey === "premium" && hasActivePaidPlan) {
+      return;
+    }
+
     if (!isSignedIn) {
       setPendingPlanSelection({ key: planKey, name: planName });
       setPlanLoginError("");
@@ -535,15 +567,31 @@ export default function MarketingHomePage({ page = "home" }) {
                   Start Your Wedding Plan Free
                 </a>
               ) : (
-                <button
-                  type="button"
-                  className={`marketing-price-action ${plan.featured ? "marketing-price-action-featured" : "marketing-price-action-ghost"}`}
-                  onClick={() => handleChoosePlan(plan.name)}
-                  disabled={checkoutLoadingPlan === plan.name.toLowerCase() || Boolean(checkoutSheetPlan) || Boolean(checkoutRoute)}
-                  style={checkoutLoadingPlan === plan.name.toLowerCase() || checkoutSheetPlan || checkoutRoute ? { opacity: 0.7, cursor: "not-allowed" } : undefined}
-                >
-                  {checkoutLoadingPlan === plan.name.toLowerCase() ? "Loading checkout..." : plan.name === "Studio" ? "Talk to Sales" : "Upgrade Your Workspace"}
-                </button>
+                (() => {
+                  const planKey = plan.name.toLowerCase();
+                  const isPremiumLocked = planKey === "premium" && hasActivePaidPlan;
+                  const isBusy = checkoutLoadingPlan === planKey || Boolean(checkoutSheetPlan) || Boolean(checkoutRoute);
+                  const isDisabled = isBusy || isPremiumLocked;
+                  let buttonLabel = plan.name === "Studio" ? "Talk to Sales" : "Upgrade Your Workspace";
+
+                  if (checkoutLoadingPlan === planKey) {
+                    buttonLabel = "Loading checkout...";
+                  } else if (isPremiumLocked) {
+                    buttonLabel = subscriptionTier === "studio" ? "Included in Studio" : "Current Plan";
+                  }
+
+                  return (
+                    <button
+                      type="button"
+                      className={`marketing-price-action ${plan.featured ? "marketing-price-action-featured" : "marketing-price-action-ghost"}`}
+                      onClick={() => handleChoosePlan(plan.name)}
+                      disabled={isDisabled}
+                      style={isDisabled ? { opacity: 0.7, cursor: "not-allowed" } : undefined}
+                    >
+                      {buttonLabel}
+                    </button>
+                  );
+                })()
               )}
             </article>
           ))}
@@ -569,13 +617,26 @@ export default function MarketingHomePage({ page = "home" }) {
         onSuccess={(result) => {
           const isFreeBill = result?.checkoutMode === "internal_free";
           const receiptNumber = result?.receipt?.receiptNumber;
+          const receiptPlan = result?.receipt?.plan;
+          const receiptPeriodEnd = result?.receipt?.currentPeriodEnd || null;
+
+          if (receiptPlan) {
+            setSubscription({
+              tier: receiptPlan,
+              status: "active",
+              currentPeriodEnd: receiptPeriodEnd,
+            });
+          }
+
           setSubscriptionBanner({
             type: "success",
             message: isFreeBill
-              ? `Your 0 INR bill${receiptNumber ? ` (${receiptNumber})` : ""} has been generated and your plan is now active.`
+              ? `Your bill${receiptNumber ? ` (${receiptNumber})` : ""} is ready below.`
               : "Payment received. Your plan is now active.",
           });
-          closeCheckoutPage();
+          if (!isFreeBill) {
+            closeCheckoutPage();
+          }
         }}
       />
     );

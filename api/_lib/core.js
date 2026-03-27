@@ -255,7 +255,7 @@ function getBillingReceiptModel() {
       discountPercent: { type: Number, default: 0 },
       paymentProvider: { type: String, enum: ['razorpay', 'internal'], default: 'internal' },
       paymentReference: { type: String, default: '' },
-      status: { type: String, enum: ['paid', 'issued', 'failed'], default: 'issued' },
+      status: { type: String, enum: ['paid', 'issued', 'payment_due', 'failed'], default: 'issued' },
       emailDeliveryStatus: { type: String, enum: ['pending', 'sent', 'failed', 'skipped'], default: 'pending' },
       emailDeliveryError: { type: String, default: '' },
       issuedAt: { type: Date, default: () => new Date() },

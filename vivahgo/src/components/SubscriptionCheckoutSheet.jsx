@@ -3,7 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 const QUOTE_CACHE_TTL_MS = 60000;
 
 function formatAmount(amount, currency) {
-  if (!amount) {
+  if (amount === null || amount === undefined || Number.isNaN(Number(amount))) {
     return "";
   }
 
@@ -171,27 +171,7 @@ export default function SubscriptionCheckoutSheet({
         </header>
 
         <div className="marketing-checkout-coupon-panel">
-          <label className="marketing-checkout-coupon-label" htmlFor="checkout-coupon-code">Coupon code</label>
-          <div className="marketing-checkout-coupon-row">
-            <input
-              id="checkout-coupon-code"
-              className="marketing-checkout-coupon-input"
-              type="text"
-              value={couponDraft}
-              onChange={(event) => setCouponDraft(event.target.value.toUpperCase())}
-              placeholder="Enter coupon"
-              disabled={isPreparing || isProceeding}
-            />
-            <button
-              type="button"
-              className="marketing-price-action marketing-price-action-featured"
-              onClick={handleApplyCoupon}
-              disabled={isPreparing || isProceeding || !couponDraft.trim()}
-            >
-              Apply
-            </button>
-          </div>
-          {appliedCouponCode && quoteData?.appliedCoupon && (
+          {appliedCouponCode && quoteData?.appliedCoupon ? (
             <div className="marketing-checkout-coupon-applied">
               <span>
                 {quoteData.appliedCoupon.code} applied for {quoteData.appliedCoupon.discountPercent}% off
@@ -200,6 +180,29 @@ export default function SubscriptionCheckoutSheet({
                 Remove
               </button>
             </div>
+          ) : (
+            <>
+              <label className="marketing-checkout-coupon-label" htmlFor="checkout-coupon-code">Coupon code</label>
+              <div className="marketing-checkout-coupon-row">
+                <input
+                  id="checkout-coupon-code"
+                  className="marketing-checkout-coupon-input"
+                  type="text"
+                  value={couponDraft}
+                  onChange={(event) => setCouponDraft(event.target.value.toUpperCase())}
+                  placeholder="Enter coupon"
+                  disabled={isPreparing || isProceeding}
+                />
+                <button
+                  type="button"
+                  className="marketing-price-action marketing-price-action-featured"
+                  onClick={handleApplyCoupon}
+                  disabled={isPreparing || isProceeding || !couponDraft.trim()}
+                >
+                  Apply
+                </button>
+              </div>
+            </>
           )}
         </div>
 
@@ -228,8 +231,8 @@ export default function SubscriptionCheckoutSheet({
                 <strong>Discounted: {amountLabel}</strong>
               </div>
             ) : null}
-            <p>{amountLabel ? `Amount due: ${amountLabel}` : "Amount unavailable."}</p>
-            <p>Pay now will continue to a secure checkout page.</p>
+            <p>{amountLabel ? `${quoteData?.amount === 0 ? "Payment due" : "Amount due"}: ${amountLabel}` : "Amount unavailable."}</p>
+            <p>{quoteData?.amount === 0 ? "Continue to review and generate the bill." : "Pay now will continue to a secure checkout page."}</p>
             <div className="marketing-checkout-actions">
               <button
                 type="button"
@@ -238,7 +241,7 @@ export default function SubscriptionCheckoutSheet({
                 disabled={isProceeding || !quoteData}
                 style={isProceeding ? { opacity: 0.7, cursor: "not-allowed" } : undefined}
               >
-                {isProceeding ? "Continuing..." : "Pay Now"}
+                {isProceeding ? "Continuing..." : (quoteData?.amount === 0 ? "Review Bill" : "Pay Now")}
               </button>
               <button type="button" className="marketing-price-action marketing-price-action-ghost" onClick={onClose}>
                 Cancel

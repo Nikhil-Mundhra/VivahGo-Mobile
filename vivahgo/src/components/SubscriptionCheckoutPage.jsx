@@ -46,7 +46,7 @@ function loadRazorpayScript() {
 }
 
 function formatAmount(amount, currency) {
-  if (!amount) {
+  if (amount === null || amount === undefined || Number.isNaN(Number(amount))) {
     return "";
   }
 
@@ -55,6 +55,38 @@ function formatAmount(amount, currency) {
     currency: currency || "INR",
     maximumFractionDigits: 0,
   }).format(amount / 100);
+}
+
+function formatDisplayDate(value) {
+  if (!value) {
+    return "Not available";
+  }
+
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) {
+    return "Not available";
+  }
+
+  return parsed.toLocaleDateString("en-IN", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  });
+}
+
+function getBillingDocumentMeta(receipt) {
+  const isPaymentDue = receipt?.status === "payment_due";
+  return {
+    title: isPaymentDue ? "Bill" : "Receipt",
+    statusLabel: isPaymentDue ? "Payment due" : "Paid",
+    statusClassName: isPaymentDue
+      ? "marketing-checkout-document-status-due"
+      : "marketing-checkout-document-status-paid",
+    totalLabel: isPaymentDue ? "Payment due" : "Amount paid",
+    note: isPaymentDue
+      ? "This bill reflects a full coupon adjustment, so Razorpay was skipped and no charge was collected."
+      : "This receipt confirms the payment captured for your subscription.",
+  };
 }
 
 export default function SubscriptionCheckoutPage({
@@ -77,6 +109,7 @@ export default function SubscriptionCheckoutPage({
   const [isPaying, setIsPaying] = useState(false);
   const [quoteError, setQuoteError] = useState("");
   const [quote, setQuote] = useState(null);
+  const [generatedReceipt, setGeneratedReceipt] = useState(null);
   const onErrorRef = useRef(onError);
   const quoteCacheRef = useRef(new Map());
 
@@ -97,6 +130,7 @@ export default function SubscriptionCheckoutPage({
 
     setIsLoadingQuote(true);
     setQuoteError("");
+    setGeneratedReceipt(null);
 
     try {
       const response = await fetchQuote(token, plan, billingCycle, appliedCouponCode);
@@ -116,6 +150,10 @@ export default function SubscriptionCheckoutPage({
     refreshQuote();
   }, [refreshQuote]);
 
+  useEffect(() => {
+    setGeneratedReceipt(null);
+  }, [plan, billingCycle, appliedCouponCode]);
+
   const handlePay = useCallback(async () => {
     setIsPaying(true);
     setQuoteError("");
@@ -127,6 +165,7 @@ export default function SubscriptionCheckoutPage({
           billingCycle,
           couponCode: appliedCouponCode,
         });
+        setGeneratedReceipt(result?.receipt || null);
         onSuccess?.(result);
         setIsPaying(false);
         return;
@@ -155,7 +194,7 @@ export default function SubscriptionCheckoutPage({
         },
         handler: async (response) => {
           try {
-            await confirmPayment(token, {
+            const result = await confirmPayment(token, {
               plan,
               billingCycle,
               orderId: response.razorpay_order_id,
@@ -163,7 +202,7 @@ export default function SubscriptionCheckoutPage({
               signature: response.razorpay_signature,
               couponCode: appliedCouponCode,
             });
-            onSuccess?.();
+            onSuccess?.(result);
           } catch (error) {
             const message = error?.message || "Payment verification failed.";
             setQuoteError(message);
@@ -186,6 +225,8 @@ export default function SubscriptionCheckoutPage({
   const planLabel = PLAN_LABELS[plan] || "Premium";
   const amountLabel = useMemo(() => formatAmount(quote?.amount, quote?.currency), [quote]);
   const baseAmountLabel = useMemo(() => formatAmount(quote?.baseAmount, quote?.currency), [quote]);
+  const generatedReceiptMeta = useMemo(() => getBillingDocumentMeta(generatedReceipt), [generatedReceipt]);
+  const hasGeneratedFreeBill = quote?.amount === 0 && Boolean(generatedReceipt?.receiptNumber);
 
   return (
     <main className="marketing-checkout-page-shell">
@@ -215,28 +256,31 @@ export default function SubscriptionCheckoutPage({
         </ul>
 
         <div className="marketing-checkout-coupon-panel">
-          <label className="marketing-checkout-coupon-label" htmlFor="checkout-page-coupon">Coupon code</label>
-          <div className="marketing-checkout-coupon-row">
-            <input
-              id="checkout-page-coupon"
-              className="marketing-checkout-coupon-input"
-              type="text"
-              value={couponDraft}
-              onChange={(event) => setCouponDraft(event.target.value.toUpperCase())}
-              disabled={isLoadingQuote || isPaying}
-              placeholder="Enter coupon"
-            />
-            <button type="button" className="marketing-price-action marketing-price-action-featured" onClick={() => setAppliedCouponCode(couponDraft.trim().toUpperCase())} disabled={isLoadingQuote || isPaying || !couponDraft.trim()}>
-              Apply
-            </button>
-          </div>
-          {appliedCouponCode && quote?.appliedCoupon && (
+          {appliedCouponCode && quote?.appliedCoupon ? (
             <div className="marketing-checkout-coupon-applied">
               <span>{quote.appliedCoupon.code} applied ({quote.appliedCoupon.discountPercent}% off)</span>
               <button type="button" onClick={() => { setCouponDraft(""); setAppliedCouponCode(""); }} disabled={isLoadingQuote || isPaying}>
                 Remove
               </button>
             </div>
+          ) : (
+            <>
+              <label className="marketing-checkout-coupon-label" htmlFor="checkout-page-coupon">Coupon code</label>
+              <div className="marketing-checkout-coupon-row">
+                <input
+                  id="checkout-page-coupon"
+                  className="marketing-checkout-coupon-input"
+                  type="text"
+                  value={couponDraft}
+                  onChange={(event) => setCouponDraft(event.target.value.toUpperCase())}
+                  disabled={isLoadingQuote || isPaying}
+                  placeholder="Enter coupon"
+                />
+                <button type="button" className="marketing-price-action marketing-price-action-featured" onClick={() => setAppliedCouponCode(couponDraft.trim().toUpperCase())} disabled={isLoadingQuote || isPaying || !couponDraft.trim()}>
+                  Apply
+                </button>
+              </div>
+            </>
           )}
         </div>
 
@@ -253,14 +297,72 @@ export default function SubscriptionCheckoutPage({
                 <strong>Discounted: {amountLabel}</strong>
               </div>
             ) : null}
-            <p>{amountLabel ? `Amount due: ${amountLabel}` : "Amount unavailable."}</p>
+            <p>{amountLabel ? `${quote?.amount === 0 ? "Payment due" : "Amount due"}: ${amountLabel}` : "Amount unavailable."}</p>
             {quote?.amount === 0 ? (
-              <p>A zero-rupee bill will be generated instantly and emailed to your account. Razorpay will be skipped.</p>
+              <p>Your coupon covers the full charge. We'll generate the bill instantly, show it here, and skip Razorpay.</p>
+            ) : null}
+            {generatedReceipt ? (
+              <section className="marketing-checkout-document" aria-label="Generated bill">
+                <div className="marketing-checkout-document-header">
+                  <div>
+                    <p className="marketing-checkout-document-kicker">VivahGo {generatedReceiptMeta.title}</p>
+                    <h2>{generatedReceiptMeta.title} {generatedReceipt.receiptNumber}</h2>
+                  </div>
+                  <span className={`marketing-checkout-document-status ${generatedReceiptMeta.statusClassName}`}>
+                    {generatedReceiptMeta.statusLabel}
+                  </span>
+                </div>
+
+                <div className="marketing-checkout-document-grid">
+                  <div>
+                    <span>Issued on</span>
+                    <strong>{formatDisplayDate(generatedReceipt.issuedAt)}</strong>
+                  </div>
+                  <div>
+                    <span>Bill to</span>
+                    <strong>{generatedReceipt.email || "Current account"}</strong>
+                  </div>
+                  <div>
+                    <span>Plan</span>
+                    <strong>{planLabel}</strong>
+                  </div>
+                  <div>
+                    <span>Billing cycle</span>
+                    <strong>{generatedReceipt.billingCycle === "yearly" ? "Yearly" : "Monthly"}</strong>
+                  </div>
+                </div>
+
+                <div className="marketing-checkout-document-lines" role="table" aria-label="Bill summary">
+                  <div className="marketing-checkout-document-line marketing-checkout-document-line-head" role="row">
+                    <span role="columnheader">Description</span>
+                    <span role="columnheader">Amount</span>
+                  </div>
+                  <div className="marketing-checkout-document-line" role="row">
+                    <span role="cell">{planLabel} subscription</span>
+                    <span role="cell">{formatAmount(generatedReceipt.baseAmount, generatedReceipt.currency)}</span>
+                  </div>
+                  <div className="marketing-checkout-document-line" role="row">
+                    <span role="cell">
+                      Coupon discount{generatedReceipt.couponCode ? ` (${generatedReceipt.couponCode})` : ""}
+                    </span>
+                    <span role="cell">-{formatAmount(generatedReceipt.baseAmount - generatedReceipt.amount, generatedReceipt.currency)}</span>
+                  </div>
+                  <div className="marketing-checkout-document-line marketing-checkout-document-line-total" role="row">
+                    <span role="cell">{generatedReceiptMeta.totalLabel}</span>
+                    <strong role="cell">{formatAmount(generatedReceipt.amount, generatedReceipt.currency)}</strong>
+                  </div>
+                </div>
+
+                <div className="marketing-checkout-document-footer">
+                  <p>{generatedReceiptMeta.note}</p>
+                  <p>Access period through {formatDisplayDate(generatedReceipt.currentPeriodEnd)}.</p>
+                </div>
+              </section>
             ) : null}
             {quoteError && <p className="marketing-login-error">{quoteError}</p>}
             <div className="marketing-checkout-actions">
-              <button type="button" className="marketing-price-action marketing-price-action-featured" onClick={handlePay} disabled={isPaying || isLoadingQuote || !quote} style={isPaying ? { opacity: 0.7, cursor: "not-allowed" } : undefined}>
-                {isPaying ? (quote?.amount === 0 ? "Generating..." : "Opening...") : (quote?.amount === 0 ? "Generate 0 INR Bill" : "Pay with Razorpay")}
+              <button type="button" className="marketing-price-action marketing-price-action-featured" onClick={handlePay} disabled={isPaying || isLoadingQuote || !quote || hasGeneratedFreeBill} style={isPaying || hasGeneratedFreeBill ? { opacity: 0.7, cursor: "not-allowed" } : undefined}>
+                {isPaying ? (quote?.amount === 0 ? "Generating..." : "Opening...") : hasGeneratedFreeBill ? "Bill Generated" : (quote?.amount === 0 ? "Generate Bill" : "Pay with Razorpay")}
               </button>
               <button type="button" className="marketing-price-action marketing-price-action-ghost" onClick={() => refreshQuote({ force: true })} disabled={isLoadingQuote || isPaying}>
                 Refresh Price
