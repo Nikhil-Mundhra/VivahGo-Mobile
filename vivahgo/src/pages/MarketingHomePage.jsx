@@ -560,12 +560,14 @@ export default function MarketingHomePage({ page = "home" }) {
                 ))}
               </ul>
               {plan.name === "Starter" ? (
+                hasActivePaidPlan ? null : (
                 <a
                   className="marketing-price-action marketing-price-action-ghost"
                   href="/"
                 >
                   Start Your Wedding Plan Free
                 </a>
+                )
               ) : (
                 (() => {
                   const planKey = plan.name.toLowerCase();
@@ -577,7 +579,18 @@ export default function MarketingHomePage({ page = "home" }) {
                   if (checkoutLoadingPlan === planKey) {
                     buttonLabel = "Loading checkout...";
                   } else if (isPremiumLocked) {
-                    buttonLabel = subscriptionTier === "studio" ? "Included in Studio" : "Current Plan";
+                    buttonLabel = subscriptionTier === "studio" ? "Included in Studio" : "Start Your Wedding Plan";
+                  }
+
+                  if (isPremiumLocked && subscriptionTier === "premium") {
+                    return (
+                      <a
+                        className={`marketing-price-action ${plan.featured ? "marketing-price-action-featured" : "marketing-price-action-ghost"}`}
+                        href="/"
+                      >
+                        {buttonLabel}
+                      </a>
+                    );
                   }
 
                   return (
