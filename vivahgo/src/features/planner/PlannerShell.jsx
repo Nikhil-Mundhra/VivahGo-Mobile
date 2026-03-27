@@ -19,6 +19,7 @@ import MarriagePlanSelector from "./components/MarriagePlanSelector";
 import NewMarriagePlanModal from "./components/NewMarriagePlanModal";
 import PlanShareModal from "./components/PlanShareModal";
 import { NAV_ITEMS } from "../../constants";
+import { formatCoverageLocation, getLocationCities, getLocationCountries, getLocationStates } from "../../locationOptions";
 import {
   addPlanCollaborator,
   deleteAccount,
@@ -36,6 +37,27 @@ import { useSwipeDown } from "../../hooks/useSwipeDown";
 
 const SESSION_STORAGE_KEY = "vivahgo.session";
 const DEMO_PLANNER_STORAGE_KEY = "vivahgo.demoPlanner";
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+const YEARS = Array.from({ length: 8 }, (_, i) => 2025 + i);
+
+function parseDateStr(str) {
+  const [day = "", month = "", year = ""] = (str || "").split(" ");
+  return { day, month, year };
+}
+
+function formatDateStr({ day, month, year }) {
+  if (!day || !month || !year) {
+    return [day, month, year].filter(Boolean).join(" ");
+  }
+  return `${day} ${month} ${year}`;
+}
+
+function parseWeddingLocation(value) {
+  const [city = "", state = "", country = ""] = String(value || "")
+    .split(",")
+    .map((item) => item.trim());
+  return { country, state, city };
+}
 
 export default function PlannerShell() {
   const [screen, setScreen] = useState("login");
@@ -54,7 +76,7 @@ export default function PlannerShell() {
   const [loginError, setLoginError] = useState("");
   const [saveState, setSaveState] = useState("idle");
   const [showWeddingDetailsEditor, setShowWeddingDetailsEditor] = useState(false);
-  const [weddingDetailsForm, setWeddingDetailsForm] = useState({ date: "", venue: "" });
+  const [weddingDetailsForm, setWeddingDetailsForm] = useState({ bride: "", groom: "", date: "", country: "", state: "", city: "", budget: "", guests: "" });
   const [eventToEditId, setEventToEditId] = useState(null);
   const [showAccountSettings, setShowAccountSettings] = useState(false);
   const [showTermsModal, setShowTermsModal] = useState(false);
@@ -82,6 +104,9 @@ export default function PlannerShell() {
   const [showUpgradePrompt, setShowUpgradePrompt] = useState(false);
   const [upgradePromptMessage, setUpgradePromptMessage] = useState("");
   const weddingSwipe = useSwipeDown(() => closeWeddingDetailsEditor());
+  const weddingLocationCountries = getLocationCountries();
+  const weddingLocationStates = getLocationStates(weddingDetailsForm.country);
+  const weddingLocationCities = getLocationCities(weddingDetailsForm.country, weddingDetailsForm.state);
 
   const saveTimerRef = useRef(null);
   const contentAreaRef = useRef(null);
@@ -873,9 +898,16 @@ export default function PlannerShell() {
   }
 
   function openWeddingDetailsEditor() {
+    const location = parseWeddingLocation(wedding.venue);
     setWeddingDetailsForm({
+      bride: wedding.bride || "",
+      groom: wedding.groom || "",
       date: wedding.date || "",
-      venue: wedding.venue || "",
+      country: location.country,
+      state: location.state,
+      city: location.city,
+      budget: wedding.budget || "",
+      guests: wedding.guests || "",
     });
     setShowWeddingDetailsEditor(true);
   }
@@ -915,20 +947,19 @@ export default function PlannerShell() {
 
     const nextWedding = {
       ...wedding,
+      bride: weddingDetailsForm.bride,
+      groom: weddingDetailsForm.groom,
       date: weddingDetailsForm.date,
-      venue: weddingDetailsForm.venue,
+      venue: formatCoverageLocation({
+        country: weddingDetailsForm.country,
+        state: weddingDetailsForm.state,
+        city: weddingDetailsForm.city,
+      }),
+      budget: weddingDetailsForm.budget,
+      guests: weddingDetailsForm.guests,
     };
 
-    setWedding(current => ({
-      ...current,
-      date: weddingDetailsForm.date,
-      venue: weddingDetailsForm.venue,
-    }));
-    setMarriages(current => current.map(plan => (
-      plan.id === activePlanId
-        ? { ...plan, date: nextWedding.date, venue: nextWedding.venue }
-        : plan
-    )));
+    applyWeddingToActivePlan(nextWedding);
     closeWeddingDetailsEditor();
   }
 
@@ -1002,37 +1033,57 @@ export default function PlannerShell() {
             <div className="top-bar-pattern">🪔</div>
             <div className="top-bar-greeting">Your Wedding</div>
             <div className="top-bar-names" style={{ display: "flex", justifyContent: "center", width: "100%" }}>
-              <button
-                type="button"
-                onClick={() => setShowMarriagePlanSelector(true)}
-                style={{
-                  background: "none",
-                  border: "none",
-                  cursor: "pointer",
-                  padding: "0 8px",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  gap: "6px",
-                  fontFamily: "'Cormorant Garamond', serif",
-                  fontSize: 28,
-                  fontWeight: 700,
-                  color: "var(--color-gold)",
-                }}
-                title="Manage marriage plans"
-              >
-                <span>
-                  {marriages.find(m => m.id === activePlanId)?.bride || "Bride"} & {marriages.find(m => m.id === activePlanId)?.groom || "Groom"}
-                </span>
-                <span style={{
-                  fontSize: 12,
-                  display: "inline-flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  color: "var(--color-gold)",
-                  fontWeight: 700,
-                }}></span>
-              </button>
+              <div style={{ display: "grid", justifyItems: "center", gap: 6 }}>
+                <button
+                  type="button"
+                  onClick={() => setShowMarriagePlanSelector(true)}
+                  style={{
+                    background: "none",
+                    border: "none",
+                    cursor: "pointer",
+                    padding: "0 8px",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: "6px",
+                    fontFamily: "'Cormorant Garamond', serif",
+                    fontSize: 28,
+                    fontWeight: 700,
+                    color: "var(--color-gold)",
+                  }}
+                  title="Manage marriage plans"
+                >
+                  <span>
+                    {marriages.find(m => m.id === activePlanId)?.bride || "Bride"} & {marriages.find(m => m.id === activePlanId)?.groom || "Groom"}
+                  </span>
+                  <span style={{
+                    fontSize: 12,
+                    display: "inline-flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    color: "var(--color-gold)",
+                    fontWeight: 700,
+                  }}></span>
+                </button>
+                <button
+                  type="button"
+                  onClick={openWeddingDetailsEditor}
+                  disabled={!planAccess.canEdit}
+                  style={{
+                    border: "1px solid rgba(212,175,55,0.24)",
+                    background: "rgba(255,255,255,0.08)",
+                    color: "var(--color-gold)",
+                    borderRadius: 999,
+                    padding: "6px 12px",
+                    fontSize: 12,
+                    fontWeight: 700,
+                    cursor: planAccess.canEdit ? "pointer" : "not-allowed",
+                    opacity: planAccess.canEdit ? 1 : 0.6,
+                  }}
+                >
+                  Edit Wedding Plan
+                </button>
+              </div>
             </div>
             <div className="top-bar-meta">
               {wedding.date && <button type="button" className="top-bar-chip top-bar-chip-button" onClick={openWeddingDetailsEditor}>📅 {wedding.date}</button>}
@@ -1098,10 +1149,7 @@ export default function PlannerShell() {
             <AccountScreen
               user={user}
               authMode={authMode}
-              wedding={wedding}
-              setWedding={setWedding}
               subscription={subscription}
-              authToken={authToken}
               onClose={closeAccountSettings}
               onLogout={() => { closeAccountSettings(); handleLogout(); }}
               onDeleteAccount={handleDeleteAccount}
@@ -1200,26 +1248,153 @@ export default function PlannerShell() {
             <div className="modal-overlay" onClick={closeWeddingDetailsEditor}>
               <div className="modal" {...weddingSwipe.modalProps} onClick={(event) => event.stopPropagation()}>
                 <div className="modal-handle"/>
-                <div className="modal-title">Edit Wedding Details</div>
+                <div className="modal-title">Edit Wedding Plan</div>
+                <div style={{ color: "var(--color-light-text)", fontSize: 13, marginBottom: 12 }}>
+                  {(marriages.find(item => item.id === activePlanId)?.bride || "Bride")} &amp; {(marriages.find(item => item.id === activePlanId)?.groom || "Groom")}
+                </div>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                  <div className="input-group">
+                    <div className="input-label">Bride&apos;s Name</div>
+                    <input
+                      className="input-field"
+                      value={weddingDetailsForm.bride}
+                      onChange={(event) => setWeddingDetailsForm({ ...weddingDetailsForm, bride: event.target.value })}
+                      placeholder="e.g. Aarohi"
+                    />
+                  </div>
+                  <div className="input-group">
+                    <div className="input-label">Groom&apos;s Name</div>
+                    <input
+                      className="input-field"
+                      value={weddingDetailsForm.groom}
+                      onChange={(event) => setWeddingDetailsForm({ ...weddingDetailsForm, groom: event.target.value })}
+                      placeholder="e.g. Kabir"
+                    />
+                  </div>
+                </div>
                 <div className="input-group">
                   <div className="input-label">Main Wedding Day</div>
-                  <input
-                    className="input-field"
-                    value={weddingDetailsForm.date}
-                    onChange={(event) => setWeddingDetailsForm({ ...weddingDetailsForm, date: event.target.value })}
-                    placeholder="e.g. 25 November 2027 (for countdown)"
-                  />
+                  <div style={{ display: "flex", gap: 6 }}>
+                    {(() => {
+                      const parsedDate = parseDateStr(weddingDetailsForm.date);
+                      return (
+                        <>
+                          <select
+                            className="select-field"
+                            style={{ flex: 1 }}
+                            value={parsedDate.day}
+                            onChange={(event) => setWeddingDetailsForm({
+                              ...weddingDetailsForm,
+                              date: formatDateStr({ ...parsedDate, day: event.target.value }),
+                            })}
+                          >
+                            <option value="">Day</option>
+                            {Array.from({ length: 31 }, (_, i) => String(i + 1)).map((day) => (
+                              <option key={day} value={day}>{day}</option>
+                            ))}
+                          </select>
+                          <select
+                            className="select-field"
+                            style={{ flex: 2 }}
+                            value={parsedDate.month}
+                            onChange={(event) => setWeddingDetailsForm({
+                              ...weddingDetailsForm,
+                              date: formatDateStr({ ...parsedDate, month: event.target.value }),
+                            })}
+                          >
+                            <option value="">Month</option>
+                            {MONTHS.map((month) => (
+                              <option key={month} value={month}>{month}</option>
+                            ))}
+                          </select>
+                          <select
+                            className="select-field"
+                            style={{ flex: 2 }}
+                            value={parsedDate.year}
+                            onChange={(event) => setWeddingDetailsForm({
+                              ...weddingDetailsForm,
+                              date: formatDateStr({ ...parsedDate, year: event.target.value }),
+                            })}
+                          >
+                            <option value="">Year</option>
+                            {YEARS.map((year) => (
+                              <option key={year} value={year}>{year}</option>
+                            ))}
+                          </select>
+                        </>
+                      );
+                    })()}
+                  </div>
                 </div>
                 <div className="input-group">
-                  <div className="input-label">Venue / Location</div>
-                  <input
-                    className="input-field"
-                    value={weddingDetailsForm.venue}
-                    onChange={(event) => setWeddingDetailsForm({ ...weddingDetailsForm, venue: event.target.value })}
-                    placeholder="e.g. Jaipur Palace Grounds"
-                  />
+                  <div className="input-label">Venue Location</div>
+                  <div style={{ display: "grid", gap: 10 }}>
+                    <select
+                      className="select-field"
+                      value={weddingDetailsForm.country}
+                      onChange={(event) => setWeddingDetailsForm({
+                        ...weddingDetailsForm,
+                        country: event.target.value,
+                        state: "",
+                        city: "",
+                      })}
+                    >
+                      <option value="">Select country</option>
+                      {weddingLocationCountries.map((country) => (
+                        <option key={country} value={country}>{country}</option>
+                      ))}
+                    </select>
+                    <select
+                      className="select-field"
+                      value={weddingDetailsForm.state}
+                      onChange={(event) => setWeddingDetailsForm({
+                        ...weddingDetailsForm,
+                        state: event.target.value,
+                        city: "",
+                      })}
+                      disabled={!weddingLocationStates.length}
+                    >
+                      <option value="">Select state</option>
+                      {weddingLocationStates.map((state) => (
+                        <option key={state} value={state}>{state}</option>
+                      ))}
+                    </select>
+                    <select
+                      className="select-field"
+                      value={weddingDetailsForm.city}
+                      onChange={(event) => setWeddingDetailsForm({ ...weddingDetailsForm, city: event.target.value })}
+                      disabled={!weddingLocationCities.length}
+                    >
+                      <option value="">Select city</option>
+                      {weddingLocationCities.map((city) => (
+                        <option key={city} value={city}>{city}</option>
+                      ))}
+                    </select>
+                  </div>
                 </div>
-                <button className="btn-primary" onClick={saveWeddingDetails}>Save Details</button>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                  <div className="input-group">
+                    <div className="input-label">Total Budget (₹)</div>
+                    <input
+                      className="input-field"
+                      type="number"
+                      value={weddingDetailsForm.budget}
+                      onChange={(event) => setWeddingDetailsForm({ ...weddingDetailsForm, budget: event.target.value })}
+                      placeholder="e.g. 5000000"
+                    />
+                  </div>
+                  <div className="input-group">
+                    <div className="input-label">Expected Guests</div>
+                    <input
+                      className="input-field"
+                      type="number"
+                      value={weddingDetailsForm.guests}
+                      onChange={(event) => setWeddingDetailsForm({ ...weddingDetailsForm, guests: event.target.value })}
+                      placeholder="e.g. 300"
+                    />
+                  </div>
+                </div>
+                <button className="btn-primary" onClick={saveWeddingDetails}>Save Changes</button>
               </div>
             </div>
           )}

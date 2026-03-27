@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { formatCoverageLocation, getLocationCities, getLocationCountries, getLocationStates } from "../../../locationOptions";
 import { MARRIAGE_TEMPLATES } from "../../../plannerDefaults.js";
 
 function baseInputStyle() {
@@ -26,6 +27,13 @@ function SectionLabel({ children }) {
       {children}
     </label>
   );
+}
+
+function parseVenueLocation(value) {
+  const [city = "", state = "", country = ""] = String(value || "")
+    .split(",")
+    .map((item) => item.trim());
+  return { country, state, city };
 }
 
 export default function NewMarriagePlanModal({
@@ -64,6 +72,9 @@ export default function NewMarriagePlanModal({
     [customTemplates]
   );
   const selectedTemplateDefinition = templateOptions.find(template => template.id === selectedTemplate) || null;
+  const venueLocation = parseVenueLocation(formData.venue);
+  const venueStates = getLocationStates(venueLocation.country);
+  const venueCities = getLocationCities(venueLocation.country, venueLocation.state);
 
   function handleTemplateSelect(templateId) {
     setSelectedTemplate(templateId);
@@ -499,13 +510,34 @@ export default function NewMarriagePlanModal({
 
             <div style={{ marginBottom: 20 }}>
               <SectionLabel>Venue / Location</SectionLabel>
-              <input
-                type="text"
-                placeholder="e.g. Jaipur Palace"
-                value={formData.venue}
-                onChange={event => handleInputChange("venue", event.target.value)}
-                style={baseInputStyle()}
-              />
+              <div style={{ display: "grid", gap: 10 }}>
+                <select
+                  value={venueLocation.country}
+                  onChange={event => handleInputChange("venue", formatCoverageLocation({ country: event.target.value, state: "", city: "" }))}
+                  style={baseInputStyle()}
+                >
+                  <option value="">Select country</option>
+                  {getLocationCountries().map(option => <option key={option} value={option}>{option}</option>)}
+                </select>
+                <select
+                  value={venueLocation.state}
+                  onChange={event => handleInputChange("venue", formatCoverageLocation({ country: venueLocation.country, state: event.target.value, city: "" }))}
+                  style={baseInputStyle()}
+                  disabled={!venueStates.length}
+                >
+                  <option value="">Select state</option>
+                  {venueStates.map(option => <option key={option} value={option}>{option}</option>)}
+                </select>
+                <select
+                  value={venueLocation.city}
+                  onChange={event => handleInputChange("venue", formatCoverageLocation({ country: venueLocation.country, state: venueLocation.state, city: event.target.value }))}
+                  style={baseInputStyle()}
+                  disabled={!venueCities.length}
+                >
+                  <option value="">Select city</option>
+                  {venueCities.map(option => <option key={option} value={option}>{option}</option>)}
+                </select>
+              </div>
             </div>
 
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 20 }}>

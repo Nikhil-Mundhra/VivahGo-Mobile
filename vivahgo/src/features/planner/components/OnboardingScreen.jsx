@@ -210,7 +210,7 @@ function OnboardingScreen({ onComplete }) {
     }
 
     setTyping(false);
-    addAI("Perfect, your planner is ready! You can fill or edit every detail anytime from Account & Settings. ✨");
+    addAI("Perfect, your planner is ready! You can fill or edit every detail anytime from Edit Wedding Plan. ✨");
     setTimeout(() => onComplete(finalAnswers), 1000);
   }
 

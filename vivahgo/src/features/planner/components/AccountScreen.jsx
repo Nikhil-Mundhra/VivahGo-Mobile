@@ -1,28 +1,12 @@
 import { useState } from "react";
 import { useBackButtonClose } from "../../../hooks/useBackButtonClose";
 
-function AccountScreen({ user, authMode, wedding, setWedding, subscription, onClose, onLogout, onDeleteAccount }) {
-  const [form, setForm] = useState({
-    bride: wedding.bride || "",
-    groom: wedding.groom || "",
-    date: wedding.date || "",
-    venue: wedding.venue || "",
-    budget: wedding.budget || "",
-    guests: wedding.guests || "",
-  });
-  const [saved, setSaved] = useState(false);
+function AccountScreen({ user, authMode, subscription, onClose, onLogout, onDeleteAccount }) {
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState("");
 
   useBackButtonClose(true, onClose);
-
-  function handleSave() {
-    setWedding(current => ({ ...current, ...form }));
-    setSaved(true);
-    setTimeout(() => setSaved(false), 2000);
-    onClose();
-  }
 
   const isDemo = authMode === "demo";
 
@@ -170,86 +154,6 @@ function AccountScreen({ user, authMode, wedding, setWedding, subscription, onCl
           </div>
         )}
 
-        {/* Section label */}
-        <div style={{
-          fontSize: 11, fontWeight: 700,
-          color: "var(--color-gold)", textTransform: "uppercase",
-          letterSpacing: 1, marginBottom: 14,
-        }}>
-          Wedding Details
-        </div>
-
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-          <div className="input-group">
-            <div className="input-label">Bride&apos;s Name</div>
-            <input
-              className="input-field"
-              value={form.bride}
-              onChange={e => setForm({ ...form, bride: e.target.value })}
-              placeholder="e.g. Aarohi"
-            />
-          </div>
-          <div className="input-group">
-            <div className="input-label">Groom&apos;s Name</div>
-            <input
-              className="input-field"
-              value={form.groom}
-              onChange={e => setForm({ ...form, groom: e.target.value })}
-              placeholder="e.g. Kabir"
-            />
-          </div>
-        </div>
-
-        <div className="input-group">
-          <div className="input-label">Main Wedding Day</div>
-          <input
-            className="input-field"
-            value={form.date}
-            onChange={e => setForm({ ...form, date: e.target.value })}
-            placeholder="e.g. 25 November 2027"
-          />
-        </div>
-
-        <div className="input-group">
-          <div className="input-label">Venue / Location</div>
-          <input
-            className="input-field"
-            value={form.venue}
-            onChange={e => setForm({ ...form, venue: e.target.value })}
-            placeholder="e.g. Jaipur Palace Grounds"
-          />
-        </div>
-
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-          <div className="input-group">
-            <div className="input-label">Total Budget (₹)</div>
-            <input
-              className="input-field"
-              type="number"
-              value={form.budget}
-              onChange={e => setForm({ ...form, budget: e.target.value })}
-              placeholder="e.g. 5000000"
-            />
-          </div>
-          <div className="input-group">
-            <div className="input-label">Expected Guests</div>
-            <input
-              className="input-field"
-              type="number"
-              value={form.guests}
-              onChange={e => setForm({ ...form, guests: e.target.value })}
-              placeholder="e.g. 300"
-            />
-          </div>
-        </div>
-
-        <button
-          className="btn-primary"
-          onClick={handleSave}
-          style={saved ? { background: "linear-gradient(135deg, #2E7D32, #1B5E20)" } : undefined}
-        >
-          {saved ? "✓ Saved!" : "Save Changes"}
-        </button>
         <button className="btn-secondary" onClick={onClose}>
           Cancel
         </button>
