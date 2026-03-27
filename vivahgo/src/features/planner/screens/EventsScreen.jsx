@@ -189,7 +189,6 @@ function EventsScreen({ events, setEvents, expenses, setExpenses, onOpenBudget, 
       <div className="section-head">
         <div className="section-title">Wedding Ceremonies</div>
         <div className="event-section-actions">
-          <button className="section-action event-section-button event-section-button-budget" onClick={onOpenBudget}>Budget</button>
           <button className="section-action event-section-button event-section-button-website" onClick={openWebsiteModal} title="Configure your public wedding website">Website</button>
           <button className="section-action event-section-button event-section-button-add" onClick={() => setShowAdd(true)}>+ Add</button>
         </div>

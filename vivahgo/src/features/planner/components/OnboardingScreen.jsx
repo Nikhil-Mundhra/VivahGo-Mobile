@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { MARRIAGE_TEMPLATES } from "../../../plannerDefaults";
+import { EXPECTED_GUEST_OPTIONS, MARRIAGE_TEMPLATES } from "../../../plannerDefaults";
 import { getLocationCities, getLocationCountries, getLocationStates } from "../../../locationOptions";
 
 const MONTHS = [
@@ -382,7 +382,10 @@ function OnboardingScreen({ onComplete }) {
             <div className="onboard-form-grid">
               <div className="onboard-form-field">
                 <div className="onboard-form-label">Expected Guests</div>
-                <input className="chat-input onboard-form-input" value={form.guests} onChange={e => updateForm("guests", e.target.value)} placeholder="e.g. 300" />
+                <select className="chat-input onboard-form-select" value={form.guests} onChange={e => updateForm("guests", e.target.value)}>
+                  <option value="">Select guests</option>
+                  {EXPECTED_GUEST_OPTIONS.map(guestCount => <option key={guestCount} value={guestCount}>{guestCount}</option>)}
+                </select>
               </div>
               <div className="onboard-form-field">
                 <div className="onboard-form-label">Budget</div>

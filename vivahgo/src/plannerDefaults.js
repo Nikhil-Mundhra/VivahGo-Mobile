@@ -25,6 +25,12 @@ export const WEDDING_WEBSITE_THEMES = [
   { id: 'midnight-navy', name: 'Midnight Navy' },
 ];
 
+export const EXPECTED_GUEST_OPTIONS = [
+  ...Array.from({ length: 16 }, (_, index) => 2000 - (index * 100)),
+  ...Array.from({ length: 10 }, (_, index) => 400 - (index * 20)),
+  ...Array.from({ length: 20 }, (_, index) => 200 - (index * 10)),
+];
+
 function slugifyWeddingNamePart(value) {
   return String(value || '')
     .trim()

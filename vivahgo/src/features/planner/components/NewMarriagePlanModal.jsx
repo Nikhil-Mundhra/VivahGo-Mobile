@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { formatCoverageLocation, getLocationCities, getLocationCountries, getLocationStates } from "../../../locationOptions";
-import { MARRIAGE_TEMPLATES } from "../../../plannerDefaults.js";
+import { EXPECTED_GUEST_OPTIONS, MARRIAGE_TEMPLATES } from "../../../plannerDefaults.js";
 
 function baseInputStyle() {
   return {
@@ -543,13 +543,14 @@ export default function NewMarriagePlanModal({
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 20 }}>
               <div>
                 <SectionLabel>Expected Guests</SectionLabel>
-                <input
-                  type="text"
-                  placeholder="e.g. 300"
+                <select
                   value={formData.guests}
                   onChange={event => handleInputChange("guests", event.target.value)}
                   style={baseInputStyle()}
-                />
+                >
+                  <option value="">Select guests</option>
+                  {EXPECTED_GUEST_OPTIONS.map(guestCount => <option key={guestCount} value={guestCount}>{guestCount}</option>)}
+                </select>
               </div>
               <div>
                 <SectionLabel>Budget (INR)</SectionLabel>

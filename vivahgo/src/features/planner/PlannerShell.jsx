@@ -32,7 +32,7 @@ import {
   savePlanner,
   updatePlanCollaboratorRole,
 } from "../../api";
-import { DEFAULT_WEBSITE_SETTINGS, EMPTY_WEDDING, buildWeddingWebsitePath, createBlankPlanner, createDemoPlanner, hasWeddingProfile, normalizePlanner, generatePlanId, createTemplatePlanCollections, normalizeCustomTemplates } from "../../plannerDefaults";
+import { DEFAULT_WEBSITE_SETTINGS, EMPTY_WEDDING, EXPECTED_GUEST_OPTIONS, buildWeddingWebsitePath, createBlankPlanner, createDemoPlanner, hasWeddingProfile, normalizePlanner, generatePlanId, createTemplatePlanCollections, normalizeCustomTemplates } from "../../plannerDefaults";
 import { useSwipeDown } from "../../hooks/useSwipeDown";
 
 const SESSION_STORAGE_KEY = "vivahgo.session";
@@ -1128,27 +1128,21 @@ export default function PlannerShell() {
                     fontWeight: 700,
                   }}></span>
                 </button>
-                <button
-                  type="button"
-                  onClick={openWeddingDetailsEditor}
-                  disabled={!planAccess.canEdit}
-                  style={{
-                    border: "1px solid rgba(212,175,55,0.24)",
-                    background: "rgba(255,255,255,0.08)",
-                    color: "var(--color-gold)",
-                    borderRadius: 999,
-                    padding: "6px 12px",
-                    fontSize: 12,
-                    fontWeight: 700,
-                    cursor: planAccess.canEdit ? "pointer" : "not-allowed",
-                    opacity: planAccess.canEdit ? 1 : 0.6,
-                  }}
-                >
-                  Edit Wedding Plan
-                </button>
               </div>
             </div>
             <div className="top-bar-meta">
+              <button
+                type="button"
+                className="top-bar-chip top-bar-chip-button"
+                onClick={openWeddingDetailsEditor}
+                disabled={!planAccess.canEdit}
+                style={{
+                  cursor: planAccess.canEdit ? "pointer" : "not-allowed",
+                  opacity: planAccess.canEdit ? 1 : 0.6,
+                }}
+              >
+                Edit Wedding Plan
+              </button>
               {wedding.date && <button type="button" className="top-bar-chip top-bar-chip-button" onClick={openWeddingDetailsEditor}>📅 {wedding.date}</button>}
               {wedding.venue && <button type="button" className="top-bar-chip top-bar-chip-button" onClick={openWeddingDetailsEditor}>📍 {wedding.venue}</button>}
               {authMode === "google" && saveLabel && <div className="top-bar-chip">☁️ {saveLabel}</div>}
@@ -1390,6 +1384,31 @@ export default function PlannerShell() {
                     })()}
                   </div>
                 </div>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                  <div className="input-group">
+                    <div className="input-label">Total Budget (₹)</div>
+                    <input
+                      className="input-field"
+                      type="number"
+                      value={weddingDetailsForm.budget}
+                      onChange={(event) => setWeddingDetailsForm({ ...weddingDetailsForm, budget: event.target.value })}
+                      placeholder="e.g. 5000000"
+                    />
+                  </div>
+                  <div className="input-group">
+                    <div className="input-label">Expected Guests</div>
+                    <select
+                      className="select-field"
+                      value={weddingDetailsForm.guests}
+                      onChange={(event) => setWeddingDetailsForm({ ...weddingDetailsForm, guests: event.target.value })}
+                    >
+                      <option value="">Select guests</option>
+                      {EXPECTED_GUEST_OPTIONS.map((guestCount) => (
+                        <option key={guestCount} value={guestCount}>{guestCount}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
                 <div className="input-group">
                   <div className="input-label">Venue Location</div>
                   <div className="vendor-registration-grid vendor-registration-grid-3">
@@ -1436,19 +1455,31 @@ export default function PlannerShell() {
                     </select>
                   </div>
                 </div>
-                <div className="vendor-registration-location-block">
+                <div style={{ marginTop: 10 }}>
                   <button
                     type="button"
-                    className="vendor-registration-section-toggle"
                     onClick={() => setShowExtraLocationForm((current) => !current)}
                     aria-expanded={showExtraLocationForm}
+                    style={{
+                      marginTop: 0,
+                      padding: 0,
+                      border: "none",
+                      background: "transparent",
+                      color: "var(--color-light-text)",
+                      fontSize: 13,
+                      fontWeight: 600,
+                      cursor: "pointer",
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: 6,
+                    }}
                   >
-                    <span className="vendor-registration-section-title">Extra Event Locations</span>
-                    <span>{showExtraLocationForm ? "Hide" : "Add More"}</span>
+                    <span>{showExtraLocationForm ? "▾" : "▸"}</span>
+                    <span>{showExtraLocationForm ? "Hide Additional Event Locations" : "Add Additional Event Locations"}</span>
                   </button>
                   {showExtraLocationForm && (
                     <>
-                      <div className="vendor-registration-grid vendor-registration-grid-3">
+                      <div className="vendor-registration-grid vendor-registration-grid-3" style={{ marginTop: 10 }}>
                         <select
                           className="select-field"
                           value={extraLocationDraft.country}
@@ -1501,28 +1532,6 @@ export default function PlannerShell() {
                       ))}
                     </div>
                   )}
-                </div>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-                  <div className="input-group">
-                    <div className="input-label">Total Budget (₹)</div>
-                    <input
-                      className="input-field"
-                      type="number"
-                      value={weddingDetailsForm.budget}
-                      onChange={(event) => setWeddingDetailsForm({ ...weddingDetailsForm, budget: event.target.value })}
-                      placeholder="e.g. 5000000"
-                    />
-                  </div>
-                  <div className="input-group">
-                    <div className="input-label">Expected Guests</div>
-                    <input
-                      className="input-field"
-                      type="number"
-                      value={weddingDetailsForm.guests}
-                      onChange={(event) => setWeddingDetailsForm({ ...weddingDetailsForm, guests: event.target.value })}
-                      placeholder="e.g. 300"
-                    />
-                  </div>
                 </div>
                 <button className="btn-primary" onClick={saveWeddingDetails}>Save Changes</button>
               </div>

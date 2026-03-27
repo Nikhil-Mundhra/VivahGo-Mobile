@@ -4,19 +4,83 @@ import { DEFAULT_VENDORS } from "../../../data";
 import { formatVendorBudgetRange, formatVendorPriceTier, getVendorPriceLevel, getVendorQuickFacts } from "../../../utils";
 import VendorDetailScreen from "../../../components/VendorDetailScreen";
 import { fetchApprovedVendors } from "../../../api";
+import { useBackButtonClose } from "../../../hooks/useBackButtonClose";
+
+const VENDOR_FILTERS_SESSION_KEY = "vivahgo.vendorFilters";
+
+function getSavedVendorFilters() {
+  if (typeof window === "undefined") {
+    return null;
+  }
+
+  try {
+    const raw = window.sessionStorage.getItem(VENDOR_FILTERS_SESSION_KEY);
+    const parsed = raw ? JSON.parse(raw) : null;
+    return parsed && typeof parsed === "object" ? parsed : null;
+  } catch {
+    return null;
+  }
+}
 
 function VendorsScreen({ vendors }) {
-  const [activeTab, setActiveTab] = useState("All");
-  const [locationFilter, setLocationFilter] = useState("all");
-  const [subtypeFilter, setSubtypeFilter] = useState("all");
-  const [bundledServiceFilter, setBundledServiceFilter] = useState("all");
-  const [ratingFilter, setRatingFilter] = useState("all");
-  const [budgetFilter, setBudgetFilter] = useState("all");
-  const [priceSort, setPriceSort] = useState("none");
+  const savedFilters = getSavedVendorFilters();
+  const [activeTab, setActiveTab] = useState(savedFilters?.activeTab || "All");
+  const [locationFilter, setLocationFilter] = useState(savedFilters?.locationFilter || "all");
+  const [subtypeFilter, setSubtypeFilter] = useState(savedFilters?.subtypeFilter || "all");
+  const [bundledServiceFilter, setBundledServiceFilter] = useState(savedFilters?.bundledServiceFilter || "all");
+  const [ratingFilter, setRatingFilter] = useState(savedFilters?.ratingFilter || "all");
+  const [budgetFilter, setBudgetFilter] = useState(savedFilters?.budgetFilter || "all");
+  const [priceSort, setPriceSort] = useState(savedFilters?.priceSort || "none");
   const [selectedVendorId, setSelectedVendorId] = useState(null);
   const [wishlistIds, setWishlistIds] = useState([]);
   const [vendorReviews, setVendorReviews] = useState({});
   const [dbVendors, setDbVendors] = useState([]);
+  const [showMobileFilters, setShowMobileFilters] = useState(false);
+  const [isMobileView, setIsMobileView] = useState(() =>
+    typeof window !== "undefined" ? window.matchMedia("(max-width: 767px)").matches : false
+  );
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return undefined;
+    }
+
+    const mediaQuery = window.matchMedia("(max-width: 767px)");
+    const handleChange = (event) => setIsMobileView(event.matches);
+    setIsMobileView(mediaQuery.matches);
+
+    if (typeof mediaQuery.addEventListener === "function") {
+      mediaQuery.addEventListener("change", handleChange);
+      return () => mediaQuery.removeEventListener("change", handleChange);
+    }
+
+    mediaQuery.addListener(handleChange);
+    return () => mediaQuery.removeListener(handleChange);
+  }, []);
+
+  useEffect(() => {
+    if (!isMobileView) {
+      setShowMobileFilters(false);
+    }
+  }, [isMobileView]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    window.sessionStorage.setItem(VENDOR_FILTERS_SESSION_KEY, JSON.stringify({
+      activeTab,
+      locationFilter,
+      subtypeFilter,
+      bundledServiceFilter,
+      ratingFilter,
+      budgetFilter,
+      priceSort,
+    }));
+  }, [activeTab, budgetFilter, bundledServiceFilter, locationFilter, priceSort, ratingFilter, subtypeFilter]);
+
+  useBackButtonClose(showMobileFilters, () => setShowMobileFilters(false));
 
   useEffect(() => {
     fetchApprovedVendors()
@@ -127,27 +191,17 @@ function VendorsScreen({ vendors }) {
     }));
   }
 
-  return (
-    <div>
-      {selectedVendor && (
-        <VendorDetailScreen
-          vendor={selectedVendor}
-          onBack={() => setSelectedVendorId(null)}
-          onToggleWishlist={() => toggleWishlist(selectedVendor.id)}
-          onAddReview={review => handleAddReview(selectedVendor.id, review)}
-        />
-      )}
-      {!selectedVendor && (
-      <div>
-      <div className="section-head">
-        <div className="section-title">Vendor Directory</div>
-        <div className="section-action" style={{cursor:"default"}}>Curated by VivahGo</div>
-      </div>
-      <div className="vendor-tabs">
-        {VENDOR_TYPES.map(t=>(
-          <div key={t} className={`vendor-tab${activeTab===t?" active":""}`} onClick={() => { setActiveTab(t); setSubtypeFilter("all"); setBundledServiceFilter("all"); }}>{t}</div>
-        ))}
-      </div>
+  const activeFilterCount = [
+    locationFilter,
+    subtypeFilter,
+    bundledServiceFilter,
+    ratingFilter,
+    budgetFilter,
+    priceSort,
+  ].filter(value => value !== "all" && value !== "none").length;
+
+  const filterControls = (
+    <>
       <div className="vendor-filter-grid vendor-filter-grid-primary">
         <select className="select-field vendor-filter-select" value={subtypeFilter} onChange={e=>setSubtypeFilter(e.target.value)}>
           <option value="all">{activeTab === "All" ? "All Subcategories" : `${activeTab} Subcategories`}</option>
@@ -186,6 +240,61 @@ function VendorsScreen({ vendors }) {
           <span>{filtered.length} vendors shown</span>
         </div>
       </div>
+    </>
+  );
+
+  return (
+    <div>
+      {selectedVendor && (
+        <VendorDetailScreen
+          vendor={selectedVendor}
+          onBack={() => setSelectedVendorId(null)}
+          onToggleWishlist={() => toggleWishlist(selectedVendor.id)}
+          onAddReview={review => handleAddReview(selectedVendor.id, review)}
+        />
+      )}
+      {!selectedVendor && (
+      <div>
+      <div className="section-head">
+        <div className="section-title">Vendor Directory</div>
+        <div className="section-action" style={{cursor:"default"}}>Curated by VivahGo</div>
+      </div>
+      <div className="vendor-tabs">
+        {VENDOR_TYPES.map(t=>(
+          <div key={t} className={`vendor-tab${activeTab===t?" active":""}`} onClick={() => { setActiveTab(t); setSubtypeFilter("all"); setBundledServiceFilter("all"); }}>{t}</div>
+        ))}
+      </div>
+      {isMobileView ? (
+        <div className="vendor-mobile-filter-row">
+          <button
+            type="button"
+            className="vendor-mobile-filter-toggle"
+            onClick={() => setShowMobileFilters(true)}
+            aria-label="Open vendor filters"
+          >
+            <span />
+            <span />
+            <span />
+            {activeFilterCount > 0 && <strong>{activeFilterCount}</strong>}
+          </button>
+          <div className="vendor-filter-summary vendor-filter-summary-mobile">
+            <span>{wishlistIds.length} wishlisted</span>
+            <span>{filtered.length} vendors shown</span>
+          </div>
+        </div>
+      ) : filterControls}
+      {isMobileView && showMobileFilters && (
+        <div className="modal-overlay" onClick={() => setShowMobileFilters(false)}>
+          <div className="modal vendor-mobile-filter-sheet" onClick={event => event.stopPropagation()}>
+            <div className="modal-handle" />
+            <div className="modal-title">Vendor Filters</div>
+            {filterControls}
+            <button type="button" className="btn-secondary" onClick={() => setShowMobileFilters(false)}>
+              Apply Filters
+            </button>
+          </div>
+        </div>
+      )}
       {filtered.length === 0 && (
         <div style={{textAlign:"center",padding:"8px 16px 14px",color:"var(--color-light-text)",fontSize:13}}>
           No vendors found for selected filters.

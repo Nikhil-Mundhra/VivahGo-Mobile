@@ -9,10 +9,11 @@ function SplashScreen({ onStart, onSkip, showSkip = false }) {
       <Mandala size={500} style={{position:"absolute",top:-50,left:-50,className:"splash-mandala"}} className="splash-mandala"/>
       <Mandala size={400} style={{position:"absolute",bottom:-80,right:-80,opacity:0.05,animation:"rotateSlow 60s linear infinite reverse"}}/>
       <div className="splash-content" style={{opacity:show?1:0,transition:"opacity 0.8s ease, transform 0.8s ease",transform:show?"translateY(0)":"translateY(30px)"}}>
-        <div className="splash-diya">🪔</div>
-        <div className="splash-title">Vivah Go</div>
-        <div className="splash-title" style={{fontSize:24,marginTop:-6,color:"white",fontWeight:300,letterSpacing:2}}>Wedding Planner</div>
-        <div className="splash-subtitle">Plan your perfect shaadi</div>
+        <img
+          src="/Thumbnail.png"
+          alt="VivahGo"
+          style={{ width: "min(260px, 70vw)", margin: "0 auto 8px", display: "block" }}
+        />
         <div className="splash-divider">
           <div className="splash-divider-line"/>
           <div className="splash-divider-diamond"/>
