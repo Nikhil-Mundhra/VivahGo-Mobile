@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useBackButtonClose } from "../../../hooks/useBackButtonClose";
 
-function AccountScreen({ user, authMode, subscription, onClose, onLogout, onDeleteAccount }) {
+function AccountScreen({ user, authMode, subscription, onClose, onLogout, onDeleteAccount, onStartOnboarding }) {
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState("");
@@ -26,7 +26,7 @@ function AccountScreen({ user, authMode, subscription, onClose, onLogout, onDele
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal" onClick={e => e.stopPropagation()}>
         <div className="modal-handle" />
-        <div className="modal-title">Account & Settings ⚙️</div>
+        <div className="modal-title">Account & Settings</div>
 
         {/* Profile */}
         <div style={{
@@ -152,6 +152,12 @@ function AccountScreen({ user, authMode, subscription, onClose, onLogout, onDele
               </a>
             )}
           </div>
+        )}
+
+        {isDemo && (
+          <button className="btn-primary" onClick={onStartOnboarding} style={{ marginBottom: 10 }}>
+            Login / Sign Up
+          </button>
         )}
 
         <button className="btn-secondary" onClick={onClose}>

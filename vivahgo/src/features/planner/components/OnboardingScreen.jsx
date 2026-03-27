@@ -1,11 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { MARRIAGE_TEMPLATES } from "../../../plannerDefaults";
-import { POPULAR_WEDDING_LOCATIONS } from "../../../locationOptions";
+import { getLocationCities, getLocationCountries, getLocationStates } from "../../../locationOptions";
 
 const MONTHS = [
   "Jan", "Feb", "Mar", "Apr", "May", "Jun",
   "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
 ];
+
+const SKIPPED_SUMMARY = "Skipped";
 
 
 function OnboardingScreen({ onComplete }) {
@@ -39,6 +41,7 @@ function OnboardingScreen({ onComplete }) {
   const addUser = (text) => setMessages(m => [...m, { role: "user", text }]);
 
   const isUaeSelected = form.country === "UAE";
+  const isCountryOnlyLocation = form.country === "Singapore";
   const years = useMemo(() => Array.from({ length: 10 }, (_, i) => String(today.getFullYear() + i)), [today]);
   const templateOptions = useMemo(() => Object.values(MARRIAGE_TEMPLATES), []);
   const selectedYear = Number(form.dateYear);
@@ -72,16 +75,9 @@ function OnboardingScreen({ onComplete }) {
 
     return allDays.filter(day => Number(day) > today.getDate());
   }, [form.dateYear, maxDayForMonth, selectedMonthIndex, selectedYear, today]);
-  const states = useMemo(() => {
-    if (!form.country || form.country === "UAE") return [];
-    return Object.keys(POPULAR_WEDDING_LOCATIONS[form.country] || {});
-  }, [form.country]);
-  const cities = useMemo(() => {
-    if (!form.country) return [];
-    if (form.country === "UAE") return Object.keys(POPULAR_WEDDING_LOCATIONS.UAE || {});
-    if (!form.state) return [];
-    return POPULAR_WEDDING_LOCATIONS[form.country]?.[form.state] || [];
-  }, [form.country, form.state]);
+  const countries = useMemo(() => getLocationCountries(), []);
+  const states = useMemo(() => getLocationStates(form.country), [form.country]);
+  const cities = useMemo(() => getLocationCities(form.country, form.state), [form.country, form.state]);
 
   useEffect(() => {
     if (form.dateMonth && !availableMonths.includes(form.dateMonth)) {
@@ -98,7 +94,11 @@ function OnboardingScreen({ onComplete }) {
   function updateForm(field, value) {
     setForm(current => {
       if (field === "country") return { ...current, country: value, state: "", city: "" };
-      if (field === "state") return { ...current, state: value, city: "" };
+      if (field === "state") {
+        return current.country === "UAE"
+          ? { ...current, state: value, city: value }
+          : { ...current, state: value, city: "" };
+      }
       return { ...current, [field]: value };
     });
   }
@@ -131,23 +131,27 @@ function OnboardingScreen({ onComplete }) {
       }
       case 1: {
         const parts = [form.bride.trim(), form.groom.trim()].filter(Boolean);
-        return parts.length ? parts.join(" & ") : "Skipped";
+        return parts.length ? parts.join(" & ") : SKIPPED_SUMMARY;
       }
       case 2: {
         const d = formatDateFromParts(form.dateDay, form.dateMonth, form.dateYear);
-        return d || "Skipped";
+        return d || SKIPPED_SUMMARY;
       }
       case 3: {
-        const parts = [form.city, form.state, form.country].filter(Boolean);
-        return parts.length ? parts.join(", ") : "Skipped";
+        const parts = isCountryOnlyLocation
+          ? [form.country].filter(Boolean)
+          : isUaeSelected
+          ? [form.state, form.country].filter(Boolean)
+          : [form.city, form.state, form.country].filter(Boolean);
+        return parts.length ? parts.join(", ") : SKIPPED_SUMMARY;
       }
       case 4: {
         const parts = [];
         if (form.guests.trim()) parts.push(`${form.guests} guests`);
         if (form.budget.trim()) parts.push(`₹${form.budget} budget`);
-        return parts.length ? parts.join(", ") : "Skipped";
+        return parts.length ? parts.join(", ") : SKIPPED_SUMMARY;
       }
-      default: return "Skipped";
+      default: return SKIPPED_SUMMARY;
     }
   }
 
@@ -165,9 +169,20 @@ function OnboardingScreen({ onComplete }) {
     }
   }
 
+  function handleBack() {
+    if (step === 0) {
+      return;
+    }
+    setStep(current => Math.max(0, current - 1));
+  }
+
   async function handleComplete() {
     const date = formatDateFromParts(form.dateDay, form.dateMonth, form.dateYear);
-    const location = [form.city, form.state, form.country].filter(Boolean).join(", ");
+    const location = isCountryOnlyLocation
+      ? form.country
+      : isUaeSelected
+      ? [form.state, form.country].filter(Boolean).join(", ")
+      : [form.city, form.state, form.country].filter(Boolean).join(", ");
     const finalAnswers = {
       template: form.template,
       bride: form.bride.trim(),
@@ -177,8 +192,8 @@ function OnboardingScreen({ onComplete }) {
       guests: form.guests.trim(),
       budget: form.budget.trim(),
       country: form.country,
-      state: form.state,
-      city: form.city,
+      state: isCountryOnlyLocation ? "" : form.state,
+      city: (isUaeSelected || isCountryOnlyLocation) ? "" : form.city,
     };
 
     setTyping(true);
@@ -263,10 +278,10 @@ function OnboardingScreen({ onComplete }) {
             fontSize: 15,
             fontWeight: 700,
             letterSpacing: 0.2,
-            color: currentStep.key === "template" ? "var(--color-gold)" : "var(--color-crimson)",
+            color: "var(--color-gold)",
             marginBottom: 12,
           }}>
-            {currentStep.emoji} {currentStep.label}
+            {currentStep.label}
           </div>
 
           {/* Step 0: Template */}
@@ -326,27 +341,39 @@ function OnboardingScreen({ onComplete }) {
                 <div className="onboard-form-label">Country</div>
                 <select className="chat-input onboard-form-select" value={form.country} onChange={e => updateForm("country", e.target.value)}>
                   <option value="">Select country</option>
-                  {Object.keys(POPULAR_WEDDING_LOCATIONS).map(c => <option key={c} value={c}>{c}</option>)}
+                  {countries.map(c => <option key={c} value={c}>{c}</option>)}
                 </select>
               </div>
-              <div className="onboard-form-grid" style={{ marginTop: 10 }}>
-                {!isUaeSelected && (
-                  <div className="onboard-form-field">
-                    <div className="onboard-form-label">State</div>
+              {!isCountryOnlyLocation && (
+                <div className="onboard-form-grid" style={{ marginTop: 10 }}>
+                  {isUaeSelected ? (
+                  <div className="onboard-form-field" style={{ gridColumn: "1 / -1" }}>
+                    <div className="onboard-form-label">Emirate</div>
                     <select className="chat-input onboard-form-select" value={form.state} onChange={e => updateForm("state", e.target.value)} disabled={!states.length}>
-                      <option value="">Select state</option>
+                      <option value="">Select emirate</option>
                       {states.map(s => <option key={s} value={s}>{s}</option>)}
                     </select>
                   </div>
-                )}
-                <div className="onboard-form-field">
-                  <div className="onboard-form-label">City</div>
-                  <select className="chat-input onboard-form-select" value={form.city} onChange={e => updateForm("city", e.target.value)} disabled={!cities.length}>
-                    <option value="">Select city</option>
-                    {cities.map(c => <option key={c} value={c}>{c}</option>)}
-                  </select>
+                  ) : (
+                    <>
+                      <div className="onboard-form-field">
+                        <div className="onboard-form-label">State</div>
+                        <select className="chat-input onboard-form-select" value={form.state} onChange={e => updateForm("state", e.target.value)} disabled={!states.length}>
+                          <option value="">Select state</option>
+                          {states.map(s => <option key={s} value={s}>{s}</option>)}
+                        </select>
+                      </div>
+                      <div className="onboard-form-field">
+                        <div className="onboard-form-label">City</div>
+                        <select className="chat-input onboard-form-select" value={form.city} onChange={e => updateForm("city", e.target.value)} disabled={!cities.length}>
+                          <option value="">Select city</option>
+                          {cities.map(c => <option key={c} value={c}>{c}</option>)}
+                        </select>
+                      </div>
+                    </>
+                  )}
                 </div>
-              </div>
+              )}
             </>
           )}
 
@@ -365,6 +392,25 @@ function OnboardingScreen({ onComplete }) {
           )}
 
           <div className="chat-input-row" style={{ marginTop: 14 }}>
+            {step > 0 && (
+              <button
+                type="button"
+                onClick={handleBack}
+                style={{
+                  border: "none",
+                  background: "transparent",
+                  color: "var(--color-light-text)",
+                  fontSize: 13,
+                  fontWeight: 600,
+                  padding: "0 10px",
+                  cursor: "pointer",
+                  whiteSpace: "nowrap",
+                }}
+                aria-label="Go back one step"
+              >
+                Back
+              </button>
+            )}
             <input
               className="chat-input"
               value="All fields are optional — skip anything you like."

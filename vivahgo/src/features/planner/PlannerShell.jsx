@@ -53,9 +53,14 @@ function formatDateStr({ day, month, year }) {
 }
 
 function parseWeddingLocation(value) {
-  const [city = "", state = "", country = ""] = String(value || "")
+  const parts = String(value || "")
     .split(",")
     .map((item) => item.trim());
+  if (parts.length === 2) {
+    const [state = "", country = ""] = parts;
+    return { country, state, city: "" };
+  }
+  const [city = "", state = "", country = ""] = parts;
   return { country, state, city };
 }
 
@@ -78,6 +83,7 @@ export default function PlannerShell() {
   const [showWeddingDetailsEditor, setShowWeddingDetailsEditor] = useState(false);
   const [weddingDetailsForm, setWeddingDetailsForm] = useState({ bride: "", groom: "", date: "", country: "", state: "", city: "", budget: "", guests: "" });
   const [extraLocationDraft, setExtraLocationDraft] = useState({ country: "", state: "", city: "" });
+  const [showExtraLocationForm, setShowExtraLocationForm] = useState(false);
   const [eventToEditId, setEventToEditId] = useState(null);
   const [showAccountSettings, setShowAccountSettings] = useState(false);
   const [showTermsModal, setShowTermsModal] = useState(false);
@@ -115,9 +121,10 @@ export default function PlannerShell() {
   const contentAreaRef = useRef(null);
   const previousScrollTopRef = useRef(0);
   const activePlan = marriages.find(m => m.id === activePlanId) || null;
+  const extraVenueOptions = Array.isArray(activePlan?.extraLocations) ? activePlan.extraLocations : [];
   const presetVenues = Array.from(new Set([
     wedding.venue,
-    ...(Array.isArray(activePlan?.extraLocations) ? activePlan.extraLocations : []),
+    ...extraVenueOptions,
   ].filter(Boolean)));
 
   function applyWeddingToActivePlan(nextWedding, nextPlanOverrides = {}) {
@@ -922,11 +929,13 @@ export default function PlannerShell() {
       guests: wedding.guests || "",
     });
     setExtraLocationDraft({ country: "", state: "", city: "" });
+    setShowExtraLocationForm(extraVenueOptions.length > 0);
     setShowWeddingDetailsEditor(true);
   }
 
   function closeWeddingDetailsEditor() {
     setShowWeddingDetailsEditor(false);
+    setShowExtraLocationForm(false);
   }
 
   function addExtraWeddingLocation() {
@@ -970,6 +979,11 @@ export default function PlannerShell() {
 
   function closeAccountSettings() {
     setShowAccountSettings(false);
+  }
+
+  function handleStartOnboardingFromDemo() {
+    closeAccountSettings();
+    setScreen("onboard");
   }
 
   function openTermsModal() {
@@ -1200,6 +1214,7 @@ export default function PlannerShell() {
               authMode={authMode}
               subscription={subscription}
               onClose={closeAccountSettings}
+              onStartOnboarding={handleStartOnboardingFromDemo}
               onLogout={() => { closeAccountSettings(); handleLogout(); }}
               onDeleteAccount={handleDeleteAccount}
             />
@@ -1377,7 +1392,7 @@ export default function PlannerShell() {
                 </div>
                 <div className="input-group">
                   <div className="input-label">Venue Location</div>
-                  <div style={{ display: "grid", gap: 10 }}>
+                  <div className="vendor-registration-grid vendor-registration-grid-3">
                     <select
                       className="select-field"
                       value={weddingDetailsForm.country}
@@ -1421,89 +1436,71 @@ export default function PlannerShell() {
                     </select>
                   </div>
                 </div>
-                <div className="input-group">
-                  <div className="input-label">Extra Event Locations</div>
-                  <div style={{ display: "grid", gap: 10 }}>
-                    <div style={{ display: "grid", gap: 8 }}>
-                      <select
-                        className="select-field"
-                        value={extraLocationDraft.country}
-                        onChange={(event) => setExtraLocationDraft({ country: event.target.value, state: "", city: "" })}
-                      >
-                        <option value="">Select country</option>
-                        {weddingLocationCountries.map((country) => (
-                          <option key={country} value={country}>{country}</option>
-                        ))}
-                      </select>
-                      <select
-                        className="select-field"
-                        value={extraLocationDraft.state}
-                        onChange={(event) => setExtraLocationDraft({ ...extraLocationDraft, state: event.target.value, city: "" })}
-                        disabled={!extraLocationStates.length}
-                      >
-                        <option value="">Select state</option>
-                        {extraLocationStates.map((state) => (
-                          <option key={state} value={state}>{state}</option>
-                        ))}
-                      </select>
-                      <select
-                        className="select-field"
-                        value={extraLocationDraft.city}
-                        onChange={(event) => setExtraLocationDraft({ ...extraLocationDraft, city: event.target.value })}
-                        disabled={!extraLocationCities.length}
-                      >
-                        <option value="">Select city</option>
-                        {extraLocationCities.map((city) => (
-                          <option key={city} value={city}>{city}</option>
-                        ))}
-                      </select>
+                <div className="vendor-registration-location-block">
+                  <button
+                    type="button"
+                    className="vendor-registration-section-toggle"
+                    onClick={() => setShowExtraLocationForm((current) => !current)}
+                    aria-expanded={showExtraLocationForm}
+                  >
+                    <span className="vendor-registration-section-title">Extra Event Locations</span>
+                    <span>{showExtraLocationForm ? "Hide" : "Add More"}</span>
+                  </button>
+                  {showExtraLocationForm && (
+                    <>
+                      <div className="vendor-registration-grid vendor-registration-grid-3">
+                        <select
+                          className="select-field"
+                          value={extraLocationDraft.country}
+                          onChange={(event) => setExtraLocationDraft({ country: event.target.value, state: "", city: "" })}
+                        >
+                          <option value="">Select country</option>
+                          {weddingLocationCountries.map((country) => (
+                            <option key={country} value={country}>{country}</option>
+                          ))}
+                        </select>
+                        <select
+                          className="select-field"
+                          value={extraLocationDraft.state}
+                          onChange={(event) => setExtraLocationDraft({ ...extraLocationDraft, state: event.target.value, city: "" })}
+                          disabled={!extraLocationStates.length}
+                        >
+                          <option value="">Select state</option>
+                          {extraLocationStates.map((state) => (
+                            <option key={state} value={state}>{state}</option>
+                          ))}
+                        </select>
+                        <select
+                          className="select-field"
+                          value={extraLocationDraft.city}
+                          onChange={(event) => setExtraLocationDraft({ ...extraLocationDraft, city: event.target.value })}
+                          disabled={!extraLocationCities.length}
+                        >
+                          <option value="">Select city</option>
+                          {extraLocationCities.map((city) => (
+                            <option key={city} value={city}>{city}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <button type="button" className="vendor-registration-add-btn" onClick={addExtraWeddingLocation}>
+                        Add Location
+                      </button>
+                    </>
+                  )}
+                  {extraVenueOptions.length > 0 && (
+                    <div className="vendor-registration-chip-list">
+                      {extraVenueOptions.map((location) => (
+                        <button
+                          key={location}
+                          type="button"
+                          className="vendor-registration-chip"
+                          onClick={() => removeExtraWeddingLocation(location)}
+                        >
+                          {location} ×
+                        </button>
+                      ))}
                     </div>
-                    <button type="button" className="btn-secondary" onClick={addExtraWeddingLocation} style={{ marginTop: 0 }}>
-                      Add Location
-                    </button>
-                    <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-                      {presetVenues.map((location) => {
-                        const isPrimary = location === wedding.venue;
-                        return (
-                          <div
-                            key={location}
-                            style={{
-                              display: "inline-flex",
-                              alignItems: "center",
-                              gap: 6,
-                              padding: "8px 10px",
-                              borderRadius: 999,
-                              border: "1px solid rgba(212,175,55,0.22)",
-                              background: isPrimary ? "rgba(212,175,55,0.14)" : "rgba(139,26,26,0.06)",
-                              color: isPrimary ? "var(--color-crimson)" : "var(--color-mid-text)",
-                              fontSize: 12,
-                              fontWeight: 600,
-                            }}
-                          >
-                            <span>{location}{isPrimary ? " (Main)" : ""}</span>
-                            {!isPrimary && (
-                              <button
-                                type="button"
-                                onClick={() => removeExtraWeddingLocation(location)}
-                                style={{
-                                  border: "none",
-                                  background: "transparent",
-                                  color: "inherit",
-                                  cursor: "pointer",
-                                  padding: 0,
-                                  fontSize: 13,
-                                  fontWeight: 700,
-                                }}
-                                aria-label={`Remove ${location}`}
-                              >
-                                x
-                              </button>
-                            )}
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
+                  )}
                 </div>
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
                   <div className="input-group">
