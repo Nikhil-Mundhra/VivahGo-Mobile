@@ -82,7 +82,7 @@ body[data-route='home'] #root {
   gap: 20px;
   width: 100%;
   margin: 0;
-  padding: 24px max(16px, calc((100vw - 1280px) / 2)) 18px;
+  padding: 24px clamp(20px, 3vw, 40px) 18px;
   background: #ffffff;
   position: relative;
   z-index: 1;
