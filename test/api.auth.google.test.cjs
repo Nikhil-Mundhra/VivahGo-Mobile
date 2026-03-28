@@ -8,6 +8,17 @@ const { createRes } = require('./helpers/testUtils.cjs');
 const authHandler = require('../api/auth');
 const { handleGoogleAuth: handler } = authHandler;
 
+function withCsrf(req = {}) {
+  return {
+    ...req,
+    headers: {
+      ...(req.headers || {}),
+      cookie: ['vivahgo_csrf=test-csrf-token', req.headers?.cookie].filter(Boolean).join('; '),
+      'x-csrf-token': 'test-csrf-token',
+    },
+  };
+}
+
 describe('api/auth.js -> google route', function () {
   // ── connectDb (cachedConnection is null here — must run before any DB mock) ──
   it('connectDb throws when MONGODB_URI is not set', async function () {
@@ -49,7 +60,7 @@ describe('api/auth.js -> google route', function () {
     const oldId = process.env.GOOGLE_CLIENT_ID;
     delete process.env.GOOGLE_CLIENT_ID;
 
-    const req = { method: 'POST', headers: {}, body: { credential: 'dummy' } };
+    const req = withCsrf({ method: 'POST', headers: {}, body: { credential: 'dummy' } });
     const res = createRes();
 
     await handler(req, res);
@@ -66,7 +77,7 @@ describe('api/auth.js -> google route', function () {
     const oldId = process.env.GOOGLE_CLIENT_ID;
     process.env.GOOGLE_CLIENT_ID = 'test-client-id';
 
-    const req = { method: 'POST', headers: {}, body: {} };
+    const req = withCsrf({ method: 'POST', headers: {}, body: {} });
     const res = createRes();
 
     await handler(req, res);
@@ -79,6 +90,29 @@ describe('api/auth.js -> google route', function () {
 
     assert.equal(res.statusCode, 400);
     assert.deepEqual(res.body, { error: 'Missing Google credential.' });
+  });
+
+  it('clears the session cookie on logout', async function () {
+    const req = withCsrf({ method: 'POST', headers: { 'x-forwarded-proto': 'https' }, query: { route: 'logout' } });
+    const res = createRes();
+
+    await authHandler(req, res);
+
+    assert.equal(res.statusCode, 200);
+    assert.deepEqual(res.body, { ok: true });
+    assert.match(String(res.headers['Set-Cookie']), /vivahgo_session=/);
+    assert.match(String(res.headers['Set-Cookie']), /Max-Age=0/);
+  });
+
+  it('returns a CSRF token and cookie from the bootstrap route', async function () {
+    const req = { method: 'GET', headers: {}, query: { route: 'csrf' } };
+    const res = createRes();
+
+    await authHandler(req, res);
+
+    assert.equal(res.statusCode, 200);
+    assert.match(res.body.csrfToken, /^[a-f0-9]{64}$/);
+    assert.match(String(res.headers['Set-Cookie']), /vivahgo_csrf=/);
   });
 
   // ── Mocked-DB paths ──────────────────────────────────────────────────────────
@@ -133,7 +167,7 @@ describe('api/auth.js -> google route', function () {
 
       const req = {
         method: 'POST',
-        headers: {},
+        headers: withCsrf({ headers: {} }).headers,
         body: { credential: 'bad.token.here' },
       };
       const res = createRes();
@@ -151,7 +185,7 @@ describe('api/auth.js -> google route', function () {
 
       const req = {
         method: 'POST',
-        headers: {},
+        headers: withCsrf({ headers: {} }).headers,
         body: { credential: 'some.token.here' },
       };
       const res = createRes();
@@ -162,13 +196,37 @@ describe('api/auth.js -> google route', function () {
       assert.deepEqual(res.body, { error: 'Google account details are incomplete.' });
     });
 
-    it('returns 200 with token and planner on successful sign-in', async function () {
+    it('returns 400 when the Google account email is not verified', async function () {
+      OAuth2Client.prototype.verifyIdToken = async () => ({
+        getPayload: () => ({
+          sub: 'g-123',
+          email: 'user@example.com',
+          name: 'Test User',
+          email_verified: false,
+        }),
+      });
+
+      const req = {
+        method: 'POST',
+        headers: withCsrf({ headers: {} }).headers,
+        body: { credential: 'some.token.here' },
+      };
+      const res = createRes();
+
+      await handler(req, res);
+
+      assert.equal(res.statusCode, 400);
+      assert.deepEqual(res.body, { error: 'Google account email must be verified.' });
+    });
+
+    it('returns 200 with a session cookie and planner on successful sign-in', async function () {
       OAuth2Client.prototype.verifyIdToken = async () => ({
         getPayload: () => ({
           sub: 'g-123',
           email: 'user@example.com',
           name: 'Test User',
           picture: 'https://example.com/pic.jpg',
+          email_verified: true,
         }),
       });
 
@@ -193,7 +251,7 @@ describe('api/auth.js -> google route', function () {
 
       const req = {
         method: 'POST',
-        headers: {},
+        headers: withCsrf({ headers: {} }).headers,
         body: { credential: 'valid.token.here' },
       };
       const res = createRes();
@@ -201,9 +259,11 @@ describe('api/auth.js -> google route', function () {
       await handler(req, res);
 
       assert.equal(res.statusCode, 200);
-      assert.equal(typeof res.body.token, 'string');
       assert.equal(res.body.user.id, 'g-123');
       assert.ok(res.body.planner);
+      assert.match(String(res.headers['Set-Cookie']), /vivahgo_session=/);
+      assert.match(String(res.headers['Set-Cookie']), /vivahgo_csrf=/);
+      assert.doesNotMatch(JSON.stringify(res.body), /"token":/);
     });
   });
 });

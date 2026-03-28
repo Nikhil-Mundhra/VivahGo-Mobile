@@ -2,17 +2,22 @@ const { OAuth2Client } = require('google-auth-library');
 const mongoose = require('mongoose');
 
 const {
+  applyRateLimit,
   buildEmptyPlanner,
+  clearSessionCookie,
   connectDb,
   createSessionToken,
+  ensureCsrfToken,
   getPlannerModel,
   getUserModel,
   getVendorModel,
   handlePreflight,
   normalizeEmail,
   normalizeStaffRole,
+  requireCsrfProtection,
   resolveStaffRole,
   sanitizePlanner,
+  setSessionCookie,
   setCorsHeaders,
   verifySession,
 } = require('./_lib/core');
@@ -23,6 +28,10 @@ const {
 
 function resolveAuthRoute(req) {
   return String(req.query?.route || '').trim().toLowerCase();
+}
+
+function isVerifiedGoogleEmail(payload) {
+  return payload?.email_verified === true || payload?.email_verified === 'true';
 }
 
 /******************************************************************************
@@ -36,6 +45,18 @@ async function handleGoogleAuth(req, res) {
   if (req.method !== 'POST') {
     res.setHeader('Allow', 'POST, OPTIONS');
     return res.status(405).json({ error: 'Method not allowed.' });
+  }
+
+  if (requireCsrfProtection(req, res, { skipForBearer: false })) {
+    return;
+  }
+
+  if (applyRateLimit(req, res, 'auth:google', {
+    windowMs: 10 * 60 * 1000,
+    max: 20,
+    message: 'Too many sign-in attempts. Please wait a few minutes and try again.',
+  })) {
+    return;
   }
 
   const googleClientId = process.env.GOOGLE_CLIENT_ID;
@@ -63,6 +84,9 @@ async function handleGoogleAuth(req, res) {
 
     if (!payload?.sub || !payload.email || !payload.name) {
       return res.status(400).json({ error: 'Google account details are incomplete.' });
+    }
+    if (!isVerifiedGoogleEmail(payload)) {
+      return res.status(400).json({ error: 'Google account email must be verified.' });
     }
 
     const normalizedEmail = normalizeEmail(payload.email);
@@ -101,8 +125,10 @@ async function handleGoogleAuth(req, res) {
       { new: true, upsert: true, setDefaultsOnInsert: true }
     );
 
+    ensureCsrfToken(req, res, { refresh: true });
+    setSessionCookie(req, res, createSessionToken(user));
+
     return res.status(200).json({
-      token: createSessionToken(user),
       user: {
         id: user.googleId,
         email: user.email,
@@ -115,6 +141,9 @@ async function handleGoogleAuth(req, res) {
     });
   } catch (error) {
     console.error('Google auth failed:', error);
+    if (error?.message === 'JWT_SECRET must be configured in production.') {
+      return res.status(500).json({ error: 'Server auth is not configured.' });
+    }
     return res.status(401).json({ error: 'Google sign-in could not be verified.' });
   }
 }
@@ -132,9 +161,13 @@ async function handleAuthMe(req, res) {
     return res.status(405).json({ error: 'Method not allowed.' });
   }
 
-  const { auth, error } = verifySession(req);
+  if (requireCsrfProtection(req, res)) {
+    return;
+  }
+
+  const { auth, error, status = 401 } = verifySession(req);
   if (error) {
-    return res.status(401).json({ error });
+    return res.status(status).json({ error });
   }
 
   try {
@@ -149,11 +182,38 @@ async function handleAuthMe(req, res) {
       Vendor.deleteOne({ googleId: auth.sub }),
     ]);
 
+    clearSessionCookie(req, res);
+
     return res.status(200).json({ ok: true });
   } catch (err) {
     console.error('DELETE /auth/me error:', err);
     return res.status(500).json({ error: 'Failed to delete account. Please try again.' });
   }
+}
+
+async function handleAuthLogout(req, res) {
+  if (req.method !== 'POST') {
+    res.setHeader('Allow', 'POST, OPTIONS');
+    return res.status(405).json({ error: 'Method not allowed.' });
+  }
+
+  if (requireCsrfProtection(req, res)) {
+    return;
+  }
+
+  clearSessionCookie(req, res);
+  return res.status(200).json({ ok: true });
+}
+
+async function handleAuthCsrf(req, res) {
+  if (req.method !== 'GET') {
+    res.setHeader('Allow', 'GET, OPTIONS');
+    return res.status(405).json({ error: 'Method not allowed.' });
+  }
+
+  const csrfToken = ensureCsrfToken(req, res, { refresh: true });
+  res.setHeader('Cache-Control', 'no-store');
+  return res.status(200).json({ csrfToken });
 }
 
 /******************************************************************************
@@ -173,8 +233,16 @@ async function handler(req, res) {
     return handleGoogleAuth(req, res);
   }
 
+  if (route === 'csrf') {
+    return handleAuthCsrf(req, res);
+  }
+
   if (route === 'me') {
     return handleAuthMe(req, res);
+  }
+
+  if (route === 'logout') {
+    return handleAuthLogout(req, res);
   }
 
   res.setHeader('Allow', 'OPTIONS');
@@ -182,5 +250,7 @@ async function handler(req, res) {
 }
 
 module.exports = handler;
+module.exports.handleAuthCsrf = handleAuthCsrf;
 module.exports.handleGoogleAuth = handleGoogleAuth;
 module.exports.handleAuthMe = handleAuthMe;
+module.exports.handleAuthLogout = handleAuthLogout;

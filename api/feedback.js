@@ -1,4 +1,4 @@
-const { handlePreflight, setCorsHeaders } = require('./_lib/core');
+const { applyRateLimit, handlePreflight, requireCsrfProtection, setCorsHeaders } = require('./_lib/core');
 
 function getString(value, fallback) {
   if (typeof value !== 'string') {
@@ -19,6 +19,18 @@ module.exports = async function handler(req, res) {
   if (req.method !== 'POST') {
     res.setHeader('Allow', 'POST, OPTIONS');
     res.status(405).json({ error: 'Method not allowed.' });
+    return;
+  }
+
+  if (requireCsrfProtection(req, res, { skipForBearer: false })) {
+    return;
+  }
+
+  if (applyRateLimit(req, res, 'feedback:submit', {
+    windowMs: 10 * 60 * 1000,
+    max: 6,
+    message: 'Too many feedback submissions. Please try again later.',
+  })) {
     return;
   }
 

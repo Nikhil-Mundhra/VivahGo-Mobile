@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import '../styles.css';
 import GoogleLoginButton from '../components/GoogleLoginButton';
 import LoadingBar from '../components/LoadingBar';
-import { clearAuthStorage } from '../authStorage';
+import { clearAuthStorage, persistAuthSession, readAuthSession } from '../authStorage';
 import {
   addAdminStaff,
   fetchAdminApplications,
@@ -11,24 +11,11 @@ import {
   fetchAdminStaff,
   fetchAdminVendors,
   loginWithGoogle,
+  logoutSession,
   removeAdminStaff,
   updateAdminStaff,
   updateAdminVendorApproval,
 } from '../api';
-
-const SESSION_KEY = 'vivahgo.session';
-
-function readSession() {
-  if (typeof window === 'undefined') {
-    return null;
-  }
-
-  try {
-    return JSON.parse(window.localStorage.getItem(SESSION_KEY) || 'null');
-  } catch {
-    return null;
-  }
-}
 
 function formatDate(value) {
   if (!value) {
@@ -61,14 +48,14 @@ function formatFileSize(value) {
 }
 
 export default function AdminPortalPage() {
-  const [session, setSession] = useState(() => readSession());
+  const [session, setSession] = useState(() => readAuthSession());
   const [adminUser, setAdminUser] = useState(null);
   const [access, setAccess] = useState(null);
   const [vendors, setVendors] = useState([]);
   const [applications, setApplications] = useState([]);
   const [subscribers, setSubscribers] = useState([]);
   const [staff, setStaff] = useState([]);
-  const [loading, setLoading] = useState(Boolean(readSession()?.token));
+  const [loading, setLoading] = useState(Boolean(readAuthSession()?.token));
   const [vendorsLoading, setVendorsLoading] = useState(false);
   const [applicationsLoading, setApplicationsLoading] = useState(false);
   const [subscribersLoading, setSubscribersLoading] = useState(false);
@@ -192,6 +179,12 @@ export default function AdminPortalPage() {
         if (cancelled) {
           return;
         }
+        if (nextError.message && /Authentication required|Session expired/i.test(nextError.message)) {
+          clearAuthStorage('admin');
+          setSession(null);
+          resetAdminState();
+          return;
+        }
         setError(nextError.message || 'Could not load admin access.');
         setAdminUser(null);
         setAccess(null);
@@ -228,13 +221,11 @@ export default function AdminPortalPage() {
     setIsSigningIn(true);
     try {
       const data = await loginWithGoogle(credentialResponse.credential);
-      const newSession = {
+      const newSession = persistAuthSession({
         mode: 'google',
-        token: data.token,
         user: data.user,
         plannerOwnerId: data.plannerOwnerId || data.user?.id || '',
-      };
-      window.localStorage.setItem(SESSION_KEY, JSON.stringify(newSession));
+      });
       setSession(newSession);
     } catch (nextError) {
       setError(nextError.message || 'Could not sign in.');
@@ -243,7 +234,12 @@ export default function AdminPortalPage() {
     }
   }
 
-  function handleLogout() {
+  async function handleLogout() {
+    try {
+      await logoutSession(session?.token);
+    } catch {
+      // Best effort only.
+    }
     clearAuthStorage('admin');
     setSession(null);
     resetAdminState();

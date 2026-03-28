@@ -9,10 +9,8 @@ import VendorDirectoryPreview from '../components/VendorDirectoryPreview';
 import VendorBusinessProfileEditor from '../components/VendorBusinessProfileEditor';
 import VendorPortalDashboard from '../components/VendorPortalDashboard';
 import NavIcon from '../components/NavIcon';
-import { clearAuthStorage } from '../authStorage';
-import { deleteAccount, fetchVendorProfile, loginWithGoogle } from '../api';
-
-const SESSION_KEY = 'vivahgo.session';
+import { clearAuthStorage, persistAuthSession, readAuthSession } from '../authStorage';
+import { deleteAccount, fetchVendorProfile, loginWithGoogle, logoutSession } from '../api';
 const VENDOR_PORTAL_SECTIONS = [
   { id: 'dashboard', label: 'Dashboard', icon: 'home' },
   { id: 'preview', label: 'Live Preview', icon: 'vendors' },
@@ -20,17 +18,8 @@ const VENDOR_PORTAL_SECTIONS = [
   { id: 'details', label: 'Business Details', icon: 'budget' },
 ];
 
-function readSession() {
-  if (typeof window === 'undefined') { return null; }
-  try {
-    return JSON.parse(window.localStorage.getItem(SESSION_KEY) || 'null');
-  } catch {
-    return null;
-  }
-}
-
 export default function VendorPortalPage() {
-  const [session, setSession] = useState(() => readSession());
+  const [session, setSession] = useState(() => readAuthSession());
   const [vendor, setVendor] = useState(null);
   const [vendorLoadError, setVendorLoadError] = useState('');
   const [previewVendor, setPreviewVendor] = useState(null);
@@ -66,6 +55,12 @@ export default function VendorPortalPage() {
       })
       .catch(err => {
         if (cancelled) { return; }
+        if (err.message && /Authentication required|Session expired/i.test(err.message)) {
+          clearAuthStorage('vendor');
+          setSession(null);
+          setLastFetchedToken(null);
+          return;
+        }
         // 404 is expected when the user hasn't registered yet — not an error state
         if (err.message && !err.message.includes('404') && !err.message.includes('No vendor profile')) {
           setVendorLoadError(err.message || 'Could not load vendor profile.');
@@ -82,13 +77,11 @@ export default function VendorPortalPage() {
     setIsSigningIn(true);
     try {
       const data = await loginWithGoogle(credentialResponse.credential);
-      const newSession = {
+      const newSession = persistAuthSession({
         mode: 'google',
-        token: data.token,
         user: data.user,
         plannerOwnerId: data.plannerOwnerId || data.user?.id || '',
-      };
-      window.localStorage.setItem(SESSION_KEY, JSON.stringify(newSession));
+      });
       // Reset vendor state before the new session triggers a fresh fetch
       setVendor(null);
       setPreviewVendor(null);
@@ -103,7 +96,12 @@ export default function VendorPortalPage() {
     }
   }
 
-  function handleLogout() {
+  async function handleLogout() {
+    try {
+      await logoutSession(session?.token);
+    } catch {
+      // Best effort only.
+    }
     clearAuthStorage('vendor');
     setSession(null);
     setVendor(null);
@@ -130,7 +128,7 @@ export default function VendorPortalPage() {
 
     try {
       await deleteAccount(session.token);
-      handleLogout();
+      await handleLogout();
     } catch (error) {
       setDeleteError(error.message || 'Could not delete account.');
     } finally {

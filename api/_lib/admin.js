@@ -31,9 +31,9 @@ async function resolveLeanUser(User, query) {
 }
 
 async function requireAdminSession(req, minimumRole = 'viewer') {
-  const { auth, error } = verifySession(req);
+  const { auth, error, status = 401 } = verifySession(req);
   if (error) {
-    return { status: 401, error };
+    return { status, error };
   }
 
   await connectDb();

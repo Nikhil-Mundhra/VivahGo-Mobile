@@ -5,6 +5,7 @@ import FeedbackModal from '../components/FeedbackModal';
 import LegalFooter from '../components/LegalFooter';
 import TermsConditionsModal from '../components/TermsConditionsModal';
 import MarketingSiteHeader from '../components/MarketingSiteHeader.jsx';
+import { readAuthSession } from '../authStorage';
 import { fetchCareers, submitCareerApplication } from '../api';
 import { DEFAULT_SITE_URL, usePageSeo } from '../seo.js';
 
@@ -65,16 +66,7 @@ export default function CareersPage() {
   });
 
   useEffect(() => {
-    if (typeof window === 'undefined') {
-      return;
-    }
-
-    try {
-      const raw = window.localStorage.getItem('vivahgo.session');
-      setSession(raw ? JSON.parse(raw) : null);
-    } catch {
-      setSession(null);
-    }
+    setSession(readAuthSession());
   }, []);
 
   useEffect(() => {

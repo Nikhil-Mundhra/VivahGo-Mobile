@@ -9,7 +9,9 @@
   },
   "rewrites": [
     { "source": "/api/auth/google", "destination": "/api/auth?route=google" },
+    { "source": "/api/auth/csrf", "destination": "/api/auth?route=csrf" },
     { "source": "/api/auth/me", "destination": "/api/auth?route=me" },
+    { "source": "/api/auth/logout", "destination": "/api/auth?route=logout" },
     { "source": "/api/admin/me", "destination": "/api/admin?route=me" },
     { "source": "/api/admin/vendors", "destination": "/api/admin?route=vendors" },
     { "source": "/api/admin/staff", "destination": "/api/admin?route=staff" },

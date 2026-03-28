@@ -1,4 +1,5 @@
 const {
+  applyRateLimit,
   assignWeddingWebsiteSlugs,
   buildEmptyPlanner,
   connectDb,
@@ -12,6 +13,7 @@ const {
   normalizeEmail,
   normalizePlannerOwnership,
   normalizeRole,
+  requireCsrfProtection,
   sanitizePlanner,
   setCorsHeaders,
   verifyGuestRsvpToken,
@@ -154,9 +156,13 @@ async function handlePlannerMe(req, res) {
     return res.status(405).json({ error: 'Method not allowed.' });
   }
 
-  const { auth, error } = verifySession(req);
+  if (requireCsrfProtection(req, res)) {
+    return;
+  }
+
+  const { auth, error, status = 401 } = verifySession(req);
   if (error) {
-    return res.status(401).json({ error });
+    return res.status(status).json({ error });
   }
 
   auth.plannerOwnerId = req.query?.plannerOwnerId || req.body?.plannerOwnerId || '';
@@ -240,9 +246,9 @@ async function handlePlannerAccess(req, res) {
     return res.status(405).json({ error: 'Method not allowed.' });
   }
 
-  const { auth, error } = verifySession(req);
+  const { auth, error, status = 401 } = verifySession(req);
   if (error) {
-    return res.status(401).json({ error });
+    return res.status(status).json({ error });
   }
 
   try {
@@ -354,9 +360,21 @@ async function handlePlannerRsvpLink(req, res) {
     return res.status(405).json({ error: 'Method not allowed.' });
   }
 
-  const { auth, error } = verifySession(req);
+  if (requireCsrfProtection(req, res)) {
+    return;
+  }
+
+  if (applyRateLimit(req, res, 'planner:rsvp-link', {
+    windowMs: 10 * 60 * 1000,
+    max: 30,
+    message: 'Too many RSVP link requests. Please try again shortly.',
+  })) {
+    return;
+  }
+
+  const { auth, error, status = 401 } = verifySession(req);
   if (error) {
-    return res.status(401).json({ error });
+    return res.status(status).json({ error });
   }
 
   const requestedOwnerId = req.query?.plannerOwnerId || req.body?.plannerOwnerId || '';
@@ -414,6 +432,20 @@ async function handlePlannerRsvp(req, res) {
     return res.status(405).json({ error: 'Method not allowed.' });
   }
 
+  if (requireCsrfProtection(req, res, { skipForBearer: false })) {
+    return;
+  }
+
+  if (applyRateLimit(req, res, `planner:rsvp:${req.method === 'GET' ? 'view' : 'submit'}`, {
+    windowMs: req.method === 'GET' ? 10 * 60 * 1000 : 60 * 60 * 1000,
+    max: req.method === 'GET' ? 120 : 20,
+    message: req.method === 'GET'
+      ? 'Too many RSVP page requests. Please try again shortly.'
+      : 'Too many RSVP submissions. Please try again later.',
+  })) {
+    return;
+  }
+
   const token = req.method === 'GET'
     ? req.query?.token
     : req.body?.token;
@@ -422,6 +454,9 @@ async function handlePlannerRsvp(req, res) {
   try {
     payload = verifyGuestRsvpToken(token);
   } catch (error) {
+    if (error?.message === 'JWT_SECRET must be configured in production.' || error?.message === 'RSVP_TOKEN_SECRET must be configured in production.') {
+      return res.status(500).json({ error: 'RSVP is not configured right now.' });
+    }
     return res.status(400).json({ error: error.message || 'Invalid RSVP token.' });
   }
 
@@ -532,9 +567,13 @@ async function handlePlannerCollaborators(req, res) {
     return res.status(405).json({ error: 'Method not allowed.' });
   }
 
-  const { auth, error } = verifySession(req);
+  if (requireCsrfProtection(req, res)) {
+    return;
+  }
+
+  const { auth, error, status = 401 } = verifySession(req);
   if (error) {
-    return res.status(401).json({ error });
+    return res.status(status).json({ error });
   }
 
   const requestedOwnerId = req.query?.plannerOwnerId || req.body?.plannerOwnerId || '';

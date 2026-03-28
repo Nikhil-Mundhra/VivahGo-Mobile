@@ -13,12 +13,12 @@ import Dashboard from "../features/planner/screens/Dashboard";
 import EventsScreen from "../features/planner/screens/EventsScreen";
 import BudgetScreen from "../features/planner/screens/BudgetScreen";
 import GuestsScreen from "../features/planner/screens/GuestsScreen";
+import { persistAuthSession, readAuthSession } from "../authStorage";
 import { confirmCheckoutPayment, createCheckoutSession, getCheckoutQuote, getSubscriptionStatus, loginWithGoogle } from "../api";
 import { createDemoPlanner } from "../plannerDefaults";
 import { DEFAULT_SITE_URL, usePageSeo } from "../seo.js";
 import seoKeywordLibrary from "../generated/seo-keywords.json";
 
-const SESSION_STORAGE_KEY = "vivahgo.session";
 const DEMO_PLANNER = createDemoPlanner();
 
 const trustSignals = [
@@ -124,8 +124,6 @@ const coverageTopics = [
   ...seoKeywordLibrary.clusters.primary.slice(0, 8),
   ...seoKeywordLibrary.clusters.cultural.slice(0, 4),
 ];
-const highlightedCities = ["jaipur", "udaipur", "delhi", "gurgaon", "mumbai", "goa", "hyderabad", "bengaluru", "kolkata", "chennai"];
-
 function formatDisplayLabel(value = "") {
   return String(value)
     .split(/\s+/)
@@ -138,37 +136,6 @@ function formatDisplayLabel(value = "") {
     )
     .join(" ");
 }
-
-const culturalCoverage = seoKeywordLibrary.sourceSnapshot.cultures
-  .filter((value) => !value.endsWith(" wedding"))
-  .map(formatDisplayLabel);
-const ceremonyCoverage = seoKeywordLibrary.sourceSnapshot.ceremonies.slice(0, 12).map(formatDisplayLabel);
-const vendorCoverage = seoKeywordLibrary.sourceSnapshot.vendorTypes.slice(0, 12).map(formatDisplayLabel);
-const cityCoverage = seoKeywordLibrary.sourceSnapshot.indianCities
-  .filter((city) => highlightedCities.includes(city))
-  .map(formatDisplayLabel);
-const keywordCoverageCards = [
-  {
-    title: "Cultural wedding templates",
-    description: "Plan Punjabi, Gujarati, Marwari, Bengali, and South Indian celebrations with ceremony-specific flows.",
-    items: culturalCoverage,
-  },
-  {
-    title: "Ceremonies and rituals",
-    description: "Build event plans around rituals families actually search for and coordinate.",
-    items: ceremonyCoverage,
-  },
-  {
-    title: "Vendor planning categories",
-    description: "Track the vendors, services, and bookings that shape a multi-event Indian wedding.",
-    items: vendorCoverage,
-  },
-  {
-    title: "Popular Indian wedding cities",
-    description: "Support destination and city-based planning across high-intent wedding markets in India.",
-    items: cityCoverage,
-  },
-];
 
 const howItWorksSteps = [
   "Create your wedding workspace",
@@ -309,23 +276,6 @@ function getStarType(rating, starNumber) {
   return "empty";
 }
 
-function readStoredSession() {
-  if (typeof window === "undefined") {
-    return null;
-  }
-
-  const raw = window.localStorage.getItem(SESSION_STORAGE_KEY);
-  if (!raw) {
-    return null;
-  }
-
-  try {
-    return JSON.parse(raw);
-  } catch {
-    return null;
-  }
-}
-
 function readCheckoutRouteFromUrl() {
   if (typeof window === "undefined") {
     return null;
@@ -375,7 +325,7 @@ function SocialIcon({ name }) {
 }
 
 export default function MarketingHomePage({ page = "home" }) {
-  const [session, setSession] = useState(() => readStoredSession());
+  const [session, setSession] = useState(() => readAuthSession());
   const [billingCycle, setBillingCycle] = useState("monthly");
   const [showTermsModal, setShowTermsModal] = useState(false);
   const [showFeedbackModal, setShowFeedbackModal] = useState(false);
@@ -407,7 +357,7 @@ export default function MarketingHomePage({ page = "home" }) {
 
   useEffect(() => {
     const syncSession = () => {
-      setSession(readStoredSession());
+      setSession(readAuthSession());
     };
 
     const handleVisibility = () => {
@@ -503,17 +453,12 @@ export default function MarketingHomePage({ page = "home" }) {
       setPlanLoginLoading(true);
       setPlanLoginError("");
 
-      const { token, user, plannerOwnerId } = await loginWithGoogle(credentialResponse.credential);
-      const nextSession = {
+      const { user, plannerOwnerId } = await loginWithGoogle(credentialResponse.credential);
+      const nextSession = persistAuthSession({
         mode: "google",
-        token,
         user,
         plannerOwnerId: plannerOwnerId || user?.id || "",
-      };
-
-      if (typeof window !== "undefined") {
-        window.localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(nextSession));
-      }
+      });
 
       setSession(nextSession);
       setShowLoginBeforePlanModal(false);
@@ -522,7 +467,7 @@ export default function MarketingHomePage({ page = "home" }) {
         setCheckoutSheetPlan({
           key: pendingPlanSelection.key,
           name: pendingPlanSelection.name,
-          token,
+          token: nextSession?.token,
         });
       }
 

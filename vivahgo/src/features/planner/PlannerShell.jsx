@@ -18,7 +18,7 @@ import NavIcon from "../../components/NavIcon";
 import MarriagePlanSelector from "./components/MarriagePlanSelector";
 import NewMarriagePlanModal from "./components/NewMarriagePlanModal";
 import PlanShareModal from "./components/PlanShareModal";
-import { clearAuthStorage } from "../../authStorage";
+import { clearAuthStorage, persistAuthSession, readAuthSession } from "../../authStorage";
 import { NAV_ITEMS } from "../../constants";
 import { formatCoverageLocation, getLocationCities, getLocationCountries, getLocationStates } from "../../locationOptions";
 import {
@@ -29,6 +29,7 @@ import {
   fetchPlanner,
   getSubscriptionStatus,
   loginWithGoogle,
+  logoutSession,
   removePlanCollaborator,
   savePlanner,
   updatePlanCollaboratorRole,
@@ -36,7 +37,6 @@ import {
 import { DEFAULT_WEBSITE_SETTINGS, EMPTY_WEDDING, EXPECTED_GUEST_OPTIONS, buildWeddingWebsitePath, createBlankPlanner, createDemoPlanner, hasWeddingProfile, normalizePlanner, generatePlanId, createTemplatePlanCollections, normalizeCustomTemplates } from "../../plannerDefaults";
 import { useSwipeDown } from "../../hooks/useSwipeDown";
 
-const SESSION_STORAGE_KEY = "vivahgo.session";
 const DEMO_PLANNER_STORAGE_KEY = "vivahgo.demoPlanner";
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 const YEARS = Array.from({ length: 8 }, (_, i) => 2025 + i);
@@ -283,7 +283,7 @@ export default function PlannerShell() {
   }
 
   function persistSession(session) {
-    localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(session));
+    return persistAuthSession(session);
   }
 
   function clearStoredSession() {
@@ -696,9 +696,9 @@ export default function PlannerShell() {
     let cancelled = false;
 
     async function restoreSession() {
-      const rawSession = localStorage.getItem(SESSION_STORAGE_KEY);
+      const session = readAuthSession();
 
-      if (!rawSession) {
+      if (!session) {
         if (!cancelled) {
           setIsBootstrapping(false);
         }
@@ -706,8 +706,6 @@ export default function PlannerShell() {
       }
 
       try {
-        const session = JSON.parse(rawSession);
-
         if (session.mode === "demo") {
           const savedPlanner = JSON.parse(localStorage.getItem(DEMO_PLANNER_STORAGE_KEY) || "null");
           if (!cancelled) {
@@ -834,16 +832,16 @@ export default function PlannerShell() {
     try {
       setIsLoggingIn(true);
       setLoginError("");
-      const { token, user: authenticatedUser, planner, access, plannerOwnerId: resolvedOwnerId } = await loginWithGoogle(credentialResponse.credential);
+      const { user: authenticatedUser, planner, access, plannerOwnerId: resolvedOwnerId } = await loginWithGoogle(credentialResponse.credential);
+      const nextSession = persistSession({ mode: "google", user: authenticatedUser, plannerOwnerId: resolvedOwnerId || authenticatedUser.id || "" });
 
       setAuthMode("google");
-      setAuthToken(token);
+      setAuthToken(nextSession?.token || "");
       setUser(authenticatedUser);
       applyPlanner(planner, access);
       setPlannerOwnerId(resolvedOwnerId || authenticatedUser.id || "");
-      persistSession({ mode: "google", token, user: authenticatedUser, plannerOwnerId: resolvedOwnerId || authenticatedUser.id || "" });
-      await refreshAccessibleWorkspaces(token);
-      await fetchAndApplySubscription(token);
+      await refreshAccessibleWorkspaces(nextSession?.token);
+      await fetchAndApplySubscription(nextSession?.token);
       setTab("home");
       setSaveState("idle");
       setScreen("app");
@@ -860,7 +858,12 @@ export default function PlannerShell() {
     setLoginError(error?.message || 'Google login failed.');
   }
 
-  function handleLogout() {
+  async function handleLogout() {
+    try {
+      await logoutSession(authToken);
+    } catch {
+      // Best effort only.
+    }
     clearStoredSession();
     setUser(null);
     setAuthMode(null);

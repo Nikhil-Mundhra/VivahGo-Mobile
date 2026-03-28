@@ -1,15 +1,15 @@
 import { useEffect, useState } from "react";
 import { EVENT_COLORS } from "../constants";
 import { fetchPublicWeddingWebsite } from "../api";
+import { readAuthSession } from "../authStorage";
 import { daysUntil } from "../utils";
 import { usePageSeo } from "../seo.js";
 
 const DEMO_PLANNER_STORAGE_KEY = "vivahgo.demoPlanner";
-const SESSION_STORAGE_KEY = "vivahgo.session";
 
 function getStoredPlannerData() {
   try {
-    const session = JSON.parse(localStorage.getItem(SESSION_STORAGE_KEY) || "null");
+    const session = readAuthSession();
     if (session?.planner) return session.planner;
     const demo = JSON.parse(localStorage.getItem(DEMO_PLANNER_STORAGE_KEY) || "null");
     if (demo) return demo;

@@ -22,6 +22,32 @@ function createStorage(initial = {}) {
 }
 
 describe('VivahGo/src/authStorage.js', function () {
+  it('persists auth session metadata without storing the bearer token and hydrates a cookie placeholder', async function () {
+    const mod = await load();
+    const localStorageRef = createStorage();
+
+    const persisted = mod.persistAuthSession({
+      mode: 'google',
+      token: 'real-jwt-token',
+      user: { id: 'user-1', email: 'user@example.com' },
+      plannerOwnerId: 'user-1',
+    }, { localStorageRef });
+
+    assert.equal(persisted.token, mod.authStorageKeys.COOKIE_AUTH_PLACEHOLDER);
+    assert.equal(
+      localStorageRef.getItem(mod.authStorageKeys.SESSION_STORAGE_KEY),
+      JSON.stringify({
+        mode: 'google',
+        user: { id: 'user-1', email: 'user@example.com' },
+        plannerOwnerId: 'user-1',
+      })
+    );
+
+    const restored = mod.readAuthSession({ localStorageRef });
+    assert.equal(restored.token, mod.authStorageKeys.COOKIE_AUTH_PLACEHOLDER);
+    assert.equal(restored.user.email, 'user@example.com');
+  });
+
   it('clears shared auth keys for vendor/admin logout', async function () {
     const mod = await load();
     const localStorageRef = createStorage({

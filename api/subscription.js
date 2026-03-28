@@ -3,10 +3,12 @@ const path = require('path');
 const crypto = require('crypto');
 const Razorpay = require('razorpay');
 const {
+  applyRateLimit,
   connectDb,
   getBillingReceiptModel,
   getUserModel,
   handlePreflight,
+  requireCsrfProtection,
   setCorsHeaders,
   verifySession,
 } = require('./_lib/core');
@@ -315,8 +317,8 @@ module.exports = async function handler(req, res) {
       return res.status(405).json({ error: 'Method not allowed.' });
     }
 
-    const { auth, error } = verifySession(req);
-    if (error) return res.status(401).json({ error });
+    const { auth, error, status = 401 } = verifySession(req);
+    if (error) return res.status(status).json({ error });
 
     try {
       await connectDb();
@@ -348,8 +350,20 @@ module.exports = async function handler(req, res) {
       return res.status(405).json({ error: 'Method not allowed.' });
     }
 
-    const { error } = verifySession(req);
-    if (error) return res.status(401).json({ error });
+    if (requireCsrfProtection(req, res)) {
+      return;
+    }
+
+    if (applyRateLimit(req, res, 'subscription:quote', {
+      windowMs: 10 * 60 * 1000,
+      max: 30,
+      message: 'Too many pricing quote requests. Please try again shortly.',
+    })) {
+      return;
+    }
+
+    const { error, status = 401 } = verifySession(req);
+    if (error) return res.status(status).json({ error });
 
     const { plan, billingCycle, couponCode } = req.body || {};
     if (!plan || !['premium', 'studio'].includes(plan)) {
@@ -382,8 +396,20 @@ module.exports = async function handler(req, res) {
       return res.status(405).json({ error: 'Method not allowed.' });
     }
 
-    const { auth, error } = verifySession(req);
-    if (error) return res.status(401).json({ error });
+    if (requireCsrfProtection(req, res)) {
+      return;
+    }
+
+    if (applyRateLimit(req, res, 'subscription:checkout', {
+      windowMs: 10 * 60 * 1000,
+      max: 15,
+      message: 'Too many checkout attempts. Please try again later.',
+    })) {
+      return;
+    }
+
+    const { auth, error, status = 401 } = verifySession(req);
+    if (error) return res.status(status).json({ error });
 
     const { plan, billingCycle, couponCode } = req.body || {};
     if (!plan || !['premium', 'studio'].includes(plan)) {
@@ -468,8 +494,20 @@ module.exports = async function handler(req, res) {
       return res.status(405).json({ error: 'Method not allowed.' });
     }
 
-    const { auth, error } = verifySession(req);
-    if (error) return res.status(401).json({ error });
+    if (requireCsrfProtection(req, res)) {
+      return;
+    }
+
+    if (applyRateLimit(req, res, 'subscription:confirm', {
+      windowMs: 10 * 60 * 1000,
+      max: 20,
+      message: 'Too many payment confirmation attempts. Please try again later.',
+    })) {
+      return;
+    }
+
+    const { auth, error, status = 401 } = verifySession(req);
+    if (error) return res.status(status).json({ error });
 
     const { plan, billingCycle, orderId, paymentId, signature, couponCode } = req.body || {};
     if (!plan || !['premium', 'studio'].includes(plan)) return res.status(400).json({ error: 'Invalid plan.' });
@@ -527,8 +565,12 @@ module.exports = async function handler(req, res) {
       return res.status(405).json({ error: 'Method not allowed.' });
     }
 
-    const { error } = verifySession(req);
-    if (error) return res.status(401).json({ error });
+    if (requireCsrfProtection(req, res)) {
+      return;
+    }
+
+    const { error, status = 401 } = verifySession(req);
+    if (error) return res.status(status).json({ error });
 
     return res.status(501).json({
       error: 'Razorpay self-serve subscription management is not configured. Choose a new plan from pricing instead.',
@@ -544,6 +586,14 @@ module.exports = async function handler(req, res) {
     if (req.method !== 'POST') {
       res.setHeader('Allow', 'POST');
       return res.status(405).json({ error: 'Method not allowed.' });
+    }
+
+    if (applyRateLimit(req, res, 'subscription:webhook', {
+      windowMs: 60 * 1000,
+      max: 240,
+      message: 'Too many webhook requests. Please try again shortly.',
+    })) {
+      return;
     }
 
     const webhookSecret = process.env.RAZORPAY_WEBHOOK_SECRET;

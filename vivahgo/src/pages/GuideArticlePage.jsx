@@ -5,25 +5,9 @@ import FeedbackModal from "../components/FeedbackModal";
 import LegalFooter from "../components/LegalFooter";
 import TermsConditionsModal from "../components/TermsConditionsModal";
 import MarketingSiteHeader from "../components/MarketingSiteHeader.jsx";
+import { readAuthSession } from "../authStorage";
 import { DEFAULT_SITE_URL, usePageSeo } from "../seo.js";
 import guides from "../content/guides.json";
-
-function readStoredSession() {
-  if (typeof window === "undefined") {
-    return null;
-  }
-
-  const raw = window.localStorage.getItem("vivahgo.session");
-  if (!raw) {
-    return null;
-  }
-
-  try {
-    return JSON.parse(raw);
-  } catch {
-    return null;
-  }
-}
 
 function findGuideBySlug(slug = "") {
   return guides.find((guide) => guide.slug === slug) || null;
@@ -43,7 +27,7 @@ function formatDisplayLabel(value = "") {
 }
 
 export default function GuideArticlePage({ guideSlug = "" }) {
-  const [session, setSession] = useState(() => readStoredSession());
+  const [session, setSession] = useState(() => readAuthSession());
   const [showTermsModal, setShowTermsModal] = useState(false);
   const [showFeedbackModal, setShowFeedbackModal] = useState(false);
   const guide = useMemo(() => findGuideBySlug(guideSlug), [guideSlug]);
@@ -115,7 +99,7 @@ export default function GuideArticlePage({ guideSlug = "" }) {
 
   useEffect(() => {
     const syncSession = () => {
-      setSession(readStoredSession());
+      setSession(readAuthSession());
     };
 
     if (typeof window === "undefined") {

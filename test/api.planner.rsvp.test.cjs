@@ -5,6 +5,14 @@ const { createRes } = require('./helpers/testUtils.cjs');
 const { createGuestRsvpToken, createSessionToken, getPlannerModel } = require('../api/_lib/core');
 const { handlePlannerRsvp, handlePlannerRsvpLink } = require('../api/planner');
 
+function csrfHeaders(headers = {}) {
+  return {
+    ...headers,
+    cookie: ['vivahgo_csrf=test-csrf-token', headers.cookie].filter(Boolean).join('; '),
+    'x-csrf-token': 'test-csrf-token',
+  };
+}
+
 describe('api/planner.js -> rsvp routes', function () {
   let originalMongooseConnect;
 
@@ -168,7 +176,7 @@ describe('api/planner.js -> rsvp routes', function () {
     try {
       const req = {
         method: 'POST',
-        headers: {},
+        headers: csrfHeaders(),
         query: {},
         body: { token, rsvp: 'yes', attendingGuestCount: 3, groupMembers: ['Sunaina Sharma', 'Kabir Sharma', 'Extra Person'] },
       };

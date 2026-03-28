@@ -55,8 +55,72 @@ describe('VivahGo/src/api.js', function () {
     assert.deepEqual(result, { ok: true });
     assert.equal(calls.length, 1);
     assert.equal(calls[0].url, 'https://api.example.com/planner/me');
+    assert.equal(calls[0].options.credentials, 'include');
     assert.equal(calls[0].options.headers.Authorization, 'Bearer jwt-token');
     assert.equal(calls[0].options.body, JSON.stringify({ planner: { wedding: {} } }));
+  });
+
+  it('uses cookie credentials without attaching Authorization for the cookie auth placeholder', async function () {
+    const mod = await loadApiModule();
+    const calls = [];
+
+    await mod.request('/planner/me', {
+      token: '__cookie_session__',
+    }, {
+      fetchImpl: async (url, options) => {
+        calls.push({ url, options });
+        return {
+          ok: true,
+          status: 200,
+          async json() {
+            return { ok: true };
+          },
+        };
+      },
+      baseUrl: 'https://api.example.com',
+    });
+
+    assert.equal(calls.length, 1);
+    assert.equal(calls[0].options.credentials, 'include');
+    assert.equal(calls[0].options.headers.Authorization, undefined);
+  });
+
+  it('bootstraps and attaches a CSRF token for public mutating requests', async function () {
+    const mod = await loadApiModule();
+    const calls = [];
+
+    const result = await mod.request('/feedback', {
+      method: 'POST',
+      body: { message: 'Hello' },
+    }, {
+      fetchImpl: async (url, options) => {
+        calls.push({ url, options });
+        if (url.endsWith('/auth/csrf')) {
+          return {
+            ok: true,
+            status: 200,
+            async json() {
+              return { csrfToken: 'csrf-token-1' };
+            },
+          };
+        }
+
+        return {
+          ok: true,
+          status: 200,
+          async json() {
+            return { ok: true };
+          },
+        };
+      },
+      baseUrl: 'https://api.example.com',
+    });
+
+    assert.deepEqual(result, { ok: true });
+    assert.equal(calls.length, 2);
+    assert.equal(calls[0].url, 'https://api.example.com/auth/csrf');
+    assert.equal(calls[1].url, 'https://api.example.com/feedback');
+    assert.equal(calls[1].options.headers['X-CSRF-Token'], 'csrf-token-1');
   });
 
   it('covers network error and non-ok response branches', async function () {
@@ -115,6 +179,16 @@ describe('VivahGo/src/api.js', function () {
     const calls = [];
     global.fetch = async (url, options) => {
       calls.push({ url, options });
+      if (String(url).endsWith('/auth/csrf')) {
+        return {
+          ok: true,
+          status: 200,
+          async json() {
+            return { csrfToken: 'csrf-token-1' };
+          },
+        };
+      }
+
       return {
         ok: true,
         status: 200,
@@ -147,26 +221,30 @@ describe('VivahGo/src/api.js', function () {
       delete global.fetch;
     }
 
-    assert.equal(calls.length, 18);
-    assert.match(calls[0].url, /\/auth\/google$/);
-    assert.equal(calls[1].options.headers.Authorization, 'Bearer jwt-2');
-    assert.match(calls[2].url, /\/planner\/me$/);
-    assert.match(calls[3].url, /\/planner\/public\?slug=asha-rohan-1$/);
-    assert.match(calls[4].url, /\/feedback$/);
-    assert.match(calls[5].url, /\/careers$/);
+    assert.equal(calls.length, 19);
+    assert.match(calls[0].url, /\/auth\/csrf$/);
+    assert.match(calls[1].url, /\/auth\/google$/);
+    assert.equal(calls[1].options.headers['X-CSRF-Token'], 'csrf-token-1');
+    assert.equal(calls[2].options.headers.Authorization, 'Bearer jwt-2');
+    assert.match(calls[3].url, /\/planner\/me$/);
+    assert.match(calls[4].url, /\/planner\/public\?slug=asha-rohan-1$/);
+    assert.match(calls[5].url, /\/feedback$/);
+    assert.equal(calls[5].options.headers['X-CSRF-Token'], 'csrf-token-1');
     assert.match(calls[6].url, /\/careers$/);
-    assert.equal(calls[6].options.method, 'POST');
-    assert.match(calls[7].url, /\/admin\/me$/);
-    assert.match(calls[8].url, /\/admin\/applications$/);
-    assert.match(calls[9].url, /\/admin\/vendors$/);
-    assert.equal(calls[10].options.method, 'PATCH');
-    assert.match(calls[11].url, /\/media\/verification-presigned-url$/);
-    assert.match(calls[12].url, /\/vendor\/verification$/);
-    assert.equal(calls[12].options.method, 'POST');
-    assert.equal(calls[13].options.method, 'DELETE');
-    assert.match(calls[14].url, /\/admin\/staff$/);
-    assert.equal(calls[15].options.method, 'POST');
-    assert.equal(calls[16].options.method, 'PUT');
-    assert.match(calls[17].url, /\/admin\/staff\?email=staff%40example\.com$/);
+    assert.match(calls[7].url, /\/careers$/);
+    assert.equal(calls[7].options.method, 'POST');
+    assert.equal(calls[7].options.headers['X-CSRF-Token'], 'csrf-token-1');
+    assert.match(calls[8].url, /\/admin\/me$/);
+    assert.match(calls[9].url, /\/admin\/applications$/);
+    assert.match(calls[10].url, /\/admin\/vendors$/);
+    assert.equal(calls[11].options.method, 'PATCH');
+    assert.match(calls[12].url, /\/media\/verification-presigned-url$/);
+    assert.match(calls[13].url, /\/vendor\/verification$/);
+    assert.equal(calls[13].options.method, 'POST');
+    assert.equal(calls[14].options.method, 'DELETE');
+    assert.match(calls[15].url, /\/admin\/staff$/);
+    assert.equal(calls[16].options.method, 'POST');
+    assert.equal(calls[17].options.method, 'PUT');
+    assert.match(calls[18].url, /\/admin\/staff\?email=staff%40example\.com$/);
   });
 });

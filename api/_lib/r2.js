@@ -26,18 +26,39 @@ function createR2Client() {
  * @param {number} [expiresIn=3600] - URL expiry in seconds.
  * @returns {Promise<string>} The presigned PUT URL.
  */
-async function createPresignedPutUrl(key, contentType, expiresIn = 3600) {
+function normalizePutUrlOptions(options) {
+  if (typeof options === 'number') {
+    return { expiresIn: options };
+  }
+
+  if (!options || typeof options !== 'object') {
+    return {};
+  }
+
+  return options;
+}
+
+async function createPresignedPutUrl(key, contentType, options = 3600) {
+  const normalizedOptions = normalizePutUrlOptions(options);
   const bucket = process.env.R2_BUCKET_NAME;
   if (!bucket) {
     throw new Error('R2_BUCKET_NAME is not configured.');
   }
 
+  const contentLength = Number(normalizedOptions.contentLength);
   const client = createR2Client();
   const command = new PutObjectCommand({
     Bucket: bucket,
     Key: key,
     ContentType: contentType,
+    ...(Number.isFinite(contentLength) && contentLength >= 0
+      ? { ContentLength: Math.trunc(contentLength) }
+      : {}),
   });
+
+  const expiresIn = Number.isFinite(Number(normalizedOptions.expiresIn))
+    ? Math.max(1, Math.trunc(Number(normalizedOptions.expiresIn)))
+    : 3600;
 
   return getSignedUrl(client, command, { expiresIn });
 }
@@ -76,6 +97,27 @@ function normalizeObjectKey(key) {
   }
 
   return key.replace(/^\/+/, '');
+}
+
+function buildScopedObjectPrefix(scope, ownerId) {
+  const normalizedScope = typeof scope === 'string' ? scope.replace(/^\/+|\/+$/g, '') : '';
+  const normalizedOwnerId = typeof ownerId === 'string' ? ownerId.trim().replace(/^\/+|\/+$/g, '') : '';
+
+  if (!normalizedScope || !normalizedOwnerId) {
+    return '';
+  }
+
+  return `${normalizedScope}/${normalizedOwnerId}/`;
+}
+
+function objectKeyMatchesScope(key, scope, ownerId) {
+  try {
+    const normalizedKey = normalizeObjectKey(key);
+    const prefix = buildScopedObjectPrefix(scope, ownerId);
+    return Boolean(prefix && normalizedKey.startsWith(prefix));
+  } catch {
+    return false;
+  }
 }
 
 function createPublicObjectUrl(key) {
@@ -169,7 +211,9 @@ module.exports = {
   createPresignedGetUrl,
   createPresignedPutUrl,
   createPublicObjectUrl,
+  buildScopedObjectPrefix,
   extractObjectKeyFromUrl,
   normalizeMediaItem,
   normalizeMediaList,
+  objectKeyMatchesScope,
 };

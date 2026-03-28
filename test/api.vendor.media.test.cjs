@@ -238,7 +238,7 @@ describe('api/vendor.js -> media route', function () {
       method: 'POST',
       headers: { authorization: `Bearer ${makeToken()}` },
       body: {
-        key: 'vendors/Vendor-ABC/Photo.JPG',
+        key: 'vendors/vendor-123/Photo.JPG',
         url: 'https://wrong.example.com/photo.jpg',
         type: 'IMAGE',
         filename: 'Photo.JPG',
@@ -250,8 +250,8 @@ describe('api/vendor.js -> media route', function () {
     await handler(req, res);
 
     assert.equal(res.statusCode, 201);
-    assert.equal(res.body.vendor.media[0].key, 'vendors/Vendor-ABC/Photo.JPG');
-    assert.equal(res.body.vendor.media[0].url, 'https://media.vivahgo.com/portfolio/vendors/Vendor-ABC/Photo.JPG');
+    assert.equal(res.body.vendor.media[0].key, 'vendors/vendor-123/Photo.JPG');
+    assert.equal(res.body.vendor.media[0].url, 'https://media.vivahgo.com/portfolio/vendors/vendor-123/Photo.JPG');
   });
 
   it('can recover the exact key from a matching public URL when key is omitted', async function () {
@@ -272,7 +272,7 @@ describe('api/vendor.js -> media route', function () {
       method: 'POST',
       headers: { authorization: `Bearer ${makeToken()}` },
       body: {
-        url: 'https://media.vivahgo.com/portfolio/vendors/Vendor-ABC/Photo.JPG',
+        url: 'https://media.vivahgo.com/portfolio/vendors/vendor-123/Photo.JPG',
         type: 'IMAGE',
         filename: 'Photo.JPG',
         size: 1024,
@@ -283,8 +283,8 @@ describe('api/vendor.js -> media route', function () {
     await handler(req, res);
 
     assert.equal(res.statusCode, 201);
-    assert.equal(res.body.vendor.media[0].key, 'vendors/Vendor-ABC/Photo.JPG');
-    assert.equal(res.body.vendor.media[0].url, 'https://media.vivahgo.com/portfolio/vendors/Vendor-ABC/Photo.JPG');
+    assert.equal(res.body.vendor.media[0].key, 'vendors/vendor-123/Photo.JPG');
+    assert.equal(res.body.vendor.media[0].url, 'https://media.vivahgo.com/portfolio/vendors/vendor-123/Photo.JPG');
   });
 
   it('can recover the exact key from the fallback public R2 URL when key is omitted', async function () {
@@ -305,7 +305,7 @@ describe('api/vendor.js -> media route', function () {
       method: 'POST',
       headers: { authorization: `Bearer ${makeToken()}` },
       body: {
-        url: 'https://pub-47c8cf1fe5da4a1b89c93045916376d7.r2.dev/vendors/Vendor-ABC/Photo.JPG',
+        url: 'https://pub-47c8cf1fe5da4a1b89c93045916376d7.r2.dev/vendors/vendor-123/Photo.JPG',
         type: 'IMAGE',
         filename: 'Photo.JPG',
         size: 1024,
@@ -316,8 +316,38 @@ describe('api/vendor.js -> media route', function () {
     await handler(req, res);
 
     assert.equal(res.statusCode, 201);
-    assert.equal(res.body.vendor.media[0].key, 'vendors/Vendor-ABC/Photo.JPG');
-    assert.equal(res.body.vendor.media[0].url, 'https://media.vivahgo.com/portfolio/vendors/Vendor-ABC/Photo.JPG');
+    assert.equal(res.body.vendor.media[0].key, 'vendors/vendor-123/Photo.JPG');
+    assert.equal(res.body.vendor.media[0].url, 'https://media.vivahgo.com/portfolio/vendors/vendor-123/Photo.JPG');
+  });
+
+  it('rejects media keys that do not belong to the signed-in vendor', async function () {
+    const vendorDoc = makeVendorDoc();
+
+    require.cache[corePath].exports = {
+      ...originalCore,
+      connectDb: async () => {},
+      getVendorModel: () => ({
+        findOne: async () => vendorDoc,
+      }),
+    };
+
+    const { handleVendorMedia: handler } = require(handlerPath);
+    const req = {
+      method: 'POST',
+      headers: { authorization: `Bearer ${makeToken()}` },
+      body: {
+        key: 'vendors/vendor-999/photo.jpg',
+        type: 'IMAGE',
+        filename: 'photo.jpg',
+        size: 1024,
+      },
+    };
+    const res = createRes();
+
+    await handler(req, res);
+
+    assert.equal(res.statusCode, 400);
+    assert.deepEqual(res.body, { error: 'Media key must belong to your account.' });
   });
 
   it('stores and removes private verification documents', async function () {
@@ -366,5 +396,36 @@ describe('api/vendor.js -> media route', function () {
 
     assert.equal(deletedRes.statusCode, 200);
     assert.equal(deletedRes.body.vendor.verificationDocuments.length, 1);
+  });
+
+  it('rejects verification document keys that do not belong to the signed-in vendor', async function () {
+    const vendorDoc = makeVendorDoc();
+
+    require.cache[corePath].exports = {
+      ...originalCore,
+      connectDb: async () => {},
+      getVendorModel: () => ({
+        findOne: async () => vendorDoc,
+      }),
+    };
+
+    const { handleVendorVerification: handler } = require(handlerPath);
+    const req = {
+      method: 'POST',
+      headers: { authorization: `Bearer ${makeToken()}` },
+      body: {
+        key: 'vendor-verification/vendor-999/id-new.pdf',
+        filename: 'id-new.pdf',
+        size: 200,
+        contentType: 'application/pdf',
+        documentType: 'AADHAAR',
+      },
+    };
+    const res = createRes();
+
+    await handler(req, res);
+
+    assert.equal(res.statusCode, 400);
+    assert.deepEqual(res.body, { error: 'Verification document key must belong to your account.' });
   });
 });

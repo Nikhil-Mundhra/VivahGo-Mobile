@@ -23,6 +23,10 @@ const port = Number(process.env.PORT || 4000);
 const mongoUri = process.env.MONGODB_URI;
 const googleClientId = process.env.GOOGLE_CLIENT_ID;
 const jwtSecret = process.env.JWT_SECRET || 'change-me-before-production';
+const SESSION_COOKIE_NAME = 'vivahgo_session';
+const SESSION_COOKIE_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
+const CSRF_COOKIE_NAME = 'vivahgo_csrf';
+const CSRF_COOKIE_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
 
 const emptyWedding = {
   bride: '',
@@ -94,7 +98,7 @@ const DEFAULT_SUBSCRIPTION_AMOUNT_MAP = {
 const COUPON_SECRET_FILE_PATH = new URL('../../config/subscription-coupons.local.json', import.meta.url);
 const CAREERS_FILE_PATH = new URL('../../config/careers.json', import.meta.url);
 const { uploadPdfToDrive } = googleDriveHelpers;
-const { createPresignedGetUrl, createPresignedPutUrl } = r2Helpers;
+const { createPresignedGetUrl, createPresignedPutUrl, objectKeyMatchesScope } = r2Helpers;
 const MAX_CAREER_RESUME_SIZE_BYTES = 2 * 1024 * 1024;
 const MAX_VERIFICATION_FILE_SIZE_BYTES = 10 * 1024 * 1024;
 const ALLOWED_VERIFICATION_CONTENT_TYPES = new Set(['application/pdf', 'image/jpeg', 'image/png', 'image/webp']);
@@ -195,12 +199,14 @@ function normalizeVerificationStatus(value, { hasDocuments = false } = {}) {
   return hasDocuments ? 'submitted' : 'not_submitted';
 }
 
-async function serializeVerificationDocuments(documents) {
+async function serializeVerificationDocuments(documents, ownerId) {
   if (!Array.isArray(documents) || documents.length === 0) {
     return [];
   }
 
-  return Promise.all(documents.map(async document => {
+  const ownedDocuments = documents.filter(document => objectKeyMatchesScope(document?.key, 'vendor-verification', ownerId));
+
+  return Promise.all(ownedDocuments.map(async document => {
     const key = typeof document?.key === 'string' ? document.key.replace(/^\/+/, '') : '';
     let accessUrl = '';
 
@@ -227,17 +233,18 @@ async function serializeVerificationDocuments(documents) {
 
 async function serializeVendorWithVerification(vendor) {
   const plain = typeof vendor?.toObject === 'function' ? vendor.toObject() : vendor;
+  const verificationDocuments = await serializeVerificationDocuments(plain?.verificationDocuments, plain?.googleId);
   return {
     ...plain,
     type: normalizeVendorType(plain?.type),
     bundledServices: Array.isArray(plain?.bundledServices) ? plain.bundledServices.map(normalizeVendorType) : [],
     verificationStatus: normalizeVerificationStatus(plain?.verificationStatus, {
-      hasDocuments: Array.isArray(plain?.verificationDocuments) && plain.verificationDocuments.length > 0,
+      hasDocuments: verificationDocuments.length > 0,
     }),
     verificationNotes: sanitizeVerificationNotes(plain?.verificationNotes),
     verificationReviewedAt: plain?.verificationReviewedAt || null,
     verificationReviewedBy: plain?.verificationReviewedBy || '',
-    verificationDocuments: await serializeVerificationDocuments(plain?.verificationDocuments),
+    verificationDocuments,
   };
 }
 
@@ -904,9 +911,105 @@ export function getClientOrigins(clientOrigin = process.env.CLIENT_ORIGIN) {
   return clientOrigin.split(',').map(origin => origin.trim());
 }
 
+function parseCookieHeader(value) {
+  return String(value || '')
+    .split(';')
+    .map(part => part.trim())
+    .filter(Boolean)
+    .reduce((cookies, pair) => {
+      const separatorIndex = pair.indexOf('=');
+      if (separatorIndex <= 0) {
+        return cookies;
+      }
+
+      const name = pair.slice(0, separatorIndex).trim();
+      const rawValue = pair.slice(separatorIndex + 1).trim();
+      try {
+        cookies[name] = decodeURIComponent(rawValue);
+      } catch {
+        cookies[name] = rawValue;
+      }
+      return cookies;
+    }, {});
+}
+
+function isSecureRequest(req) {
+  const forwardedProto = typeof req?.headers?.['x-forwarded-proto'] === 'string'
+    ? req.headers['x-forwarded-proto'].split(',')[0].trim().toLowerCase()
+    : '';
+
+  return forwardedProto === 'https' || Boolean(req?.secure || req?.socket?.encrypted);
+}
+
+function readSessionCookieToken(req) {
+  const cookies = parseCookieHeader(req?.headers?.cookie);
+  return typeof cookies[SESSION_COOKIE_NAME] === 'string' ? cookies[SESSION_COOKIE_NAME] : '';
+}
+
+function readCsrfCookieToken(req) {
+  const cookies = parseCookieHeader(req?.headers?.cookie);
+  return typeof cookies[CSRF_COOKIE_NAME] === 'string' ? cookies[CSRF_COOKIE_NAME] : '';
+}
+
+function readCsrfHeaderToken(req) {
+  const headerValue = req?.headers?.['x-csrf-token'];
+  if (typeof headerValue === 'string') {
+    return headerValue.trim();
+  }
+  if (Array.isArray(headerValue)) {
+    return String(headerValue[0] || '').trim();
+  }
+  return '';
+}
+
+function setSessionCookie(req, res, token) {
+  res.cookie(SESSION_COOKIE_NAME, token, {
+    httpOnly: true,
+    sameSite: 'lax',
+    secure: isSecureRequest(req),
+    maxAge: SESSION_COOKIE_MAX_AGE_MS,
+    path: '/',
+  });
+}
+
+function setCsrfCookie(req, res, token) {
+  res.cookie(CSRF_COOKIE_NAME, token, {
+    httpOnly: false,
+    sameSite: 'lax',
+    secure: isSecureRequest(req),
+    maxAge: CSRF_COOKIE_MAX_AGE_MS,
+    path: '/',
+  });
+}
+
+function ensureCsrfToken(req, res, options = {}) {
+  const existingToken = readCsrfCookieToken(req);
+  if (existingToken) {
+    if (options.refresh) {
+      setCsrfCookie(req, res, existingToken);
+    }
+    return existingToken;
+  }
+
+  const nextToken = crypto.randomBytes(32).toString('hex');
+  setCsrfCookie(req, res, nextToken);
+  return nextToken;
+}
+
+function clearSessionCookie(req, res) {
+  res.clearCookie(SESSION_COOKIE_NAME, {
+    httpOnly: true,
+    sameSite: 'lax',
+    secure: isSecureRequest(req),
+    path: '/',
+  });
+}
+
 export function authMiddleware(req, res, next, secret = jwtSecret) {
   const authHeader = req.headers.authorization || '';
-  const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : '';
+  const token = authHeader.startsWith('Bearer ')
+    ? authHeader.slice(7)
+    : readSessionCookieToken(req);
 
   if (!token) {
     return res.status(401).json({ error: 'Authentication required.' });
@@ -918,6 +1021,42 @@ export function authMiddleware(req, res, next, secret = jwtSecret) {
   } catch {
     return res.status(401).json({ error: 'Session expired. Please sign in again.' });
   }
+}
+
+function isSafeMethod(method) {
+  return ['GET', 'HEAD', 'OPTIONS'].includes(String(method || '').toUpperCase());
+}
+
+function hasBearerToken(req) {
+  const authHeader = req.headers.authorization || '';
+  return authHeader.startsWith('Bearer ');
+}
+
+export function csrfProtectionMiddleware(req, res, next) {
+  if (isSafeMethod(req.method) || req.path === '/api/subscription/webhook' || hasBearerToken(req)) {
+    return next();
+  }
+
+  const cookieToken = readCsrfCookieToken(req);
+  const headerToken = readCsrfHeaderToken(req);
+
+  if (!cookieToken || !headerToken) {
+    return res.status(403).json({ error: 'CSRF token required.', code: 'CSRF_REQUIRED' });
+  }
+
+  if (cookieToken.length !== headerToken.length) {
+    return res.status(403).json({ error: 'Invalid CSRF token.', code: 'CSRF_INVALID' });
+  }
+
+  try {
+    if (!crypto.timingSafeEqual(Buffer.from(cookieToken), Buffer.from(headerToken))) {
+      return res.status(403).json({ error: 'Invalid CSRF token.', code: 'CSRF_INVALID' });
+    }
+  } catch {
+    return res.status(403).json({ error: 'Invalid CSRF token.', code: 'CSRF_INVALID' });
+  }
+
+  return next();
 }
 
 async function resolveLeanDocument(result) {
@@ -1341,12 +1480,20 @@ export function createApp(options = {}) {
   app.use(
     cors({
       origin: getClientOrigins(),
+      credentials: true,
     })
   );
   app.use(express.json({ limit: '5mb' }));
+  app.use(csrfProtectionMiddleware);
 
   app.get('/api/health', (_req, res) => {
     res.json({ ok: true });
+  });
+
+  app.get('/api/auth/csrf', (req, res) => {
+    const csrfToken = ensureCsrfToken(req, res, { refresh: true });
+    res.set('Cache-Control', 'no-store');
+    return res.json({ csrfToken });
   });
 
   app.get('/api/careers', (_req, res) => {
@@ -1460,6 +1607,9 @@ export function createApp(options = {}) {
       if (!payload?.sub || !payload.email || !payload.name) {
         return res.status(400).json({ error: 'Google account details are incomplete.' });
       }
+      if (!(payload.email_verified === true || payload.email_verified === 'true')) {
+        return res.status(400).json({ error: 'Google account email must be verified.' });
+      }
 
       const normalizedEmail = normalizeEmail(payload.email);
       const existingUser = typeof UserModel.findOne === 'function'
@@ -1501,8 +1651,10 @@ export function createApp(options = {}) {
         }
       );
 
+      ensureCsrfToken(req, res, { refresh: true });
+      setSessionCookie(req, res, createSessionToken(user, injectedJwtSecret));
+
       return res.json({
-        token: createSessionToken(user, injectedJwtSecret),
         user: {
           id: user.googleId,
           email: user.email,
@@ -1519,12 +1671,18 @@ export function createApp(options = {}) {
     }
   });
 
+  app.post('/api/auth/logout', (req, res) => {
+    clearSessionCookie(req, res);
+    return res.json({ ok: true });
+  });
+
   app.delete('/api/auth/me', (req, res, next) => authMiddleware(req, res, next, injectedJwtSecret), async (req, res) => {
     try {
       await Promise.all([
         UserModel.deleteOne({ googleId: req.auth.sub }),
         PlannerModel.deleteOne({ googleId: req.auth.sub }),
       ]);
+      clearSessionCookie(req, res);
       return res.json({ ok: true });
     } catch (err) {
       console.error('DELETE /api/auth/me error:', err);
@@ -1683,21 +1841,27 @@ export function createApp(options = {}) {
   app.post('/api/media/verification-presigned-url', (req, res, next) => authMiddleware(req, res, next, injectedJwtSecret), async (req, res) => {
     try {
       const { filename, contentType, size } = req.body || {};
+      const contentLength = Number(size);
 
       if (!filename || typeof filename !== 'string' || !contentType || typeof contentType !== 'string') {
         return res.status(400).json({ error: 'filename and contentType are required.' });
       }
+      if (!Number.isSafeInteger(contentLength) || contentLength <= 0) {
+        return res.status(400).json({ error: 'size must be a positive number.' });
+      }
       if (!ALLOWED_VERIFICATION_CONTENT_TYPES.has(contentType)) {
         return res.status(400).json({ error: 'Only PDF, JPG, PNG, and WebP files are allowed.' });
       }
-      if (typeof size === 'number' && size > MAX_VERIFICATION_FILE_SIZE_BYTES) {
+      if (contentLength > MAX_VERIFICATION_FILE_SIZE_BYTES) {
         return res.status(400).json({ error: 'File exceeds the 10 MB size limit.' });
       }
 
       const rawExt = filename.includes('.') ? filename.split('.').pop() : '';
       const ext = rawExt.toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 10);
       const key = `vendor-verification/${req.auth.sub}/${crypto.randomUUID()}${ext ? `.${ext}` : ''}`;
-      const uploadUrl = await createPresignedPutUrl(key, contentType);
+      const uploadUrl = await createPresignedPutUrl(key, contentType, {
+        contentLength,
+      });
 
       return res.json({ uploadUrl, key });
     } catch (error) {
@@ -1718,6 +1882,9 @@ export function createApp(options = {}) {
 
       if (!normalizedKey) {
         return res.status(400).json({ error: 'A valid verification document key is required.' });
+      }
+      if (!objectKeyMatchesScope(normalizedKey, 'vendor-verification', req.auth.sub)) {
+        return res.status(400).json({ error: 'Verification document key must belong to your account.' });
       }
       if (!ALLOWED_VERIFICATION_DOCUMENT_TYPES.includes(documentType)) {
         return res.status(400).json({ error: `documentType must be one of: ${ALLOWED_VERIFICATION_DOCUMENT_TYPES.join(', ')}.` });
@@ -1847,7 +2014,9 @@ export function createApp(options = {}) {
         .lean();
 
       return res.json({
-        vendors: await Promise.all(vendors.map(async vendor => ({
+        vendors: await Promise.all(vendors.map(async vendor => {
+          const verificationDocuments = await serializeVerificationDocuments(vendor.verificationDocuments, vendor.googleId);
+          return ({
           id: String(vendor._id || ''),
           googleId: vendor.googleId || '',
           businessName: vendor.businessName || '',
@@ -1865,18 +2034,19 @@ export function createApp(options = {}) {
           budgetRange: vendor.budgetRange || null,
           isApproved: Boolean(vendor.isApproved),
           verificationStatus: normalizeVerificationStatus(vendor.verificationStatus, {
-            hasDocuments: Array.isArray(vendor.verificationDocuments) && vendor.verificationDocuments.length > 0,
+            hasDocuments: verificationDocuments.length > 0,
           }),
           verificationNotes: sanitizeVerificationNotes(vendor.verificationNotes),
           verificationReviewedAt: vendor.verificationReviewedAt || null,
           verificationReviewedBy: vendor.verificationReviewedBy || '',
-          verificationDocuments: await serializeVerificationDocuments(vendor.verificationDocuments),
-          verificationDocumentCount: Array.isArray(vendor.verificationDocuments) ? vendor.verificationDocuments.length : 0,
+          verificationDocuments,
+          verificationDocumentCount: verificationDocuments.length,
           media: Array.isArray(vendor.media) ? vendor.media : [],
           mediaCount: Array.isArray(vendor.media) ? vendor.media.length : 0,
           createdAt: vendor.createdAt || null,
           updatedAt: vendor.updatedAt || null,
-        }))),
+        });
+        })),
       });
     } catch (error) {
       console.error('Admin vendors fetch failed:', error);
@@ -1929,6 +2099,8 @@ export function createApp(options = {}) {
         return res.status(404).json({ error: 'Vendor not found.' });
       }
 
+      const verificationDocuments = await serializeVerificationDocuments(vendor.verificationDocuments, vendor.googleId);
+
       return res.json({
         vendor: {
           id: String(vendor._id || ''),
@@ -1936,13 +2108,13 @@ export function createApp(options = {}) {
           type: normalizeVendorType(vendor.type) || '',
           isApproved: Boolean(vendor.isApproved),
           verificationStatus: normalizeVerificationStatus(vendor.verificationStatus, {
-            hasDocuments: Array.isArray(vendor.verificationDocuments) && vendor.verificationDocuments.length > 0,
+            hasDocuments: verificationDocuments.length > 0,
           }),
           verificationNotes: sanitizeVerificationNotes(vendor.verificationNotes),
           verificationReviewedAt: vendor.verificationReviewedAt || null,
           verificationReviewedBy: vendor.verificationReviewedBy || '',
-          verificationDocuments: await serializeVerificationDocuments(vendor.verificationDocuments),
-          verificationDocumentCount: Array.isArray(vendor.verificationDocuments) ? vendor.verificationDocuments.length : 0,
+          verificationDocuments,
+          verificationDocumentCount: verificationDocuments.length,
         },
       });
     } catch (error) {

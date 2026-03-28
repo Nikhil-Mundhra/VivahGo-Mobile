@@ -1,8 +1,17 @@
 const assert = require('node:assert/strict');
 
+const { resetRateLimitBuckets } = require('../api/_lib/core');
 const { createRes } = require('./helpers/testUtils.cjs');
 
 const handler = require('../api/feedback');
+
+function csrfHeaders(headers = {}) {
+  return {
+    ...headers,
+    cookie: ['vivahgo_csrf=test-csrf-token', headers.cookie].filter(Boolean).join('; '),
+    'x-csrf-token': 'test-csrf-token',
+  };
+}
 
 describe('api/feedback.js', function () {
   const originalEnv = { ...process.env };
@@ -16,6 +25,7 @@ describe('api/feedback.js', function () {
   afterEach(function () {
     process.env = { ...originalEnv };
     global.fetch = originalFetch;
+    resetRateLimitBuckets();
   });
 
   it('handles OPTIONS preflight with 204', async function () {
@@ -41,7 +51,7 @@ describe('api/feedback.js', function () {
 
   it('returns 500 when feedback env vars are missing', async function () {
     delete process.env.FEEDBACK_WEBHOOK_URL;
-    const req = { method: 'POST', headers: {}, body: { message: 'hello' } };
+    const req = { method: 'POST', headers: csrfHeaders(), body: { message: 'hello' } };
     const res = createRes();
 
     await handler(req, res);
@@ -60,7 +70,7 @@ describe('api/feedback.js', function () {
 
     const req = {
       method: 'POST',
-      headers: { 'user-agent': 'test-agent' },
+      headers: csrfHeaders({ 'user-agent': 'test-agent' }),
       body: {
         name: 'Nikhil',
         email: 'nikhil@example.com',
@@ -84,7 +94,7 @@ describe('api/feedback.js', function () {
   });
 
   it('returns 400 when message is empty or whitespace', async function () {
-    const req = { method: 'POST', headers: {}, body: { message: '   ' } };
+    const req = { method: 'POST', headers: csrfHeaders(), body: { message: '   ' } };
     const res = createRes();
 
     await handler(req, res);
@@ -98,7 +108,7 @@ describe('api/feedback.js', function () {
 
     const req = {
       method: 'POST',
-      headers: {},
+      headers: csrfHeaders(),
       body: { message: 'Test message' },
     };
     const res = createRes();
@@ -114,7 +124,7 @@ describe('api/feedback.js', function () {
 
     const req = {
       method: 'POST',
-      headers: {},
+      headers: csrfHeaders(),
       body: { message: 'Test message' },
     };
     const res = createRes();
@@ -134,7 +144,7 @@ describe('api/feedback.js', function () {
 
     const req = {
       method: 'POST',
-      headers: { 'user-agent': 'header-agent' },
+      headers: csrfHeaders({ 'user-agent': 'header-agent' }),
       body: { message: 'Hello', name: 42 },
     };
     const res = createRes();
@@ -144,5 +154,35 @@ describe('api/feedback.js', function () {
     assert.equal(res.statusCode, 200);
     assert.equal(parsedBody.userAgent, 'header-agent');
     assert.equal(parsedBody.name, 'Anonymous');
+  });
+
+  it('rate limits repeated feedback submissions from the same client IP', async function () {
+    global.fetch = async () => ({ ok: true, status: 200 });
+
+    for (let attempt = 0; attempt < 6; attempt += 1) {
+      const req = {
+        method: 'POST',
+        headers: csrfHeaders({ 'x-forwarded-for': '198.51.100.25' }),
+        body: { message: `Feedback ${attempt}` },
+      };
+      const res = createRes();
+
+      await handler(req, res);
+
+      assert.equal(res.statusCode, 200);
+    }
+
+    const limitedReq = {
+      method: 'POST',
+      headers: csrfHeaders({ 'x-forwarded-for': '198.51.100.25' }),
+      body: { message: 'One more' },
+    };
+    const limitedRes = createRes();
+
+    await handler(limitedReq, limitedRes);
+
+    assert.equal(limitedRes.statusCode, 429);
+    assert.equal(limitedRes.headers['Retry-After'], '600');
+    assert.deepEqual(limitedRes.body, { error: 'Too many feedback submissions. Please try again later.' });
   });
 });

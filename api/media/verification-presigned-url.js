@@ -1,5 +1,5 @@
 const { randomUUID } = require('crypto');
-const { connectDb, handlePreflight, setCorsHeaders, verifySession } = require('../_lib/core');
+const { applyRateLimit, connectDb, handlePreflight, requireCsrfProtection, setCorsHeaders, verifySession } = require('../_lib/core');
 const { createPresignedPutUrl } = require('../_lib/r2');
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB
@@ -19,22 +19,39 @@ module.exports = async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed.' });
   }
 
-  const { auth, error: authError } = verifySession(req);
+  if (requireCsrfProtection(req, res)) {
+    return;
+  }
+
+  if (applyRateLimit(req, res, 'media:verification-presigned-url', {
+    windowMs: 10 * 60 * 1000,
+    max: 20,
+    message: 'Too many verification upload requests. Please try again shortly.',
+  })) {
+    return;
+  }
+
+  const { auth, error: authError, status = 401 } = verifySession(req);
   if (authError) {
-    return res.status(401).json({ error: authError });
+    return res.status(status).json({ error: authError });
   }
 
   const { filename, contentType, size } = req.body || {};
+  const contentLength = Number(size);
 
   if (!filename || typeof filename !== 'string' || !contentType || typeof contentType !== 'string') {
     return res.status(400).json({ error: 'filename and contentType are required.' });
+  }
+
+  if (!Number.isSafeInteger(contentLength) || contentLength <= 0) {
+    return res.status(400).json({ error: 'size must be a positive number.' });
   }
 
   if (!ALLOWED_CONTENT_TYPES.has(contentType)) {
     return res.status(400).json({ error: 'Only PDF, JPG, PNG, and WebP files are allowed.' });
   }
 
-  if (typeof size === 'number' && size > MAX_FILE_SIZE) {
+  if (contentLength > MAX_FILE_SIZE) {
     return res.status(400).json({ error: 'File exceeds the 10 MB size limit.' });
   }
 
@@ -44,7 +61,9 @@ module.exports = async function handler(req, res) {
 
   try {
     await connectDb();
-    const uploadUrl = await createPresignedPutUrl(key, contentType);
+    const uploadUrl = await createPresignedPutUrl(key, contentType, {
+      contentLength,
+    });
 
     return res.status(200).json({ uploadUrl, key });
   } catch (error) {

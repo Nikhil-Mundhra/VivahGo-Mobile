@@ -1,6 +1,7 @@
 const fs = require('node:fs');
 const path = require('node:path');
 
+const { setSecurityHeaders } = require('./_lib/core');
 const plannerModule = require('./planner');
 const keywordLibrary = require('../vivahgo/src/generated/seo-keywords.json');
 const guides = require('../vivahgo/src/content/guides.json');
@@ -13,6 +14,20 @@ const COVERAGE_TOPICS = [
   ...keywordLibrary.clusters.cultural.slice(0, 4),
 ];
 const GUIDE_BY_SLUG = new Map(guides.map((guide) => [guide.slug, guide]));
+const PAGE_CONTENT_SECURITY_POLICY = [
+  "default-src 'self'",
+  "base-uri 'self'",
+  "object-src 'none'",
+  "frame-ancestors 'self'",
+  "img-src 'self' data: blob: https:",
+  "font-src 'self' data:",
+  "style-src 'self' 'unsafe-inline'",
+  "script-src 'self' https://accounts.google.com https://apis.google.com https://www.gstatic.com",
+  "connect-src 'self' https: http://localhost:* http://127.0.0.1:* ws://localhost:* ws://127.0.0.1:*",
+  "frame-src 'self' https://www.google.com https://accounts.google.com",
+  "media-src 'self' blob: https:",
+  "form-action 'self'",
+].join('; ');
 const HOME_FAQS = [
   {
     question: 'Is VivahGo for couples or planners?',
@@ -539,6 +554,7 @@ function resolveMetadata(req, routeData) {
 }
 
 function sendHtmlResponse(res, statusCode, html, cacheControl) {
+  setSecurityHeaders(null, res, { contentSecurityPolicy: PAGE_CONTENT_SECURITY_POLICY });
   res.setHeader('Content-Type', 'text/html; charset=utf-8');
   if (cacheControl) {
     res.setHeader('Cache-Control', cacheControl);
@@ -579,6 +595,8 @@ function createPageHandler(options = {}) {
   const plannerHandlers = options.plannerHandlers || plannerModule;
 
   return async function handler(req, res) {
+    setSecurityHeaders(req, res, { contentSecurityPolicy: PAGE_CONTENT_SECURITY_POLICY });
+
     if (req.method !== 'GET' && req.method !== 'HEAD') {
       res.setHeader('Allow', 'GET, HEAD');
       return res.status(405).json({ error: 'Method not allowed.' });

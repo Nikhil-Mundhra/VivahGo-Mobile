@@ -27,13 +27,17 @@ describe('api/media/presigned-url.js', function () {
   });
 
   it('returns a descriptive 500 when R2_PUBLIC_URL is missing', async function () {
+    let presignedCall = null;
     require.cache[corePath].exports = {
       ...originalCore,
       connectDb: async () => {},
     };
     require.cache[r2Path].exports = {
       ...originalR2,
-      createPresignedPutUrl: async () => 'https://upload.example.com/put',
+      createPresignedPutUrl: async (...args) => {
+        presignedCall = args;
+        return 'https://upload.example.com/put';
+      },
     };
 
     const handler = require(handlerPath);
@@ -52,10 +56,12 @@ describe('api/media/presigned-url.js', function () {
 
     assert.equal(res.statusCode, 500);
     assert.deepEqual(res.body, { error: 'Could not generate upload URL.' });
+    assert.deepEqual(presignedCall[2], { contentLength: 1024 });
   });
 
   it('returns an absolute publicUrl when R2_PUBLIC_URL is configured', async function () {
     process.env.R2_PUBLIC_URL = 'https://cdn.vivahgo.com/media';
+    let presignedCall = null;
 
     require.cache[corePath].exports = {
       ...originalCore,
@@ -63,7 +69,10 @@ describe('api/media/presigned-url.js', function () {
     };
     require.cache[r2Path].exports = {
       ...originalR2,
-      createPresignedPutUrl: async () => 'https://upload.example.com/put',
+      createPresignedPutUrl: async (...args) => {
+        presignedCall = args;
+        return 'https://upload.example.com/put';
+      },
     };
 
     const handler = require(handlerPath);
@@ -84,6 +93,7 @@ describe('api/media/presigned-url.js', function () {
     assert.equal(res.body.uploadUrl, 'https://upload.example.com/put');
     assert.match(res.body.key, /^vendors\/vendor-123\/.+\.jpg$/);
     assert.equal(res.body.publicUrl, `https://cdn.vivahgo.com/media/${res.body.key}`);
+    assert.deepEqual(presignedCall[2], { contentLength: 1024 });
   });
 
   it('preserves path prefixes when the public base URL includes a folder', function () {

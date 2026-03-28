@@ -6,6 +6,14 @@ const corePath = require.resolve('../api/_lib/core');
 const drivePath = require.resolve('../api/_lib/googleDrive');
 const handlerPath = require.resolve('../api/careers');
 
+function csrfHeaders(headers = {}) {
+  return {
+    ...headers,
+    cookie: ['vivahgo_csrf=test-csrf-token', headers.cookie].filter(Boolean).join('; '),
+    'x-csrf-token': 'test-csrf-token',
+  };
+}
+
 describe('api/careers.js', function () {
   const originalCore = require(corePath);
   const originalDrive = require(drivePath);
@@ -62,7 +70,7 @@ describe('api/careers.js', function () {
     const handler = require(handlerPath);
     const req = {
       method: 'POST',
-      headers: {},
+      headers: csrfHeaders(),
       body: {
         jobId: 'full-stack-engineer',
         fullName: 'Aarav Sharma',
@@ -94,7 +102,7 @@ describe('api/careers.js', function () {
     const handler = require(handlerPath);
     const req = {
       method: 'POST',
-      headers: {},
+      headers: csrfHeaders(),
       body: {
         jobId: 'full-stack-engineer',
         fullName: 'Aarav Sharma',

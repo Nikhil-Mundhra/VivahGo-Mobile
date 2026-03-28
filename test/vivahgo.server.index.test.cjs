@@ -11,6 +11,14 @@ async function loadServerModule() {
   return import(`${toFileUrl(appPath('server/index.js'))}?t=${Date.now()}`);
 }
 
+async function bootstrapCsrf(app) {
+  const response = await request(app).get('/api/auth/csrf');
+  return {
+    csrfToken: response.body.csrfToken,
+    cookies: response.headers['set-cookie'] || [],
+  };
+}
+
 const originalHttpServerListen = http.Server.prototype.listen;
 const originalNetServerListen = net.Server.prototype.listen;
 const originalServerAddress = Test.prototype.serverAddress;
@@ -165,13 +173,61 @@ describe('VivahGo/server/index.js', function () {
     mod.authMiddleware(req, { status() { return this; }, json() { return this; } }, () => { called = true; }, 'test-secret');
     assert.equal(called, true);
     assert.equal(req.auth.sub, 'gid-ok');
+
+    const cookieReq = { headers: { cookie: `vivahgo_session=${encodeURIComponent(token)}` } };
+    let cookieCalled = false;
+    mod.authMiddleware(cookieReq, { status() { return this; }, json() { return this; } }, () => { cookieCalled = true; }, 'test-secret');
+    assert.equal(cookieCalled, true);
+    assert.equal(cookieReq.auth.sub, 'gid-ok');
+  });
+
+  it('csrf middleware rejects missing tokens and allows matching cookie/header pairs', async function () {
+    const mod = await loadServerModule();
+
+    const blockedRes = {
+      code: null,
+      body: null,
+      status(code) {
+        this.code = code;
+        return this;
+      },
+      json(payload) {
+        this.body = payload;
+        return this;
+      },
+    };
+
+    let allowed = false;
+    mod.csrfProtectionMiddleware(
+      { method: 'POST', path: '/api/feedback', headers: {} },
+      blockedRes,
+      () => {}
+    );
+    assert.equal(blockedRes.code, 403);
+    assert.equal(blockedRes.body.code, 'CSRF_REQUIRED');
+
+    mod.csrfProtectionMiddleware(
+      {
+        method: 'POST',
+        path: '/api/feedback',
+        headers: {
+          cookie: 'vivahgo_csrf=test-csrf-token',
+          'x-csrf-token': 'test-csrf-token',
+        },
+      },
+      { status() { return this; }, json() { return this; } },
+      () => {
+        allowed = true;
+      }
+    );
+    assert.equal(allowed, true);
   });
 
   itWithHttpServer('returns 500 for Google auth route when oauth client is not configured', async function () {
     const mod = await loadServerModule();
     const app = mod.createApp({ googleClientId: '', oauthClient: null, jwtSecret: 'test-secret' });
-
-    const res = await request(app).post('/api/auth/google').send({ credential: 'cred' });
+    const { csrfToken, cookies } = await bootstrapCsrf(app);
+    const res = await request(app).post('/api/auth/google').set('Cookie', cookies).set('X-CSRF-Token', csrfToken).send({ credential: 'cred' });
     assert.equal(res.status, 500);
     assert.equal(res.body.error, 'Google auth is not configured on the server.');
   });
@@ -217,6 +273,7 @@ describe('VivahGo/server/index.js', function () {
               email: 'test@example.com',
               name: 'Test User',
               picture: 'pic',
+              email_verified: true,
             };
           },
         };
@@ -231,13 +288,17 @@ describe('VivahGo/server/index.js', function () {
       PlannerModel,
     });
 
-    const res = await request(app).post('/api/auth/google').send({ credential: 'cred-ok' });
+    const { csrfToken, cookies } = await bootstrapCsrf(app);
+    const res = await request(app).post('/api/auth/google').set('Cookie', cookies).set('X-CSRF-Token', csrfToken).send({ credential: 'cred-ok' });
     assert.equal(res.status, 200);
-    assert.ok(typeof res.body.token === 'string');
     assert.equal(res.body.user.id, 'gid-123');
     assert.equal(res.body.planner.events.length, 1);
     assert.equal(res.body.planner.events[0].id, 1);
     assert.equal(typeof res.body.planner.events[0].planId, 'string');
+    assert.ok(Array.isArray(res.headers['set-cookie']));
+    assert.ok(res.headers['set-cookie'].some(cookie => /vivahgo_session=/.test(cookie)));
+    assert.ok(res.headers['set-cookie'].some(cookie => /vivahgo_csrf=/.test(cookie)));
+    assert.equal(res.body.token, undefined);
   });
 
   itWithHttpServer('handles Google auth failures and incomplete payload branches', async function () {
@@ -257,7 +318,12 @@ describe('VivahGo/server/index.js', function () {
       PlannerModel: { async findOneAndUpdate() { throw new Error('unexpected'); } },
     });
 
-    const resThrow = await request(appThrow).post('/api/auth/google').send({ credential: 'cred' });
+    const throwCsrf = await bootstrapCsrf(appThrow);
+    const resThrow = await request(appThrow)
+      .post('/api/auth/google')
+      .set('Cookie', throwCsrf.cookies)
+      .set('X-CSRF-Token', throwCsrf.csrfToken)
+      .send({ credential: 'cred' });
     assert.equal(resThrow.status, 401);
 
     const oauthIncomplete = {
@@ -278,9 +344,46 @@ describe('VivahGo/server/index.js', function () {
       PlannerModel: { async findOneAndUpdate() { throw new Error('unexpected'); } },
     });
 
-    const resIncomplete = await request(appIncomplete).post('/api/auth/google').send({ credential: 'cred' });
+    const incompleteCsrf = await bootstrapCsrf(appIncomplete);
+    const resIncomplete = await request(appIncomplete)
+      .post('/api/auth/google')
+      .set('Cookie', incompleteCsrf.cookies)
+      .set('X-CSRF-Token', incompleteCsrf.csrfToken)
+      .send({ credential: 'cred' });
     assert.equal(resIncomplete.status, 400);
     assert.equal(resIncomplete.body.error, 'Google account details are incomplete.');
+
+    const oauthUnverified = {
+      async verifyIdToken() {
+        return {
+          getPayload() {
+            return {
+              sub: 'gid-verified',
+              email: 'test@example.com',
+              name: 'Test User',
+              email_verified: false,
+            };
+          },
+        };
+      },
+    };
+
+    const appUnverified = mod.createApp({
+      googleClientId: 'google-client',
+      jwtSecret: 'test-secret',
+      oauthClient: oauthUnverified,
+      UserModel: { async findOneAndUpdate() { throw new Error('unexpected'); } },
+      PlannerModel: { async findOneAndUpdate() { throw new Error('unexpected'); } },
+    });
+
+    const unverifiedCsrf = await bootstrapCsrf(appUnverified);
+    const resUnverified = await request(appUnverified)
+      .post('/api/auth/google')
+      .set('Cookie', unverifiedCsrf.cookies)
+      .set('X-CSRF-Token', unverifiedCsrf.csrfToken)
+      .send({ credential: 'cred' });
+    assert.equal(resUnverified.status, 400);
+    assert.equal(resUnverified.body.error, 'Google account email must be verified.');
   });
 
   itWithHttpServer('covers planner GET/PUT success plus error branches', async function () {

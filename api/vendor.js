@@ -1,5 +1,5 @@
-const { connectDb, getUserModel, getVendorModel, handlePreflight, setCorsHeaders, verifySession } = require('./_lib/core');
-const { createPresignedGetUrl, extractObjectKeyFromUrl, normalizeMediaList } = require('./_lib/r2');
+const { connectDb, getUserModel, getVendorModel, handlePreflight, requireCsrfProtection, setCorsHeaders, verifySession } = require('./_lib/core');
+const { createPresignedGetUrl, createPublicObjectUrl, extractObjectKeyFromUrl, normalizeMediaList, objectKeyMatchesScope } = require('./_lib/r2');
 
 const VENDOR_TYPES = ['Venue', 'Photography', 'Catering', 'Wedding Invitations', 'Wedding Gifts', 'Music', 'Wedding Transportation', 'Tent House', 'Wedding Entertainment', 'Florists', 'Wedding Planners', 'Wedding Videography', 'Honeymoon', 'Wedding Decorators', 'Wedding Cakes', 'Wedding DJ', 'Pandit', 'Photobooth', 'Astrologers', 'Party Places', 'Choreographer', 'Bridal & Pre-Bridal', 'Groom Services'];
 const BUNDLED_SERVICE_OPTIONS = VENDOR_TYPES.filter(type => type !== 'Honeymoon');
@@ -130,6 +130,19 @@ function sanitizeVerificationNotes(value) {
   return value.trim().slice(0, MAX_VERIFICATION_NOTES_LENGTH);
 }
 
+function isLikelyHttpUrl(value) {
+  if (!value) {
+    return true;
+  }
+
+  try {
+    const parsed = new URL(value);
+    return parsed.protocol === 'http:' || parsed.protocol === 'https:';
+  } catch {
+    return false;
+  }
+}
+
 function normalizeVerificationStatus(value, { hasDocuments = false } = {}) {
   if (value === 'approved' || value === 'rejected' || value === 'submitted') {
     return value;
@@ -137,27 +150,40 @@ function normalizeVerificationStatus(value, { hasDocuments = false } = {}) {
   return hasDocuments ? 'submitted' : 'not_submitted';
 }
 
+function isVendorMediaKeyForOwner(key, ownerId) {
+  return objectKeyMatchesScope(key, 'vendors', ownerId);
+}
+
+function isVendorVerificationKeyForOwner(key, ownerId) {
+  return objectKeyMatchesScope(key, 'vendor-verification', ownerId);
+}
+
 function normalizeMediaForResponse(vendor) {
   if (!vendor || !Array.isArray(vendor.media)) {
     return vendor;
   }
 
+  const ownerId = typeof vendor.googleId === 'string' ? vendor.googleId : '';
   return {
     ...vendor,
-    media: normalizeMediaList([...vendor.media].sort((a, b) => {
-      const orderA = typeof a?.sortOrder === 'number' ? a.sortOrder : 0;
-      const orderB = typeof b?.sortOrder === 'number' ? b.sortOrder : 0;
-      return orderA - orderB;
-    })),
+    media: normalizeMediaList(vendor.media)
+      .filter(item => isVendorMediaKeyForOwner(item?.key, ownerId))
+      .sort((a, b) => {
+        const orderA = typeof a?.sortOrder === 'number' ? a.sortOrder : 0;
+        const orderB = typeof b?.sortOrder === 'number' ? b.sortOrder : 0;
+        return orderA - orderB;
+      }),
   };
 }
 
-async function serializeVerificationDocuments(documents) {
+async function serializeVerificationDocuments(documents, ownerId) {
   if (!Array.isArray(documents) || documents.length === 0) {
     return [];
   }
 
-  return Promise.all(documents.map(async document => {
+  const ownedDocuments = documents.filter(document => isVendorVerificationKeyForOwner(document?.key, ownerId));
+
+  return Promise.all(ownedDocuments.map(async document => {
     const key = typeof document?.key === 'string' ? document.key.replace(/^\/+/, '') : '';
     let accessUrl = '';
 
@@ -185,18 +211,19 @@ async function serializeVerificationDocuments(documents) {
 async function serializeVendor(vendor) {
   const vendorObject = typeof vendor?.toObject === 'function' ? vendor.toObject() : vendor;
   const normalizedVendor = normalizeMediaForResponse(vendorObject);
+  const verificationDocuments = await serializeVerificationDocuments(normalizedVendor?.verificationDocuments, normalizedVendor?.googleId);
 
   return {
     ...normalizedVendor,
     type: normalizeVendorType(normalizedVendor?.type),
     bundledServices: Array.isArray(normalizedVendor?.bundledServices) ? normalizedVendor.bundledServices.map(normalizeVendorType) : [],
     verificationStatus: normalizeVerificationStatus(normalizedVendor?.verificationStatus, {
-      hasDocuments: Array.isArray(normalizedVendor?.verificationDocuments) && normalizedVendor.verificationDocuments.length > 0,
+      hasDocuments: verificationDocuments.length > 0,
     }),
     verificationNotes: sanitizeVerificationNotes(normalizedVendor?.verificationNotes),
     verificationReviewedAt: normalizedVendor?.verificationReviewedAt || null,
     verificationReviewedBy: normalizedVendor?.verificationReviewedBy || '',
-    verificationDocuments: await serializeVerificationDocuments(normalizedVendor?.verificationDocuments),
+    verificationDocuments,
   };
 }
 
@@ -223,6 +250,7 @@ async function handleVendorList(req, res) {
 
     const vendors = raw.map(v => {
       const media = normalizeMediaList(v.media)
+        .filter(item => isVendorMediaKeyForOwner(item?.key, v.googleId))
         .filter(item => item?.isVisible !== false)
         .sort((a, b) => (a?.sortOrder ?? 0) - (b?.sortOrder ?? 0));
       const coverMedia = media.find(item => item?.isCover) || media[0] || null;
@@ -267,9 +295,18 @@ async function handleVendorList(req, res) {
  ******************************************************************************/
 
 async function handleVendorMe(req, res) {
-  const { auth, error: authError } = verifySession(req);
+  if (!['GET', 'POST', 'PATCH'].includes(req.method)) {
+    res.setHeader('Allow', 'GET, POST, PATCH, OPTIONS');
+    return res.status(405).json({ error: 'Method not allowed.' });
+  }
+
+  if (requireCsrfProtection(req, res)) {
+    return;
+  }
+
+  const { auth, error: authError, status = 401 } = verifySession(req);
   if (authError) {
-    return res.status(401).json({ error: authError });
+    return res.status(status).json({ error: authError });
   }
 
   try {
@@ -303,6 +340,10 @@ async function handleVendorMe(req, res) {
         normalizedSubType = normalizeVendorSubtype(normalizedType, subType);
       } catch (error) {
         return res.status(400).json({ error: error.message });
+      }
+
+      if (!isLikelyHttpUrl((website || '').trim()) || !isLikelyHttpUrl((googleMapsLink || '').trim())) {
+        return res.status(400).json({ error: 'website and googleMapsLink must start with http:// or https://.' });
       }
 
       const existing = await Vendor.findOne({ googleId: auth.sub }).lean();
@@ -383,6 +424,14 @@ async function handleVendorMe(req, res) {
         return res.status(400).json({ error: `type must be one of: ${VENDOR_TYPES.join(', ')}.` });
       }
 
+      if (typeof updates.website === 'string' && !isLikelyHttpUrl(updates.website)) {
+        return res.status(400).json({ error: 'website must start with http:// or https://.' });
+      }
+
+      if (typeof updates.googleMapsLink === 'string' && !isLikelyHttpUrl(updates.googleMapsLink)) {
+        return res.status(400).json({ error: 'googleMapsLink must start with http:// or https://.' });
+      }
+
       try {
         const resolvedType = updates.type || normalizeVendorType(existingVendor.type);
         if ('subType' in updates || updates.type) {
@@ -404,9 +453,6 @@ async function handleVendorMe(req, res) {
         vendor: await serializeVendor(vendor),
       });
     }
-
-    res.setHeader('Allow', 'GET, POST, PATCH, OPTIONS');
-    return res.status(405).json({ error: 'Method not allowed.' });
   } catch (error) {
     console.error('Vendor profile error:', error);
     return res.status(500).json({ error: 'An unexpected error occurred.' });
@@ -422,9 +468,18 @@ async function handleVendorMe(req, res) {
  ******************************************************************************/
 
 async function handleVendorMedia(req, res) {
-  const { auth, error: authError } = verifySession(req);
+  if (!['POST', 'PUT', 'DELETE'].includes(req.method)) {
+    res.setHeader('Allow', 'POST, PUT, DELETE, OPTIONS');
+    return res.status(405).json({ error: 'Method not allowed.' });
+  }
+
+  if (requireCsrfProtection(req, res)) {
+    return;
+  }
+
+  const { auth, error: authError, status = 401 } = verifySession(req);
   if (authError) {
-    return res.status(401).json({ error: authError });
+    return res.status(status).json({ error: authError });
   }
 
   try {
@@ -437,6 +492,9 @@ async function handleVendorMedia(req, res) {
 
       if (!normalizedKey) {
         return res.status(400).json({ error: 'A valid media key is required.' });
+      }
+      if (!isVendorMediaKeyForOwner(normalizedKey, auth.sub)) {
+        return res.status(400).json({ error: 'Media key must belong to your account.' });
       }
       if (!ALLOWED_MEDIA_TYPES.includes(type)) {
         return res.status(400).json({ error: 'type must be IMAGE or VIDEO.' });
@@ -455,9 +513,14 @@ async function handleVendorMedia(req, res) {
         }, -1) + 1
         : 0;
 
+      let publicUrl = '';
+      try {
+        publicUrl = createPublicObjectUrl(normalizedKey);
+      } catch {}
+
       vendor.media.push({
         key: normalizedKey,
-        url: typeof url === 'string' ? url : '',
+        url: publicUrl,
         type,
         sortOrder: typeof sortOrder === 'number' ? sortOrder : nextSortOrder,
         filename: typeof filename === 'string' ? filename.slice(0, 255) : '',
@@ -576,9 +639,6 @@ async function handleVendorMedia(req, res) {
       await vendor.save();
       return res.status(200).json({ vendor: await serializeVendor(vendor) });
     }
-
-    res.setHeader('Allow', 'POST, PUT, DELETE, OPTIONS');
-    return res.status(405).json({ error: 'Method not allowed.' });
   } catch (error) {
     console.error('Vendor media error:', error);
     return res.status(500).json({ error: 'An unexpected error occurred.' });
@@ -590,9 +650,18 @@ async function handleVendorMedia(req, res) {
  ******************************************************************************/
 
 async function handleVendorVerification(req, res) {
-  const { auth, error: authError } = verifySession(req);
+  if (!['POST', 'DELETE'].includes(req.method)) {
+    res.setHeader('Allow', 'POST, DELETE, OPTIONS');
+    return res.status(405).json({ error: 'Method not allowed.' });
+  }
+
+  if (requireCsrfProtection(req, res)) {
+    return;
+  }
+
+  const { auth, error: authError, status = 401 } = verifySession(req);
   if (authError) {
-    return res.status(401).json({ error: authError });
+    return res.status(status).json({ error: authError });
   }
 
   try {
@@ -610,6 +679,9 @@ async function handleVendorVerification(req, res) {
 
       if (!normalizedKey) {
         return res.status(400).json({ error: 'A valid verification document key is required.' });
+      }
+      if (!isVendorVerificationKeyForOwner(normalizedKey, auth.sub)) {
+        return res.status(400).json({ error: 'Verification document key must belong to your account.' });
       }
       if (!ALLOWED_VERIFICATION_DOCUMENT_TYPES.includes(documentType)) {
         return res.status(400).json({ error: `documentType must be one of: ${ALLOWED_VERIFICATION_DOCUMENT_TYPES.join(', ')}.` });
@@ -655,9 +727,6 @@ async function handleVendorVerification(req, res) {
       await vendor.save();
       return res.status(200).json({ vendor: await serializeVendor(vendor) });
     }
-
-    res.setHeader('Allow', 'POST, DELETE, OPTIONS');
-    return res.status(405).json({ error: 'Method not allowed.' });
   } catch (error) {
     console.error('Vendor verification error:', error);
     return res.status(500).json({ error: 'An unexpected error occurred.' });

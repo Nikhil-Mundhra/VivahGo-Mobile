@@ -1,5 +1,5 @@
 const { randomUUID } = require('crypto');
-const { connectDb, handlePreflight, setCorsHeaders, verifySession } = require('../_lib/core');
+const { applyRateLimit, connectDb, handlePreflight, requireCsrfProtection, setCorsHeaders, verifySession } = require('../_lib/core');
 const { createPresignedPutUrl, createPublicObjectUrl } = require('../_lib/r2');
 
 const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50 MB
@@ -13,22 +13,39 @@ module.exports = async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed.' });
   }
 
-  const { auth, error: authError } = verifySession(req);
+  if (requireCsrfProtection(req, res)) {
+    return;
+  }
+
+  if (applyRateLimit(req, res, 'media:presigned-url', {
+    windowMs: 10 * 60 * 1000,
+    max: 40,
+    message: 'Too many upload URL requests. Please try again shortly.',
+  })) {
+    return;
+  }
+
+  const { auth, error: authError, status = 401 } = verifySession(req);
   if (authError) {
-    return res.status(401).json({ error: authError });
+    return res.status(status).json({ error: authError });
   }
 
   const { filename, contentType, size } = req.body || {};
+  const contentLength = Number(size);
 
   if (!filename || typeof filename !== 'string' || !contentType || typeof contentType !== 'string') {
     return res.status(400).json({ error: 'filename and contentType are required.' });
+  }
+
+  if (!Number.isSafeInteger(contentLength) || contentLength <= 0) {
+    return res.status(400).json({ error: 'size must be a positive number.' });
   }
 
   if (!contentType.startsWith('image/') && !contentType.startsWith('video/')) {
     return res.status(400).json({ error: 'Only image and video files are allowed.' });
   }
 
-  if (typeof size === 'number' && size > MAX_FILE_SIZE) {
+  if (contentLength > MAX_FILE_SIZE) {
     return res.status(400).json({ error: 'File exceeds the 50 MB size limit.' });
   }
 
@@ -39,7 +56,9 @@ module.exports = async function handler(req, res) {
 
   try {
     await connectDb();
-    const uploadUrl = await createPresignedPutUrl(key, contentType);
+    const uploadUrl = await createPresignedPutUrl(key, contentType, {
+      contentLength,
+    });
     const publicUrl = createPublicObjectUrl(key);
 
     return res.status(200).json({ uploadUrl, key, publicUrl });

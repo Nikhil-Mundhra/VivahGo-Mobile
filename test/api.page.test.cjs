@@ -91,6 +91,10 @@ describe('api/page.js', function () {
     assert.equal(res.statusCode, 200);
     assert.equal(res.headers['Content-Type'], 'text/html; charset=utf-8');
     assert.equal(res.headers['Cache-Control'], 'public, s-maxage=3600, stale-while-revalidate=86400');
+    assert.equal(res.headers['X-Content-Type-Options'], 'nosniff');
+    assert.equal(res.headers['X-Frame-Options'], 'SAMEORIGIN');
+    assert.match(res.headers['Content-Security-Policy'], /default-src 'self'/);
+    assert.equal(res.headers['Strict-Transport-Security'], 'max-age=63072000; includeSubDomains; preload');
     assert.match(res.body, /VivahGo Pricing/);
     assert.match(res.body, /application\/ld\+json/);
   });

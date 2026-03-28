@@ -2,15 +2,19 @@ const assert = require('node:assert/strict');
 const jwt = require('jsonwebtoken');
 
 const {
+  applyRateLimit,
   assignWeddingWebsiteSlugs,
   buildWeddingWebsiteBaseSlug,
   buildEmptyPlanner,
   createGuestRsvpToken,
   createSessionToken,
+  ensureCsrfToken,
   getPlannerModel,
   getBillingReceiptModel,
   getUserModel,
   handlePreflight,
+  requireCsrfProtection,
+  resetRateLimitBuckets,
   sanitizePlanner,
   setCorsHeaders,
   verifyGuestRsvpToken,
@@ -21,7 +25,9 @@ describe('core helpers', function () {
   afterEach(function () {
     delete process.env.CLIENT_ORIGIN;
     delete process.env.JWT_SECRET;
+    delete process.env.NODE_ENV;
     delete process.env.RSVP_TOKEN_SECRET;
+    resetRateLimitBuckets();
   });
 
   describe('sanitizePlanner', function () {
@@ -195,29 +201,34 @@ describe('core helpers', function () {
       };
     }
 
-    it('allows all origins when CLIENT_ORIGIN is unset', function () {
+    it('reflects request origin and enables credentials when CLIENT_ORIGIN is unset', function () {
       const req = { headers: { origin: 'https://example.com' } };
       const res = createRes();
 
       setCorsHeaders(req, res);
 
-      assert.equal(res.headers['Access-Control-Allow-Origin'], '*');
+      assert.equal(res.headers['Access-Control-Allow-Origin'], 'https://example.com');
+      assert.equal(res.headers['Access-Control-Allow-Credentials'], 'true');
       assert.equal(
         res.headers['Access-Control-Allow-Headers'],
-        'Content-Type, Authorization'
+        'Content-Type, Authorization, X-CSRF-Token'
       );
       assert.equal(res.headers['Access-Control-Allow-Methods'], 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
-      assert.equal(res.headers.Vary, undefined);
+      assert.equal(res.headers['X-Content-Type-Options'], 'nosniff');
+      assert.equal(res.headers['X-Frame-Options'], 'SAMEORIGIN');
+      assert.equal(res.headers['Permissions-Policy'], 'camera=(), microphone=(), geolocation=()');
+      assert.equal(res.headers.Vary, 'Origin');
     });
 
     it('echoes allowed request origin and sets vary', function () {
       process.env.CLIENT_ORIGIN = 'https://allowed.com, https://also-allowed.com';
-      const req = { headers: { origin: 'https://allowed.com' } };
+      const req = { headers: { origin: 'https://allowed.com', 'x-forwarded-proto': 'https' } };
       const res = createRes();
 
       setCorsHeaders(req, res);
 
       assert.equal(res.headers['Access-Control-Allow-Origin'], 'https://allowed.com');
+      assert.equal(res.headers['Strict-Transport-Security'], 'max-age=63072000; includeSubDomains; preload');
       assert.equal(res.headers.Vary, 'Origin');
     });
 
@@ -279,7 +290,23 @@ describe('core helpers', function () {
     it('returns error when bearer token is missing', function () {
       const result = verifySession({ headers: {} });
 
-      assert.deepEqual(result, { error: 'Authentication required.' });
+      assert.deepEqual(result, { status: 401, error: 'Authentication required.' });
+    });
+
+    it('accepts the session token from an httpOnly cookie when no bearer token is present', function () {
+      process.env.JWT_SECRET = 'unit-test-secret';
+      const token = createSessionToken({
+        googleId: 'cookie-user',
+        email: 'cookie@example.com',
+        name: 'Cookie User',
+      });
+
+      const result = verifySession({
+        headers: { cookie: `vivahgo_session=${encodeURIComponent(token)}` },
+      });
+
+      assert.equal(result.auth.sub, 'cookie-user');
+      assert.equal(result.auth.email, 'cookie@example.com');
     });
 
     it('returns error for invalid token', function () {
@@ -287,7 +314,18 @@ describe('core helpers', function () {
         headers: { authorization: 'Bearer not-a-real-token' },
       });
 
-      assert.deepEqual(result, { error: 'Session expired. Please sign in again.' });
+      assert.deepEqual(result, { status: 401, error: 'Session expired. Please sign in again.' });
+    });
+
+    it('returns a server configuration error in production when JWT_SECRET is missing', function () {
+      process.env.NODE_ENV = 'production';
+      delete process.env.JWT_SECRET;
+
+      const result = verifySession({
+        headers: { authorization: 'Bearer whatever' },
+      });
+
+      assert.deepEqual(result, { status: 500, error: 'Server auth is not configured.' });
     });
 
     it('creates and verifies a valid session token', function () {
@@ -311,6 +349,132 @@ describe('core helpers', function () {
 
       const decoded = jwt.verify(token, process.env.JWT_SECRET);
       assert.equal(decoded.sub, user.googleId);
+    });
+  });
+
+  describe('CSRF helpers', function () {
+    function createMutableRes() {
+      return {
+        headers: {},
+        statusCode: null,
+        body: null,
+        setHeader(name, value) {
+          this.headers[name] = value;
+        },
+        getHeader(name) {
+          return this.headers[name];
+        },
+        status(code) {
+          this.statusCode = code;
+          return this;
+        },
+        json(payload) {
+          this.body = payload;
+          return this;
+        },
+      };
+    }
+
+    it('issues a readable CSRF cookie when requested', function () {
+      const req = { headers: {} };
+      const res = createMutableRes();
+
+      const token = ensureCsrfToken(req, res);
+
+      assert.match(token, /^[a-f0-9]{64}$/);
+      assert.match(String(res.headers['Set-Cookie']), /vivahgo_csrf=/);
+      assert.doesNotMatch(String(res.headers['Set-Cookie']), /HttpOnly/);
+    });
+
+    it('rejects mutating cookie-auth requests that omit the CSRF token', function () {
+      const req = { method: 'POST', headers: {} };
+      const res = createMutableRes();
+
+      const blocked = requireCsrfProtection(req, res);
+
+      assert.equal(blocked, true);
+      assert.equal(res.statusCode, 403);
+      assert.deepEqual(res.body, { error: 'CSRF token required.', code: 'CSRF_REQUIRED' });
+    });
+
+    it('allows mutating requests with matching CSRF cookie and header', function () {
+      const req = {
+        method: 'POST',
+        headers: {
+          cookie: 'vivahgo_csrf=csrf-token-123',
+          'x-csrf-token': 'csrf-token-123',
+        },
+      };
+      const res = createMutableRes();
+
+      const blocked = requireCsrfProtection(req, res);
+
+      assert.equal(blocked, false);
+      assert.equal(res.statusCode, null);
+    });
+
+    it('skips CSRF enforcement for explicit bearer-token requests', function () {
+      const req = {
+        method: 'POST',
+        headers: {
+          authorization: 'Bearer signed-token',
+        },
+      };
+      const res = createMutableRes();
+
+      const blocked = requireCsrfProtection(req, res);
+
+      assert.equal(blocked, false);
+      assert.equal(res.statusCode, null);
+    });
+  });
+
+  describe('applyRateLimit', function () {
+    it('blocks requests that exceed the configured threshold and sets retry headers', function () {
+      const req = {
+        headers: { 'x-forwarded-for': '203.0.113.10' },
+      };
+      const firstRes = {
+        headers: {},
+        statusCode: null,
+        body: null,
+        setHeader(name, value) {
+          this.headers[name] = value;
+        },
+        status(code) {
+          this.statusCode = code;
+          return this;
+        },
+        json(payload) {
+          this.body = payload;
+          return this;
+        },
+      };
+      const secondRes = {
+        headers: {},
+        statusCode: null,
+        body: null,
+        setHeader(name, value) {
+          this.headers[name] = value;
+        },
+        status(code) {
+          this.statusCode = code;
+          return this;
+        },
+        json(payload) {
+          this.body = payload;
+          return this;
+        },
+      };
+
+      const firstLimited = applyRateLimit(req, firstRes, 'test:route', { windowMs: 60_000, max: 1 });
+      const secondLimited = applyRateLimit(req, secondRes, 'test:route', { windowMs: 60_000, max: 1 });
+
+      assert.equal(firstLimited, false);
+      assert.equal(secondLimited, true);
+      assert.equal(secondRes.statusCode, 429);
+      assert.equal(secondRes.headers['Retry-After'], '60');
+      assert.deepEqual(secondRes.body, { error: 'Too many requests. Please try again shortly.' });
     });
   });
 

@@ -35,6 +35,29 @@ const STAFF_ROLE_LEVEL = {
 };
 
 let cachedConnection = null;
+const rateLimitBuckets = new Map();
+let lastRateLimitSweepAt = 0;
+const SESSION_COOKIE_NAME = 'vivahgo_session';
+const SESSION_MAX_AGE_SECONDS = 7 * 24 * 60 * 60;
+const CSRF_COOKIE_NAME = 'vivahgo_csrf';
+const CSRF_MAX_AGE_SECONDS = 7 * 24 * 60 * 60;
+
+function isProductionEnv() {
+  return process.env.NODE_ENV === 'production';
+}
+
+function getConfiguredSecret(envKey, fallbackValue) {
+  const configuredValue = process.env[envKey];
+  if (configuredValue && configuredValue !== fallbackValue) {
+    return configuredValue;
+  }
+
+  if (isProductionEnv()) {
+    throw new Error(`${envKey} must be configured in production.`);
+  }
+
+  return configuredValue || fallbackValue;
+}
 
 function getClientOrigins() {
   if (!process.env.CLIENT_ORIGIN) {
@@ -44,19 +67,216 @@ function getClientOrigins() {
   return process.env.CLIENT_ORIGIN.split(',').map(origin => origin.trim()).filter(Boolean);
 }
 
+function requestIsSecure(req) {
+  const forwardedProto = typeof req?.headers?.['x-forwarded-proto'] === 'string'
+    ? req.headers['x-forwarded-proto'].split(',')[0].trim().toLowerCase()
+    : '';
+
+  return forwardedProto === 'https' || Boolean(req?.socket?.encrypted || req?.connection?.encrypted);
+}
+
+function parseCookieHeader(value) {
+  return String(value || '')
+    .split(';')
+    .map(part => part.trim())
+    .filter(Boolean)
+    .reduce((cookies, pair) => {
+      const separatorIndex = pair.indexOf('=');
+      if (separatorIndex <= 0) {
+        return cookies;
+      }
+
+      const name = pair.slice(0, separatorIndex).trim();
+      const rawValue = pair.slice(separatorIndex + 1).trim();
+      try {
+        cookies[name] = decodeURIComponent(rawValue);
+      } catch {
+        cookies[name] = rawValue;
+      }
+      return cookies;
+    }, {});
+}
+
+function serializeCookie(name, value, options = {}) {
+  const parts = [`${name}=${encodeURIComponent(String(value || ''))}`];
+
+  if (options.maxAge !== undefined) {
+    parts.push(`Max-Age=${Math.max(0, Math.trunc(Number(options.maxAge) || 0))}`);
+  }
+  if (options.expires) {
+    parts.push(`Expires=${new Date(options.expires).toUTCString()}`);
+  }
+  parts.push(`Path=${options.path || '/'}`);
+  if (options.httpOnly !== false) {
+    parts.push('HttpOnly');
+  }
+  if (options.sameSite) {
+    parts.push(`SameSite=${options.sameSite}`);
+  }
+  if (options.secure) {
+    parts.push('Secure');
+  }
+
+  return parts.join('; ');
+}
+
+function appendSetCookieHeader(res, value) {
+  const existing = typeof res.getHeader === 'function' ? res.getHeader('Set-Cookie') : res.headers?.['Set-Cookie'];
+
+  if (!existing) {
+    res.setHeader('Set-Cookie', value);
+    return;
+  }
+
+  const nextValues = Array.isArray(existing) ? [...existing, value] : [existing, value];
+  res.setHeader('Set-Cookie', nextValues);
+}
+
+function setSessionCookie(req, res, token) {
+  appendSetCookieHeader(res, serializeCookie(SESSION_COOKIE_NAME, token, {
+    maxAge: SESSION_MAX_AGE_SECONDS,
+    expires: Date.now() + (SESSION_MAX_AGE_SECONDS * 1000),
+    httpOnly: true,
+    sameSite: 'Lax',
+    secure: requestIsSecure(req),
+    path: '/',
+  }));
+}
+
+function setCsrfCookie(req, res, token) {
+  appendSetCookieHeader(res, serializeCookie(CSRF_COOKIE_NAME, token, {
+    maxAge: CSRF_MAX_AGE_SECONDS,
+    expires: Date.now() + (CSRF_MAX_AGE_SECONDS * 1000),
+    httpOnly: false,
+    sameSite: 'Lax',
+    secure: requestIsSecure(req),
+    path: '/',
+  }));
+}
+
+function generateCsrfToken() {
+  return crypto.randomBytes(32).toString('hex');
+}
+
+function readCsrfCookieToken(req) {
+  const cookies = parseCookieHeader(req?.headers?.cookie);
+  return typeof cookies[CSRF_COOKIE_NAME] === 'string' ? cookies[CSRF_COOKIE_NAME] : '';
+}
+
+function readCsrfHeaderToken(req) {
+  const headerValue = req?.headers?.['x-csrf-token'];
+  if (typeof headerValue === 'string') {
+    return headerValue.trim();
+  }
+  if (Array.isArray(headerValue)) {
+    return String(headerValue[0] || '').trim();
+  }
+  return '';
+}
+
+function ensureCsrfToken(req, res, options = {}) {
+  const existingToken = readCsrfCookieToken(req);
+  if (existingToken) {
+    if (options.refresh) {
+      setCsrfCookie(req, res, existingToken);
+    }
+    return existingToken;
+  }
+
+  const nextToken = generateCsrfToken();
+  setCsrfCookie(req, res, nextToken);
+  return nextToken;
+}
+
+function isSafeMethod(method) {
+  return ['GET', 'HEAD', 'OPTIONS'].includes(String(method || '').toUpperCase());
+}
+
+function hasBearerToken(req) {
+  return Boolean(readBearerToken(req));
+}
+
+function requireCsrfProtection(req, res, options = {}) {
+  if (options.skip === true || isSafeMethod(req?.method)) {
+    return false;
+  }
+
+  if (options.skipForBearer !== false && hasBearerToken(req)) {
+    return false;
+  }
+
+  const cookieToken = readCsrfCookieToken(req);
+  const headerToken = readCsrfHeaderToken(req);
+
+  if (!cookieToken || !headerToken) {
+    res.status(403).json({ error: 'CSRF token required.', code: 'CSRF_REQUIRED' });
+    return true;
+  }
+
+  if (cookieToken.length !== headerToken.length) {
+    res.status(403).json({ error: 'Invalid CSRF token.', code: 'CSRF_INVALID' });
+    return true;
+  }
+
+  try {
+    if (!crypto.timingSafeEqual(Buffer.from(cookieToken), Buffer.from(headerToken))) {
+      res.status(403).json({ error: 'Invalid CSRF token.', code: 'CSRF_INVALID' });
+      return true;
+    }
+  } catch {
+    res.status(403).json({ error: 'Invalid CSRF token.', code: 'CSRF_INVALID' });
+    return true;
+  }
+
+  return false;
+}
+
+function clearSessionCookie(req, res) {
+  appendSetCookieHeader(res, serializeCookie(SESSION_COOKIE_NAME, '', {
+    maxAge: 0,
+    expires: 0,
+    httpOnly: true,
+    sameSite: 'Lax',
+    secure: requestIsSecure(req),
+    path: '/',
+  }));
+}
+
+function setSecurityHeaders(req, res, options = {}) {
+  res.setHeader('Referrer-Policy', options.referrerPolicy || 'strict-origin-when-cross-origin');
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', options.frameOptions || 'SAMEORIGIN');
+  res.setHeader('Permissions-Policy', options.permissionsPolicy || 'camera=(), microphone=(), geolocation=()');
+
+  if (options.contentSecurityPolicy) {
+    res.setHeader('Content-Security-Policy', options.contentSecurityPolicy);
+  }
+
+  if (requestIsSecure(req)) {
+    res.setHeader('Strict-Transport-Security', 'max-age=63072000; includeSubDomains; preload');
+  }
+}
+
 function setCorsHeaders(req, res) {
   const origins = getClientOrigins();
   const requestOrigin = req.headers.origin;
   const allowAll = origins.includes('*');
 
-  if (allowAll) {
+  setSecurityHeaders(req, res);
+
+  if (allowAll && requestOrigin) {
+    res.setHeader('Access-Control-Allow-Origin', requestOrigin);
+    res.setHeader('Access-Control-Allow-Credentials', 'true');
+    res.setHeader('Vary', 'Origin');
+  } else if (allowAll) {
     res.setHeader('Access-Control-Allow-Origin', '*');
   } else if (requestOrigin && origins.includes(requestOrigin)) {
     res.setHeader('Access-Control-Allow-Origin', requestOrigin);
+    res.setHeader('Access-Control-Allow-Credentials', 'true');
     res.setHeader('Vary', 'Origin');
   }
 
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-CSRF-Token');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
 }
 
@@ -81,6 +301,69 @@ async function connectDb() {
 
   cachedConnection = mongoose.connect(mongoUri);
   return cachedConnection;
+}
+
+function getClientIp(req) {
+  const forwardedFor = typeof req?.headers?.['x-forwarded-for'] === 'string'
+    ? req.headers['x-forwarded-for'].split(',')[0].trim()
+    : '';
+  const realIp = typeof req?.headers?.['x-real-ip'] === 'string'
+    ? req.headers['x-real-ip'].trim()
+    : '';
+  const socketIp = req?.socket?.remoteAddress || req?.connection?.remoteAddress || '';
+
+  return forwardedFor || realIp || socketIp || 'unknown';
+}
+
+function sweepRateLimitBuckets(now = Date.now()) {
+  if (now - lastRateLimitSweepAt < 60 * 1000) {
+    return;
+  }
+
+  lastRateLimitSweepAt = now;
+  for (const [bucketKey, bucket] of rateLimitBuckets.entries()) {
+    if (!bucket?.length || bucket.expiresAt <= now) {
+      rateLimitBuckets.delete(bucketKey);
+    }
+  }
+}
+
+function applyRateLimit(req, res, key, options = {}) {
+  const windowMs = Number.isFinite(Number(options.windowMs)) ? Math.max(1000, Math.trunc(Number(options.windowMs))) : 60 * 1000;
+  const max = Number.isFinite(Number(options.max)) ? Math.max(1, Math.trunc(Number(options.max))) : 10;
+  const message = options.message || 'Too many requests. Please try again shortly.';
+  const now = Date.now();
+
+  sweepRateLimitBuckets(now);
+
+  const bucketKey = `${key}:${getClientIp(req)}`;
+  const existingBucket = rateLimitBuckets.get(bucketKey);
+  const timestamps = Array.isArray(existingBucket?.timestamps)
+    ? existingBucket.timestamps.filter(timestamp => now - timestamp < windowMs)
+    : [];
+
+  if (timestamps.length >= max) {
+    const retryAfterSeconds = Math.max(1, Math.ceil((windowMs - (now - timestamps[0])) / 1000));
+    rateLimitBuckets.set(bucketKey, {
+      timestamps,
+      expiresAt: timestamps[0] + windowMs,
+    });
+    res.setHeader('Retry-After', String(retryAfterSeconds));
+    res.status(429).json({ error: message });
+    return true;
+  }
+
+  timestamps.push(now);
+  rateLimitBuckets.set(bucketKey, {
+    timestamps,
+    expiresAt: timestamps[0] + windowMs,
+  });
+  return false;
+}
+
+function resetRateLimitBuckets() {
+  rateLimitBuckets.clear();
+  lastRateLimitSweepAt = 0;
 }
 
 function getUserModel() {
@@ -673,7 +956,7 @@ function normalizePlannerOwnership(planner, ownerEmail, ownerId) {
 }
 
 function createSessionToken(user) {
-  const jwtSecret = process.env.JWT_SECRET || 'change-me-before-production';
+  const jwtSecret = getConfiguredSecret('JWT_SECRET', 'change-me-before-production');
   return jwt.sign(
     {
       sub: user.googleId,
@@ -687,7 +970,14 @@ function createSessionToken(user) {
 }
 
 function getRsvpTokenSecret() {
-  return process.env.RSVP_TOKEN_SECRET || process.env.JWT_SECRET || 'change-me-before-production';
+  try {
+    return getConfiguredSecret('RSVP_TOKEN_SECRET', getConfiguredSecret('JWT_SECRET', 'change-me-before-production'));
+  } catch (error) {
+    if (error?.message === 'RSVP_TOKEN_SECRET must be configured in production.') {
+      return getConfiguredSecret('JWT_SECRET', 'change-me-before-production');
+    }
+    throw error;
+  }
 }
 
 const RSVP_TOKEN_VERSION = '1';
@@ -877,6 +1167,15 @@ function readBearerToken(req) {
   return authHeader.slice(7);
 }
 
+function readSessionCookieToken(req) {
+  const cookies = parseCookieHeader(req?.headers?.cookie);
+  return typeof cookies[SESSION_COOKIE_NAME] === 'string' ? cookies[SESSION_COOKIE_NAME] : '';
+}
+
+function readAuthToken(req) {
+  return readBearerToken(req) || readSessionCookieToken(req);
+}
+
 async function getSubscriptionTier(googleId) {
   try {
     const User = getUserModel();
@@ -896,26 +1195,34 @@ async function getSubscriptionTier(googleId) {
 }
 
 function verifySession(req) {
-  const token = readBearerToken(req);
+  const token = readAuthToken(req);
   if (!token) {
-    return { error: 'Authentication required.' };
+    return { status: 401, error: 'Authentication required.' };
   }
 
   try {
-    const jwtSecret = process.env.JWT_SECRET || 'change-me-before-production';
+    const jwtSecret = getConfiguredSecret('JWT_SECRET', 'change-me-before-production');
     return { auth: jwt.verify(token, jwtSecret) };
-  } catch {
-    return { error: 'Session expired. Please sign in again.' };
+  } catch (error) {
+    if (error?.message === 'JWT_SECRET must be configured in production.') {
+      return { status: 500, error: 'Server auth is not configured.' };
+    }
+    return { status: 401, error: 'Session expired. Please sign in again.' };
   }
 }
 
 module.exports = {
+  applyRateLimit,
   assignWeddingWebsiteSlugs,
   buildWeddingWebsiteBaseSlug,
   buildEmptyPlanner,
+  CSRF_COOKIE_NAME,
+  clearSessionCookie,
   connectDb,
   createGuestRsvpToken,
   createSessionToken,
+  ensureCsrfToken,
+  generateCsrfToken,
   getBillingReceiptModel,
   getCollaboratorRoleForPlan,
   getPlannerModel,
@@ -933,9 +1240,16 @@ module.exports = {
   normalizePlannerOwnership,
   normalizeRole,
   normalizeStaffRole,
+  readCsrfHeaderToken,
+  resetRateLimitBuckets,
+  requireCsrfProtection,
   resolveStaffRole,
   sanitizePlanner,
+  SESSION_COOKIE_NAME,
+  setSecurityHeaders,
   setCorsHeaders,
+  setCsrfCookie,
+  setSessionCookie,
   verifyGuestRsvpToken,
   verifySession,
 };

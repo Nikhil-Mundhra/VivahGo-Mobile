@@ -26,13 +26,17 @@ describe('api/media/verification-presigned-url.js', function () {
   });
 
   it('returns a private verification upload key', async function () {
+    let presignedCall = null;
     require.cache[corePath].exports = {
       ...originalCore,
       connectDb: async () => {},
     };
     require.cache[r2Path].exports = {
       ...originalR2,
-      createPresignedPutUrl: async () => 'https://upload.example.com/put',
+      createPresignedPutUrl: async (...args) => {
+        presignedCall = args;
+        return 'https://upload.example.com/put';
+      },
     };
 
     const handler = require(handlerPath);
@@ -52,5 +56,6 @@ describe('api/media/verification-presigned-url.js', function () {
     assert.equal(res.statusCode, 200);
     assert.equal(res.body.uploadUrl, 'https://upload.example.com/put');
     assert.match(res.body.key, /^vendor-verification\/vendor-123\/.+\.pdf$/);
+    assert.deepEqual(presignedCall[2], { contentLength: 2048 });
   });
 });

@@ -56,10 +56,6 @@ function GoogleLogin({ onSuccess, onError }) {
           family_name: responsePayload.family_name,
         };
 
-        // Store user info in localStorage
-        localStorage.setItem('user', JSON.stringify(userInfo));
-        localStorage.setItem('isLoggedIn', 'true');
-
         onSuccess(userInfo);
       } catch (error) {
         console.error('Error processing Google login:', error);

@@ -1,5 +1,5 @@
 const careerCatalog = require('../config/careers.json');
-const { connectDb, getCareerApplicationModel, handlePreflight, normalizeEmail, setCorsHeaders } = require('./_lib/core');
+const { applyRateLimit, connectDb, getCareerApplicationModel, handlePreflight, normalizeEmail, requireCsrfProtection, setCorsHeaders } = require('./_lib/core');
 const { uploadPdfToDrive } = require('./_lib/googleDrive');
 
 const MAX_RESUME_SIZE_BYTES = 2 * 1024 * 1024;
@@ -104,6 +104,18 @@ async function handler(req, res) {
   if (req.method !== 'POST') {
     res.setHeader('Allow', 'GET, POST, OPTIONS');
     return res.status(405).json({ error: 'Method not allowed.' });
+  }
+
+  if (requireCsrfProtection(req, res, { skipForBearer: false })) {
+    return;
+  }
+
+  if (applyRateLimit(req, res, 'careers:submit', {
+    windowMs: 60 * 60 * 1000,
+    max: 5,
+    message: 'Too many career applications from this network. Please try again later.',
+  })) {
+    return;
   }
 
   const body = req.body || {};

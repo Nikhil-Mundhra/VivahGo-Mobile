@@ -1,6 +1,6 @@
-const { getBillingReceiptModel, getVendorModel, handlePreflight, normalizeEmail, normalizeStaffRole, setCorsHeaders } = require('./_lib/core');
+const { getBillingReceiptModel, getVendorModel, handlePreflight, normalizeEmail, normalizeStaffRole, requireCsrfProtection, setCorsHeaders } = require('./_lib/core');
 const { requireAdminSession, sanitizeStaffUser } = require('./_lib/admin');
-const { createPresignedGetUrl, normalizeMediaList } = require('./_lib/r2');
+const { createPresignedGetUrl, normalizeMediaList, objectKeyMatchesScope } = require('./_lib/r2');
 const { serializeApplication } = require('./careers');
 
 /******************************************************************************
@@ -27,7 +27,9 @@ async function resolveLean(result) {
 async function serializeAdminVendor(vendor = {}) {
   const media = normalizeMediaList(vendor.media)
     .sort((a, b) => (a?.sortOrder ?? 0) - (b?.sortOrder ?? 0));
-  const verificationDocuments = Array.isArray(vendor.verificationDocuments) ? vendor.verificationDocuments : [];
+  const verificationDocuments = Array.isArray(vendor.verificationDocuments)
+    ? vendor.verificationDocuments.filter(document => objectKeyMatchesScope(document?.key, 'vendor-verification', vendor.googleId))
+    : [];
   const signedVerificationDocuments = await Promise.all(verificationDocuments.map(async document => {
     const key = typeof document?.key === 'string' ? document.key.replace(/^\/+/, '') : '';
     let accessUrl = '';
@@ -417,6 +419,13 @@ async function handler(req, res) {
   setCorsHeaders(req, res);
 
   const route = resolveAdminRoute(req);
+
+  const shouldProtectAdminMutation = (route === 'vendors' && req.method === 'PATCH')
+    || (route === 'staff' && ['POST', 'PUT', 'DELETE'].includes(req.method));
+
+  if (shouldProtectAdminMutation && requireCsrfProtection(req, res)) {
+    return;
+  }
 
   if (route === 'me') {
     return handleAdminMe(req, res);
