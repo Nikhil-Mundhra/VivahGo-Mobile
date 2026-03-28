@@ -69,7 +69,7 @@ body[data-route='home'] #root {
 }
 
 .marketing-main {
-  width: min(1180px, calc(100% - 32px));
+  width: min(1280px, calc(100% - 32px));
   margin: 0 auto;
   position: relative;
   z-index: 1;
@@ -82,7 +82,7 @@ body[data-route='home'] #root {
   gap: 20px;
   width: 100%;
   margin: 0;
-  padding: 24px max(16px, calc((100vw - 1180px) / 2)) 18px;
+  padding: 24px max(16px, calc((100vw - 1280px) / 2)) 18px;
   background: #ffffff;
   position: relative;
   z-index: 1;
@@ -1056,9 +1056,9 @@ body[data-route='home'] #root {
 .marketing-screen-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 22px;
+  gap: 28px;
   align-items: stretch;
-  max-width: 980px;
+  max-width: 1080px;
   margin: 0 auto;
 }
 
