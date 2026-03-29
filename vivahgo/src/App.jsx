@@ -11,14 +11,75 @@ const GuestRsvpPage = lazy(() => import("./pages/GuestRsvpPage.jsx"));
 const WeddingWebsitePage = lazy(() => import("./pages/WeddingWebsitePage.jsx"));
 const VendorPortalPage = lazy(() => import("./pages/VendorPortalPage.jsx"));
 const AdminPortalPage = lazy(() => import("./pages/AdminPortalPage.jsx"));
+const CHATBASE_CHATBOT_ID = import.meta.env.VITE_CHATBASE_CHATBOT_ID;
 
 function PageFallback() {
   return <div className="app-page-fallback" aria-hidden="true" />;
 }
 
+function removeChatbaseArtifacts(chatbotId) {
+  if (typeof document === "undefined") {
+    return;
+  }
+
+  if (chatbotId) {
+    document.getElementById(chatbotId)?.remove();
+  }
+
+  document.querySelectorAll('iframe[src*="chatbase.co"]').forEach((node) => node.remove());
+  document.querySelectorAll('[id^="chatbase-"], [class*="chatbase"]').forEach((node) => node.remove());
+}
+
+function initializeChatbase(chatbotId) {
+  if (!chatbotId || typeof window === "undefined" || typeof document === "undefined") {
+    return undefined;
+  }
+
+  if (!window.chatbase || window.chatbase("getState") !== "initialized") {
+    const queueingChatbase = (...args) => {
+      if (!queueingChatbase.q) {
+        queueingChatbase.q = [];
+      }
+      queueingChatbase.q.push(args);
+    };
+
+    window.chatbase = new Proxy(queueingChatbase, {
+      get(target, prop) {
+        if (prop === "q") {
+          return target.q;
+        }
+        return (...args) => target(prop, ...args);
+      },
+    });
+  }
+
+  const onLoad = () => {
+    if (document.getElementById(chatbotId)) {
+      return;
+    }
+
+    const script = document.createElement("script");
+    script.src = "https://www.chatbase.co/embed.min.js";
+    script.id = chatbotId;
+    script.domain = "www.chatbase.co";
+    document.body.appendChild(script);
+  };
+
+  if (document.readyState === "complete") {
+    onLoad();
+    return undefined;
+  }
+
+  window.addEventListener("load", onLoad);
+  return () => {
+    window.removeEventListener("load", onLoad);
+  };
+}
+
 export default function App() {
   const pathname = typeof window !== "undefined" ? window.location.pathname : "/";
   const routeInfo = getRouteInfo(pathname);
+  const shouldShowChatbase = routeInfo.isMarketingHomeRoute || routeInfo.isPricingRoute;
   const fallbackSeo = routeInfo.isMarketingHomeRoute
     ? {
       title: "VivahGo | Indian Wedding Planner App for Cultural Weddings",
@@ -96,6 +157,15 @@ export default function App() {
       document.body.dataset.route = routeInfo.bodyRoute;
     }
   }, [routeInfo.bodyRoute]);
+
+  useEffect(() => {
+    if (shouldShowChatbase) {
+      return initializeChatbase(CHATBASE_CHATBOT_ID);
+    }
+
+    removeChatbaseArtifacts(CHATBASE_CHATBOT_ID);
+    return undefined;
+  }, [shouldShowChatbase]);
 
   usePageSeo(fallbackSeo);
 
