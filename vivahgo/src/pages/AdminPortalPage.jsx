@@ -965,70 +965,6 @@ export default function AdminPortalPage() {
               <h2 className="text-lg font-semibold text-stone-900">Career applications</h2>
               <p className="text-sm text-stone-500">Resumes are stored securely and linked here for staff review. Editors can save a rejection draft, email it, and remove the stored PDF in one action.</p>
             </div>
-            <div className="px-5 py-5 border-b border-stone-100 bg-stone-50/60 space-y-4">
-              <div className="flex flex-col gap-2 lg:flex-row lg:items-start lg:justify-between">
-                <div>
-                  <h3 className="text-base font-semibold text-stone-900">Rejection email draft</h3>
-                  <p className="mt-1 text-sm text-stone-500">
-                    Use <code className="font-mono text-xs text-stone-700">{'{{firstName}}'}</code>, <code className="font-mono text-xs text-stone-700">{'{{fullName}}'}</code>, <code className="font-mono text-xs text-stone-700">{'{{jobTitle}}'}</code>, or <code className="font-mono text-xs text-stone-700">{'{{email}}'}</code>.
-                  </p>
-                </div>
-                {!canManageApplications && (
-                  <span className="inline-flex items-center rounded-full bg-stone-200 px-3 py-1 text-xs font-semibold text-stone-700">
-                    Viewer access
-                  </span>
-                )}
-              </div>
-
-              {applicationsActionError && (
-                <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-                  {applicationsActionError}
-                </div>
-              )}
-              {applicationsActionMessage && (
-                <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
-                  {applicationsActionMessage}
-                </div>
-              )}
-
-              <div className="grid gap-4">
-                <label className="block">
-                  <span className="mb-1 block text-xs font-medium uppercase tracking-[0.18em] text-stone-400">Subject</span>
-                  <input
-                    type="text"
-                    value={rejectionEmailTemplate.subject}
-                    onChange={event => handleRejectionTemplateChange('subject', event.target.value)}
-                    disabled={!canManageApplications || savingRejectionTemplate || Boolean(rejectingApplicationId)}
-                    className="w-full rounded-2xl border border-stone-200 px-4 py-3 text-sm text-stone-900 outline-none focus:border-rose-300 disabled:bg-stone-100 disabled:text-stone-500"
-                    placeholder="Update on your VivahGo application for {{jobTitle}}"
-                  />
-                </label>
-
-                <label className="block">
-                  <span className="mb-1 block text-xs font-medium uppercase tracking-[0.18em] text-stone-400">Body</span>
-                  <textarea
-                    value={rejectionEmailTemplate.body}
-                    onChange={event => handleRejectionTemplateChange('body', event.target.value)}
-                    rows={8}
-                    disabled={!canManageApplications || savingRejectionTemplate || Boolean(rejectingApplicationId)}
-                    className="w-full rounded-2xl border border-stone-200 px-4 py-3 text-sm text-stone-900 outline-none focus:border-rose-300 disabled:bg-stone-100 disabled:text-stone-500"
-                    placeholder="Hi {{firstName}},"
-                  />
-                </label>
-              </div>
-
-              <div className="flex flex-wrap items-center gap-3">
-                <button
-                  type="button"
-                  className="login-secondary-btn"
-                  onClick={handleSaveRejectionTemplate}
-                  disabled={!canManageApplications || savingRejectionTemplate || Boolean(rejectingApplicationId)}
-                >
-                  {savingRejectionTemplate ? 'Saving draft...' : 'Save draft'}
-                </button>
-                <p className="text-xs text-stone-500">The current draft is also used immediately when you reject an application.</p>
-              </div>
-            </div>
             <div className="divide-y divide-stone-100">
               {sectionErrors.applications && (
                 <div className="px-5 py-3 text-sm text-red-600 bg-red-50 border-b border-red-100">
@@ -1122,6 +1058,70 @@ export default function AdminPortalPage() {
                   </div>
                 </div>
               ))}
+            </div>
+            <div className="px-5 py-5 border-t border-stone-100 bg-stone-50/60 space-y-4">
+              <div className="flex flex-col gap-2 lg:flex-row lg:items-start lg:justify-between">
+                <div>
+                  <h3 className="text-base font-semibold text-stone-900">Rejection email draft</h3>
+                  <p className="mt-1 text-sm text-stone-500">
+                    Use <span className="font-mono text-xs text-stone-700">{'{{firstName}}'}</span>, <span className="font-mono text-xs text-stone-700">{'{{fullName}}'}</span>, <span className="font-mono text-xs text-stone-700">{'{{jobTitle}}'}</span>, or <span className="font-mono text-xs text-stone-700">{'{{email}}'}</span>.
+                  </p>
+                </div>
+                {!canManageApplications && (
+                  <span className="inline-flex items-center rounded-full bg-stone-200 px-3 py-1 text-xs font-semibold text-stone-700">
+                    Viewer access
+                  </span>
+                )}
+              </div>
+
+              {applicationsActionError && (
+                <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                  {applicationsActionError}
+                </div>
+              )}
+              {applicationsActionMessage && (
+                <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
+                  {applicationsActionMessage}
+                </div>
+              )}
+
+              <div className="grid gap-4">
+                <label className="block">
+                  <span className="mb-1 block text-xs font-medium uppercase tracking-[0.18em] text-stone-400">Subject</span>
+                  <input
+                    type="text"
+                    value={rejectionEmailTemplate.subject}
+                    onChange={event => handleRejectionTemplateChange('subject', event.target.value)}
+                    disabled={!canManageApplications || savingRejectionTemplate || Boolean(rejectingApplicationId)}
+                    className="w-full rounded-2xl border border-stone-200 px-4 py-3 text-sm text-stone-900 outline-none focus:border-rose-300 disabled:bg-stone-100 disabled:text-stone-500"
+                    placeholder="Update on your VivahGo application for {{jobTitle}}"
+                  />
+                </label>
+
+                <label className="block">
+                  <span className="mb-1 block text-xs font-medium uppercase tracking-[0.18em] text-stone-400">Body</span>
+                  <textarea
+                    value={rejectionEmailTemplate.body}
+                    onChange={event => handleRejectionTemplateChange('body', event.target.value)}
+                    rows={8}
+                    disabled={!canManageApplications || savingRejectionTemplate || Boolean(rejectingApplicationId)}
+                    className="w-full rounded-2xl border border-stone-200 px-4 py-3 text-sm text-stone-900 outline-none focus:border-rose-300 disabled:bg-stone-100 disabled:text-stone-500"
+                    placeholder="Hi {{firstName}},"
+                  />
+                </label>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-3">
+                <button
+                  type="button"
+                  className="login-secondary-btn"
+                  onClick={handleSaveRejectionTemplate}
+                  disabled={!canManageApplications || savingRejectionTemplate || Boolean(rejectingApplicationId)}
+                >
+                  {savingRejectionTemplate ? 'Saving draft...' : 'Save draft'}
+                </button>
+                <p className="text-xs text-stone-500">The current draft is also used immediately when you reject an application.</p>
+              </div>
             </div>
           </section>
         )
