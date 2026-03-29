@@ -11,7 +11,13 @@ const GuestRsvpPage = lazy(() => import("./pages/GuestRsvpPage.jsx"));
 const WeddingWebsitePage = lazy(() => import("./pages/WeddingWebsitePage.jsx"));
 const VendorPortalPage = lazy(() => import("./pages/VendorPortalPage.jsx"));
 const AdminPortalPage = lazy(() => import("./pages/AdminPortalPage.jsx"));
-const CHATBASE_CHATBOT_ID = import.meta.env.VITE_CHATBASE_CHATBOT_ID;
+const CHATBASE_CHATBOT_ID = import.meta.env.VITE_CHATBASE_CHATBOT_ID
+  || import.meta.env.NEXT_PUBLIC_CHATBASE_CHATBOT_ID
+  || import.meta.env.NEXT_PUBLIC_CHATBASE_CHATBOT_CHATBOT_ID;
+const CHATBASE_HOST = import.meta.env.VITE_CHATBASE_HOST
+  || import.meta.env.NEXT_PUBLIC_CHATBASE_HOST
+  || import.meta.env.NEXT_PUBLIC_CHATBASE_CHATBOT_CHATBASE_HOST
+  || "https://www.chatbase.co/";
 
 function PageFallback() {
   return <div className="app-page-fallback" aria-hidden="true" />;
@@ -59,9 +65,9 @@ function initializeChatbase(chatbotId) {
     }
 
     const script = document.createElement("script");
-    script.src = "https://www.chatbase.co/embed.min.js";
+    script.src = new URL("embed.min.js", CHATBASE_HOST).toString();
     script.id = chatbotId;
-    script.domain = "www.chatbase.co";
+    script.domain = new URL(CHATBASE_HOST).hostname;
     document.body.appendChild(script);
   };
 
