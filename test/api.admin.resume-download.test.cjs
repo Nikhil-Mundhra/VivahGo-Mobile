@@ -24,10 +24,12 @@ describe('api/admin.js -> resume-download route', function () {
     };
 
     let signedKey = '';
+    let signedOptions = null;
     require.cache[b2Path].exports = {
       ...originalB2,
-      createB2PresignedGetUrl: async (key) => {
+      createB2PresignedGetUrl: async (key, _expiresIn, options) => {
         signedKey = key;
+        signedOptions = options;
         return 'https://download.example.com/resume.pdf';
       },
     };
@@ -63,8 +65,138 @@ describe('api/admin.js -> resume-download route', function () {
     await handleAdminResumeDownload(req, res);
 
     assert.equal(signedKey, 'careers/resumes/2026-03/example-resume.pdf');
+    assert.deepEqual(signedOptions, {
+      contentType: 'application/pdf',
+      contentDisposition: 'attachment; filename="example-resume.pdf"',
+    });
     assert.equal(res.statusCode, 302);
     assert.equal(res.redirectedTo, 'https://download.example.com/resume.pdf');
+  });
+
+  it('can request an inline preview url for a resume pdf', async function () {
+    require.cache[adminLibPath].exports = {
+      ...originalAdminLib,
+      requireAdminSession: async () => ({
+        user: { email: 'admin@vivahgo.com', staffRole: 'viewer' },
+        access: { role: 'viewer', canViewAdmin: true },
+      }),
+    };
+
+    let signedKey = '';
+    let signedOptions = null;
+    require.cache[b2Path].exports = {
+      ...originalB2,
+      createB2PresignedGetUrl: async (key, _expiresIn, options) => {
+        signedKey = key;
+        signedOptions = options;
+        return 'https://download.example.com/resume-preview.pdf';
+      },
+    };
+
+    const { handleAdminResumeDownload } = require(handlerPath);
+    const req = {
+      method: 'GET',
+      query: {
+        key: 'careers/resumes/2026-03/example-resume.pdf',
+        filename: 'Nikhil Resume.pdf',
+        mode: 'preview',
+      },
+      headers: { authorization: 'Bearer test' },
+    };
+    const res = {
+      statusCode: 200,
+      headers: {},
+      redirectedTo: '',
+      setHeader(name, value) {
+        this.headers[name] = value;
+      },
+      status(code) {
+        this.statusCode = code;
+        return this;
+      },
+      json(payload) {
+        this.body = payload;
+        return this;
+      },
+      redirect(code, url) {
+        this.statusCode = code;
+        this.redirectedTo = url;
+        return this;
+      },
+    };
+
+    await handleAdminResumeDownload(req, res);
+
+    assert.equal(signedKey, 'careers/resumes/2026-03/example-resume.pdf');
+    assert.deepEqual(signedOptions, {
+      contentType: 'application/pdf',
+      contentDisposition: 'inline; filename="Nikhil Resume.pdf"',
+    });
+    assert.equal(res.statusCode, 302);
+    assert.equal(res.redirectedTo, 'https://download.example.com/resume-preview.pdf');
+  });
+
+  it('can return the signed resume url as JSON for authenticated client-side opening', async function () {
+    require.cache[adminLibPath].exports = {
+      ...originalAdminLib,
+      requireAdminSession: async () => ({
+        user: { email: 'admin@vivahgo.com', staffRole: 'viewer' },
+        access: { role: 'viewer', canViewAdmin: true },
+      }),
+    };
+
+    let signedKey = '';
+    let signedOptions = null;
+    require.cache[b2Path].exports = {
+      ...originalB2,
+      createB2PresignedGetUrl: async (key, _expiresIn, options) => {
+        signedKey = key;
+        signedOptions = options;
+        return 'https://download.example.com/resume-inline.pdf';
+      },
+    };
+
+    const { handleAdminResumeDownload } = require(handlerPath);
+    const req = {
+      method: 'GET',
+      query: {
+        key: 'careers/resumes/2026-03/example-resume.pdf',
+        filename: 'Candidate Resume.pdf',
+        mode: 'preview',
+        response: 'json',
+      },
+      headers: { authorization: 'Bearer test' },
+    };
+    const res = {
+      statusCode: 200,
+      body: null,
+      setHeader() {},
+      status(code) {
+        this.statusCode = code;
+        return this;
+      },
+      json(payload) {
+        this.body = payload;
+        return this;
+      },
+      redirect() {
+        throw new Error('redirect should not be called for json mode');
+      },
+    };
+
+    await handleAdminResumeDownload(req, res);
+
+    assert.equal(signedKey, 'careers/resumes/2026-03/example-resume.pdf');
+    assert.deepEqual(signedOptions, {
+      contentType: 'application/pdf',
+      contentDisposition: 'inline; filename="Candidate Resume.pdf"',
+    });
+    assert.equal(res.statusCode, 200);
+    assert.deepEqual(res.body, {
+      url: 'https://download.example.com/resume-inline.pdf',
+      mode: 'preview',
+      filename: 'Candidate Resume.pdf',
+    });
   });
 
   it('continues to allow legacy resume keys', async function () {

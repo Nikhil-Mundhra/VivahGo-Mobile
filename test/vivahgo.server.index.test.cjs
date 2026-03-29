@@ -131,6 +131,22 @@ describe('VivahGo/server/index.js', function () {
     assert.equal(payload.email, 'user@example.com');
   });
 
+  it('treats a quoted ADMIN_OWNER_EMAIL as the bootstrap owner', async function () {
+    const previousAdminOwnerEmail = process.env.ADMIN_OWNER_EMAIL;
+    process.env.ADMIN_OWNER_EMAIL = '"nikhilmundhra28@gmail.com"';
+
+    const mod = await loadServerModule();
+
+    if (previousAdminOwnerEmail !== undefined) {
+      process.env.ADMIN_OWNER_EMAIL = previousAdminOwnerEmail;
+    } else {
+      delete process.env.ADMIN_OWNER_EMAIL;
+    }
+
+    assert.equal(mod.getBootstrapAdminEmail(), 'nikhilmundhra28@gmail.com');
+    assert.equal(mod.resolveStaffRole('nikhilmundhra28@gmail.com', 'none'), 'owner');
+  });
+
   it('auth middleware returns 401 for missing/invalid token and calls next for valid token', async function () {
     const mod = await loadServerModule();
 

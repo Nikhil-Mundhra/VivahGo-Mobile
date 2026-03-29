@@ -39,6 +39,11 @@ function serializeApplication(doc = {}) {
     resumeSize: plain.resumeSize || 0,
     source: plain.source || '',
     status: plain.status || 'new',
+    rejectedAt: plain.rejectedAt || null,
+    rejectedBy: plain.rejectedBy || '',
+    rejectionEmailSubject: plain.rejectionEmailSubject || '',
+    rejectionEmailSentAt: plain.rejectionEmailSentAt || null,
+    resumeDeletedAt: plain.resumeDeletedAt || null,
     createdAt: plain.createdAt || null,
     updatedAt: plain.updatedAt || null,
   };

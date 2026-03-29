@@ -1,5 +1,5 @@
 const crypto = require('crypto');
-const { S3Client, PutObjectCommand, GetObjectCommand } = require('@aws-sdk/client-s3');
+const { S3Client, PutObjectCommand, GetObjectCommand, DeleteObjectCommand } = require('@aws-sdk/client-s3');
 const { getSignedUrl } = require('@aws-sdk/s3-request-presigner');
 
 function createB2Client() {
@@ -70,22 +70,48 @@ async function uploadResumeToB2({ buffer, filename, fullName, jobId }) {
   };
 }
 
-async function createB2PresignedGetUrl(key, expiresIn = 3600) {
+async function createB2PresignedGetUrl(key, expiresIn = 3600, options = {}) {
   const bucket = process.env.B2_BUCKET_NAME;
   if (!bucket) {
     throw new Error('B2_BUCKET_NAME is not configured.');
   }
 
   const client = createB2Client();
+  const contentDisposition = typeof options.contentDisposition === 'string' ? options.contentDisposition.trim() : '';
+  const contentType = typeof options.contentType === 'string' ? options.contentType.trim() : '';
   const command = new GetObjectCommand({
     Bucket: bucket,
     Key: key,
+    ...(contentDisposition ? { ResponseContentDisposition: contentDisposition } : {}),
+    ...(contentType ? { ResponseContentType: contentType } : {}),
   });
 
   return getSignedUrl(client, command, { expiresIn });
 }
 
+async function deleteB2Object(key) {
+  const bucket = process.env.B2_BUCKET_NAME;
+  if (!bucket) {
+    throw new Error('B2_BUCKET_NAME is not configured.');
+  }
+
+  const normalizedKey = typeof key === 'string' ? key.trim().replace(/^\/+/, '') : '';
+  if (!normalizedKey) {
+    throw new Error('A B2 object key is required.');
+  }
+
+  const client = createB2Client();
+  const command = new DeleteObjectCommand({
+    Bucket: bucket,
+    Key: normalizedKey,
+  });
+
+  await client.send(command);
+  return { ok: true };
+}
+
 module.exports = {
   uploadResumeToB2,
   createB2PresignedGetUrl,
+  deleteB2Object,
 };

@@ -11,16 +11,20 @@ function getRuntimeEnv() {
   return {};
 }
 
+function isLocalHostname(hostname) {
+  return hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '::1' || hostname === '[::1]';
+}
+
 export function resolveApiBaseUrl(env = getRuntimeEnv(), win = typeof window !== 'undefined' ? window : undefined) {
   const configuredBaseUrl = env.VITE_API_BASE_URL;
 
   // Local development should default to the local API unless explicitly overridden.
   if (win) {
     const host = win.location.hostname;
-    const isLocalHost = host === 'localhost' || host === '127.0.0.1';
+    const isLocalHost = isLocalHostname(host);
 
     if (isLocalHost && env.VITE_USE_REMOTE_API !== 'true') {
-      return 'http://localhost:4000/api';
+      return `http://${host}:4000/api`;
     }
   }
 
@@ -30,8 +34,8 @@ export function resolveApiBaseUrl(env = getRuntimeEnv(), win = typeof window !==
 
   if (win) {
     const host = win.location.hostname;
-    if (host === 'localhost' || host === '127.0.0.1') {
-      return 'http://localhost:4000/api';
+    if (isLocalHostname(host)) {
+      return `http://${host}:4000/api`;
     }
 
     return '/api';
@@ -375,6 +379,39 @@ export function fetchAdminVendors(token) {
 
 export function fetchAdminApplications(token) {
   return request('/admin/applications', { token });
+}
+
+export function fetchAdminResumeAccessUrl(token, { key, filename, mode = 'download' }) {
+  const query = new URLSearchParams({
+    key: key || '',
+    filename: filename || 'resume.pdf',
+    mode: mode === 'preview' ? 'preview' : 'download',
+    response: 'json',
+  });
+
+  return request(`/admin/resume-download?${query.toString()}`, { token });
+}
+
+export function saveAdminCareerRejectionTemplate(token, payload) {
+  return request('/admin/applications', {
+    method: 'PATCH',
+    token,
+    body: {
+      action: 'save-rejection-template',
+      ...payload,
+    },
+  });
+}
+
+export function rejectAdminCareerApplication(token, payload) {
+  return request('/admin/applications', {
+    method: 'PATCH',
+    token,
+    body: {
+      action: 'reject-application',
+      ...payload,
+    },
+  });
 }
 
 export function fetchAdminSubscribers(token) {

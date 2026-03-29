@@ -115,6 +115,35 @@ describe('api/auth.js -> google route', function () {
     assert.match(String(res.headers['Set-Cookie']), /vivahgo_csrf=/);
   });
 
+  it('uses cross-site cookie attributes for secure CSRF bootstrap requests', async function () {
+    const previousClientOrigin = process.env.CLIENT_ORIGIN;
+    process.env.CLIENT_ORIGIN = 'https://app.example.com';
+
+    const req = {
+      method: 'GET',
+      headers: {
+        origin: 'https://app.example.com',
+        host: 'api.example.com',
+        'x-forwarded-host': 'api.example.com',
+        'x-forwarded-proto': 'https',
+      },
+      query: { route: 'csrf' },
+    };
+    const res = createRes();
+
+    await authHandler(req, res);
+
+    if (previousClientOrigin !== undefined) {
+      process.env.CLIENT_ORIGIN = previousClientOrigin;
+    } else {
+      delete process.env.CLIENT_ORIGIN;
+    }
+
+    assert.equal(res.statusCode, 200);
+    assert.match(String(res.headers['Set-Cookie']), /SameSite=None/);
+    assert.match(String(res.headers['Set-Cookie']), /Secure/);
+  });
+
   // ── Mocked-DB paths ──────────────────────────────────────────────────────────
   // Strategy: register real Mongoose models (so the internal registry stays
   // intact), then replace only findOneAndUpdate on those instances. This avoids
@@ -264,6 +293,66 @@ describe('api/auth.js -> google route', function () {
       assert.match(String(res.headers['Set-Cookie']), /vivahgo_session=/);
       assert.match(String(res.headers['Set-Cookie']), /vivahgo_csrf=/);
       assert.doesNotMatch(JSON.stringify(res.body), /"token":/);
+    });
+
+    it('uses cross-site cookie attributes on successful secure Google sign-in', async function () {
+      const previousClientOrigin = process.env.CLIENT_ORIGIN;
+      process.env.CLIENT_ORIGIN = 'https://app.example.com';
+
+      OAuth2Client.prototype.verifyIdToken = async () => ({
+        getPayload: () => ({
+          sub: 'g-456',
+          email: 'cross-site@example.com',
+          name: 'Cross Site User',
+          picture: 'https://example.com/pic.jpg',
+          email_verified: true,
+        }),
+      });
+
+      User.findOneAndUpdate = async () => ({
+        googleId: 'g-456',
+        email: 'cross-site@example.com',
+        name: 'Cross Site User',
+        picture: 'https://example.com/pic.jpg',
+      });
+
+      Planner.findOneAndUpdate = async () => ({
+        toObject: () => ({
+          googleId: 'g-456',
+          wedding: {},
+          events: [],
+          expenses: [],
+          guests: [],
+          vendors: [],
+          tasks: [],
+        }),
+      });
+
+      const req = {
+        method: 'POST',
+        headers: withCsrf({
+          headers: {
+            origin: 'https://app.example.com',
+            host: 'api.example.com',
+            'x-forwarded-host': 'api.example.com',
+            'x-forwarded-proto': 'https',
+          },
+        }).headers,
+        body: { credential: 'valid.cross.site.token' },
+      };
+      const res = createRes();
+
+      await handler(req, res);
+
+      if (previousClientOrigin !== undefined) {
+        process.env.CLIENT_ORIGIN = previousClientOrigin;
+      } else {
+        delete process.env.CLIENT_ORIGIN;
+      }
+
+      assert.equal(res.statusCode, 200);
+      assert.match(String(res.headers['Set-Cookie']), /SameSite=None/);
+      assert.match(String(res.headers['Set-Cookie']), /Secure/);
     });
   });
 });

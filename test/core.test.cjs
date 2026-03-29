@@ -15,6 +15,7 @@ const {
   handlePreflight,
   requireCsrfProtection,
   resetRateLimitBuckets,
+  resolveStaffRole,
   sanitizePlanner,
   setCorsHeaders,
   verifyGuestRsvpToken,
@@ -503,6 +504,14 @@ describe('core helpers', function () {
       a.events.push({ id: 1 });
 
       assert.equal(b.events.length, 0);
+    });
+  });
+
+  describe('staff role resolution', function () {
+    it('treats a quoted ADMIN_OWNER_EMAIL as the bootstrap owner', function () {
+      process.env.ADMIN_OWNER_EMAIL = '"nikhilmundhra28@gmail.com"';
+
+      assert.equal(resolveStaffRole('nikhilmundhra28@gmail.com', 'none'), 'owner');
     });
   });
 

@@ -15,8 +15,10 @@ import Planner from './models/Planner.js';
 import User from './models/User.js';
 import Vendor from './models/Vendor.js';
 import CareerApplication from './models/CareerApplication.js';
+import CareerEmailTemplate from './models/CareerEmailTemplate.js';
 import BillingReceipt from './models/BillingReceipt.js';
 import b2Helpers from '../../api/_lib/b2.js';
+import careersAdminHelpers from '../../api/_lib/careers-admin.js';
 import r2Helpers from '../../api/_lib/r2.js';
 
 const port = Number(process.env.PORT || 4000);
@@ -97,12 +99,14 @@ const DEFAULT_SUBSCRIPTION_AMOUNT_MAP = {
 
 const COUPON_SECRET_FILE_PATH = new URL('../../config/subscription-coupons.local.json', import.meta.url);
 const CAREERS_FILE_PATH = new URL('../../config/careers.json', import.meta.url);
-const { uploadResumeToB2, createB2PresignedGetUrl } = b2Helpers;
+const { uploadResumeToB2, createB2PresignedGetUrl, deleteB2Object } = b2Helpers;
+const { getDefaultCareerRejectionTemplate, sanitizeCareerRejectionTemplate, sendCareerRejectionEmail } = careersAdminHelpers;
 const { createPresignedGetUrl, createPresignedPutUrl, objectKeyMatchesScope } = r2Helpers;
 const MAX_CAREER_RESUME_SIZE_BYTES = 2 * 1024 * 1024;
 const MAX_VERIFICATION_FILE_SIZE_BYTES = 10 * 1024 * 1024;
 const ALLOWED_VERIFICATION_CONTENT_TYPES = new Set(['application/pdf', 'image/jpeg', 'image/png', 'image/webp']);
 const ALLOWED_VERIFICATION_DOCUMENT_TYPES = ['AADHAAR', 'PAN', 'PASSPORT', 'DRIVING_LICENSE', 'OTHER'];
+const CAREER_REJECTION_TEMPLATE_KEY = 'career-application-rejection';
 
 function resolveSubscriptionAmount(plan, billingCycle) {
   const cycle = billingCycle === 'yearly' ? 'yearly' : 'monthly';
@@ -316,6 +320,11 @@ function serializeCareerApplication(application = {}) {
     resumeSize: plain.resumeSize || 0,
     source: plain.source || '',
     status: plain.status || 'new',
+    rejectedAt: plain.rejectedAt || null,
+    rejectedBy: plain.rejectedBy || '',
+    rejectionEmailSubject: plain.rejectionEmailSubject || '',
+    rejectionEmailSentAt: plain.rejectionEmailSentAt || null,
+    resumeDeletedAt: plain.resumeDeletedAt || null,
     createdAt: plain.createdAt || null,
     updatedAt: plain.updatedAt || null,
   };
@@ -353,6 +362,11 @@ export function normalizeEmail(value) {
   return typeof value === 'string' ? value.trim().toLowerCase() : '';
 }
 
+function normalizeConfiguredEmail(value) {
+  const normalized = normalizeEmail(value);
+  return normalized.replace(/^['"]+|['"]+$/g, '');
+}
+
 export function normalizeRole(value) {
   if (value === 'owner' || value === 'editor' || value === 'viewer') {
     return value;
@@ -368,7 +382,7 @@ export function normalizeStaffRole(value) {
 }
 
 export function getBootstrapAdminEmail() {
-  return normalizeEmail(process.env.ADMIN_OWNER_EMAIL || 'nikhilmundhra28@gmail.com');
+  return normalizeConfiguredEmail(process.env.ADMIN_OWNER_EMAIL || 'nikhilmundhra28@gmail.com');
 }
 
 export function resolveStaffRole(email, currentRole = 'none') {
@@ -391,6 +405,50 @@ export function getStaffAccess(role) {
     canManageVendors: hasStaffRole(normalizedRole, 'editor'),
     canManageStaff: hasStaffRole(normalizedRole, 'owner'),
   };
+}
+
+function normalizeAction(value) {
+  return typeof value === 'string' ? value.trim().toLowerCase() : '';
+}
+
+function normalizeObjectId(value) {
+  return typeof value === 'string' ? value.trim() : '';
+}
+
+async function resolveCareerRejectionTemplate(CareerEmailTemplateModel) {
+  const defaults = getDefaultCareerRejectionTemplate();
+  if (!CareerEmailTemplateModel || typeof CareerEmailTemplateModel.findOne !== 'function') {
+    return defaults;
+  }
+
+  const existing = await resolveLeanDocument(CareerEmailTemplateModel.findOne({ templateKey: CAREER_REJECTION_TEMPLATE_KEY }));
+  if (!existing) {
+    return defaults;
+  }
+
+  return sanitizeCareerRejectionTemplate(existing);
+}
+
+async function saveCareerRejectionTemplate(CareerEmailTemplateModel, template, updatedBy) {
+  const sanitized = sanitizeCareerRejectionTemplate(template);
+  if (!CareerEmailTemplateModel || typeof CareerEmailTemplateModel.findOneAndUpdate !== 'function') {
+    return sanitized;
+  }
+
+  const updated = await resolveLeanDocument(CareerEmailTemplateModel.findOneAndUpdate(
+    { templateKey: CAREER_REJECTION_TEMPLATE_KEY },
+    {
+      $set: {
+        templateKey: CAREER_REJECTION_TEMPLATE_KEY,
+        subject: sanitized.subject,
+        body: sanitized.body,
+        updatedBy: updatedBy || '',
+      },
+    },
+    { new: true, upsert: true, setDefaultsOnInsert: true }
+  ));
+
+  return sanitizeCareerRejectionTemplate(updated || sanitized);
 }
 
 export function buildEmptyPlanner(options = {}) {
@@ -941,6 +999,54 @@ function isSecureRequest(req) {
   return forwardedProto === 'https' || Boolean(req?.secure || req?.socket?.encrypted);
 }
 
+function readRequestOriginHeader(req) {
+  return typeof req?.headers?.origin === 'string'
+    ? req.headers.origin.trim()
+    : '';
+}
+
+function readRequestHost(req) {
+  if (typeof req?.headers?.['x-forwarded-host'] === 'string' && req.headers['x-forwarded-host'].trim()) {
+    return req.headers['x-forwarded-host'].split(',')[0].trim();
+  }
+
+  return typeof req?.headers?.host === 'string'
+    ? req.headers.host.trim()
+    : '';
+}
+
+function getRequestOrigin(req) {
+  const host = readRequestHost(req);
+  if (!host) {
+    return '';
+  }
+
+  const protocol = isSecureRequest(req) ? 'https' : 'http';
+  return `${protocol}://${host}`;
+}
+
+function getCookieSameSiteMode(req) {
+  if (!isSecureRequest(req)) {
+    return 'lax';
+  }
+
+  const requestOrigin = readRequestOriginHeader(req);
+  const responseOrigin = getRequestOrigin(req);
+  if (!requestOrigin || !responseOrigin) {
+    return 'lax';
+  }
+
+  try {
+    if (new URL(requestOrigin).origin !== new URL(responseOrigin).origin) {
+      return 'none';
+    }
+  } catch {
+    return 'lax';
+  }
+
+  return 'lax';
+}
+
 function readSessionCookieToken(req) {
   const cookies = parseCookieHeader(req?.headers?.cookie);
   return typeof cookies[SESSION_COOKIE_NAME] === 'string' ? cookies[SESSION_COOKIE_NAME] : '';
@@ -965,7 +1071,7 @@ function readCsrfHeaderToken(req) {
 function setSessionCookie(req, res, token) {
   res.cookie(SESSION_COOKIE_NAME, token, {
     httpOnly: true,
-    sameSite: 'lax',
+    sameSite: getCookieSameSiteMode(req),
     secure: isSecureRequest(req),
     maxAge: SESSION_COOKIE_MAX_AGE_MS,
     path: '/',
@@ -975,7 +1081,7 @@ function setSessionCookie(req, res, token) {
 function setCsrfCookie(req, res, token) {
   res.cookie(CSRF_COOKIE_NAME, token, {
     httpOnly: false,
-    sameSite: 'lax',
+    sameSite: getCookieSameSiteMode(req),
     secure: isSecureRequest(req),
     maxAge: CSRF_COOKIE_MAX_AGE_MS,
     path: '/',
@@ -999,7 +1105,7 @@ function ensureCsrfToken(req, res, options = {}) {
 function clearSessionCookie(req, res) {
   res.clearCookie(SESSION_COOKIE_NAME, {
     httpOnly: true,
-    sameSite: 'lax',
+    sameSite: getCookieSameSiteMode(req),
     secure: isSecureRequest(req),
     path: '/',
   });
@@ -1450,8 +1556,11 @@ export function createApp(options = {}) {
     UserModel = User,
     VendorModel = Vendor,
     CareerApplicationModel = CareerApplication,
+    CareerEmailTemplateModel = CareerEmailTemplate,
     BillingReceiptModel = BillingReceipt,
     uploadCareerResume = uploadResumeToB2,
+    deleteCareerResume = deleteB2Object,
+    sendCareerRejectionEmailFn = sendCareerRejectionEmail,
   } = options;
 
   const oauthClient =
@@ -2274,17 +2383,112 @@ export function createApp(options = {}) {
         return res.status(session.status).json({ error: session.error });
       }
 
-      const applications = await CareerApplicationModel.find({})
-        .select('-__v')
-        .sort({ createdAt: -1 })
-        .lean();
+      const [applications, rejectionEmailTemplate] = await Promise.all([
+        CareerApplicationModel.find({})
+          .select('-__v')
+          .sort({ createdAt: -1 })
+          .lean(),
+        resolveCareerRejectionTemplate(CareerEmailTemplateModel),
+      ]);
 
       return res.json({
         applications: applications.map(serializeCareerApplication),
+        rejectionEmailTemplate,
       });
     } catch (error) {
       console.error('Admin applications fetch failed:', error);
       return res.status(500).json({ error: 'Could not load applications.' });
+    }
+  });
+
+  app.patch('/api/admin/applications', (req, res, next) => authMiddleware(req, res, next, injectedJwtSecret), async (req, res) => {
+    try {
+      const session = await resolveAdminSession(UserModel, req.auth, 'editor');
+      if (session.error) {
+        return res.status(session.status).json({ error: session.error });
+      }
+
+      const action = normalizeAction(req.body?.action);
+      if (action === 'save-rejection-template') {
+        const rejectionEmailTemplate = await saveCareerRejectionTemplate(
+          CareerEmailTemplateModel,
+          req.body,
+          session.user.email || session.user.googleId || ''
+        );
+
+        return res.json({
+          ok: true,
+          rejectionEmailTemplate,
+        });
+      }
+
+      if (action === 'reject-application') {
+        const applicationId = normalizeObjectId(req.body?.applicationId);
+        if (!applicationId) {
+          return res.status(400).json({ error: 'applicationId is required.' });
+        }
+
+        const application = await resolveLeanDocument(CareerApplicationModel.findById(applicationId));
+        if (!application) {
+          return res.status(404).json({ error: 'Application not found.' });
+        }
+        if (application.status === 'rejected') {
+          return res.status(400).json({ error: 'This application has already been rejected.' });
+        }
+
+        const rejectionEmailTemplate = await saveCareerRejectionTemplate(
+          CareerEmailTemplateModel,
+          req.body,
+          session.user.email || session.user.googleId || ''
+        );
+
+        const delivery = await sendCareerRejectionEmailFn({
+          toEmail: normalizeEmail(application.email),
+          template: rejectionEmailTemplate,
+          application,
+        });
+
+        const resumeKey = typeof application.resumeFileId === 'string'
+          ? application.resumeFileId.trim().replace(/^\/+/, '')
+          : '';
+        if (resumeKey) {
+          await deleteCareerResume(resumeKey);
+        }
+
+        const now = new Date();
+        const updatedApplication = await resolveLeanDocument(CareerApplicationModel.findByIdAndUpdate(
+          applicationId,
+          {
+            $set: {
+              status: 'rejected',
+              rejectedAt: now,
+              rejectedBy: session.user.email || session.user.googleId || '',
+              rejectionEmailSubject: delivery.subject,
+              rejectionEmailSentAt: delivery.sentAt,
+              resumeDeletedAt: resumeKey ? now : application.resumeDeletedAt || null,
+              resumeFileId: '',
+              resumeFileName: '',
+              resumeViewUrl: '',
+              resumeDownloadUrl: '',
+              resumeOriginalFileName: '',
+              resumeMimeType: '',
+              resumeSize: 0,
+            },
+          },
+          { new: true }
+        ));
+
+        return res.json({
+          ok: true,
+          application: serializeCareerApplication(updatedApplication),
+          rejectionEmailTemplate,
+        });
+      }
+
+      return res.status(400).json({ error: 'Unsupported application action.' });
+    } catch (error) {
+      console.error('Admin application management failed:', error);
+      return res.status(500).json({ error: 'Could not manage applications.' });
     }
   });
 
@@ -2295,12 +2499,32 @@ export function createApp(options = {}) {
         return res.status(session.status).json({ error: session.error });
       }
 
-      const key = String(req.query?.key || '').trim();
-      if (!key || !key.startsWith('resumes/')) {
+      const key = String(req.query?.key || '').trim().replace(/^\/+/, '');
+      if (!key || (!key.startsWith('careers/resumes/') && !key.startsWith('resumes/'))) {
         return res.status(400).json({ error: 'Invalid resume key.' });
       }
 
-      const url = await createB2PresignedGetUrl(key, 300);
+      const mode = String(req.query?.mode || '').trim().toLowerCase() === 'preview' ? 'preview' : 'download';
+      const responseMode = String(req.query?.response || '').trim().toLowerCase() === 'json' ? 'json' : 'redirect';
+      const fallbackFilename = key.split('/').filter(Boolean).pop() || 'resume.pdf';
+      const filename = String(req.query?.filename || fallbackFilename)
+        .trim()
+        .replace(/["\r\n]+/g, '')
+        .replace(/[\\/]+/g, '-')
+        .slice(0, 255) || fallbackFilename;
+      const url = await createB2PresignedGetUrl(key, 300, {
+        contentType: 'application/pdf',
+        contentDisposition: `${mode === 'preview' ? 'inline' : 'attachment'}; filename="${filename}"`,
+      });
+
+      if (responseMode === 'json') {
+        return res.json({
+          url,
+          mode,
+          filename,
+        });
+      }
+
       return res.redirect(302, url);
     } catch (error) {
       console.error('Admin resume download failed:', error);
@@ -2325,10 +2549,16 @@ export function createApp(options = {}) {
         .sort({ subscriptionCurrentPeriodEnd: -1, updatedAt: -1 })
         .lean();
 
-      const receipts = await BillingReceiptModel.find({})
-        .select('-__v')
-        .sort({ issuedAt: -1, createdAt: -1 })
-        .lean();
+      let receipts = [];
+      try {
+        receipts = await BillingReceiptModel.find({})
+          .select('-__v')
+          .sort({ issuedAt: -1, createdAt: -1 })
+          .lean();
+      } catch (error) {
+        console.error('Admin receipt lookup failed:', error);
+        receipts = [];
+      }
 
       const latestReceiptByGoogleId = new Map();
       receipts.forEach(receipt => {

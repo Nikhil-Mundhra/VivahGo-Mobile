@@ -75,6 +75,54 @@ function requestIsSecure(req) {
   return forwardedProto === 'https' || Boolean(req?.socket?.encrypted || req?.connection?.encrypted);
 }
 
+function readRequestOriginHeader(req) {
+  return typeof req?.headers?.origin === 'string'
+    ? req.headers.origin.trim()
+    : '';
+}
+
+function readRequestHost(req) {
+  if (typeof req?.headers?.['x-forwarded-host'] === 'string' && req.headers['x-forwarded-host'].trim()) {
+    return req.headers['x-forwarded-host'].split(',')[0].trim();
+  }
+
+  return typeof req?.headers?.host === 'string'
+    ? req.headers.host.trim()
+    : '';
+}
+
+function getRequestOrigin(req) {
+  const host = readRequestHost(req);
+  if (!host) {
+    return '';
+  }
+
+  const protocol = requestIsSecure(req) ? 'https' : 'http';
+  return `${protocol}://${host}`;
+}
+
+function getCookieSameSiteMode(req) {
+  if (!requestIsSecure(req)) {
+    return 'Lax';
+  }
+
+  const requestOrigin = readRequestOriginHeader(req);
+  const responseOrigin = getRequestOrigin(req);
+  if (!requestOrigin || !responseOrigin) {
+    return 'Lax';
+  }
+
+  try {
+    if (new URL(requestOrigin).origin !== new URL(responseOrigin).origin) {
+      return 'None';
+    }
+  } catch {
+    return 'Lax';
+  }
+
+  return 'Lax';
+}
+
 function parseCookieHeader(value) {
   return String(value || '')
     .split(';')
@@ -137,7 +185,7 @@ function setSessionCookie(req, res, token) {
     maxAge: SESSION_MAX_AGE_SECONDS,
     expires: Date.now() + (SESSION_MAX_AGE_SECONDS * 1000),
     httpOnly: true,
-    sameSite: 'Lax',
+    sameSite: getCookieSameSiteMode(req),
     secure: requestIsSecure(req),
     path: '/',
   }));
@@ -148,7 +196,7 @@ function setCsrfCookie(req, res, token) {
     maxAge: CSRF_MAX_AGE_SECONDS,
     expires: Date.now() + (CSRF_MAX_AGE_SECONDS * 1000),
     httpOnly: false,
-    sameSite: 'Lax',
+    sameSite: getCookieSameSiteMode(req),
     secure: requestIsSecure(req),
     path: '/',
   }));
@@ -236,7 +284,7 @@ function clearSessionCookie(req, res) {
     maxAge: 0,
     expires: 0,
     httpOnly: true,
-    sameSite: 'Lax',
+    sameSite: getCookieSameSiteMode(req),
     secure: requestIsSecure(req),
     path: '/',
   }));
@@ -572,11 +620,30 @@ function getCareerApplicationModel() {
       resumeSize: { type: Number, default: 0 },
       source: { type: String, default: 'careers-page', trim: true },
       status: { type: String, enum: ['new', 'reviewing', 'shortlisted', 'rejected'], default: 'new' },
+      rejectedAt: { type: Date, default: null },
+      rejectedBy: { type: String, default: '', trim: true },
+      rejectionEmailSubject: { type: String, default: '', trim: true, maxlength: 200 },
+      rejectionEmailSentAt: { type: Date, default: null },
+      resumeDeletedAt: { type: Date, default: null },
     },
     { timestamps: true }
   );
 
   return mongoose.models.CareerApplication || mongoose.model('CareerApplication', schema);
+}
+
+function getCareerEmailTemplateModel() {
+  const schema = new mongoose.Schema(
+    {
+      templateKey: { type: String, required: true, unique: true, trim: true, maxlength: 80, index: true },
+      subject: { type: String, required: true, trim: true, maxlength: 200 },
+      body: { type: String, required: true, trim: true, maxlength: 12000 },
+      updatedBy: { type: String, default: '', trim: true, maxlength: 160 },
+    },
+    { timestamps: true }
+  );
+
+  return mongoose.models.CareerEmailTemplate || mongoose.model('CareerEmailTemplate', schema);
 }
 
 function buildEmptyPlanner(options = {}) {
@@ -633,6 +700,11 @@ function normalizeEmail(value) {
   return typeof value === 'string' ? value.trim().toLowerCase() : '';
 }
 
+function normalizeConfiguredEmail(value) {
+  const normalized = normalizeEmail(value);
+  return normalized.replace(/^['"]+|['"]+$/g, '');
+}
+
 function normalizeRole(value) {
   if (value === 'owner' || value === 'editor' || value === 'viewer') {
     return value;
@@ -648,7 +720,7 @@ function normalizeStaffRole(value) {
 }
 
 function getBootstrapAdminEmail() {
-  return normalizeEmail(process.env.ADMIN_OWNER_EMAIL || 'nikhilmundhra28@gmail.com');
+  return normalizeConfiguredEmail(process.env.ADMIN_OWNER_EMAIL || 'nikhilmundhra28@gmail.com');
 }
 
 function resolveStaffRole(email, currentRole = 'none') {
@@ -1224,6 +1296,7 @@ module.exports = {
   ensureCsrfToken,
   generateCsrfToken,
   getBillingReceiptModel,
+  getCareerEmailTemplateModel,
   getCollaboratorRoleForPlan,
   getPlannerModel,
   getCareerApplicationModel,

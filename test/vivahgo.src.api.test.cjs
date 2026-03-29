@@ -12,6 +12,10 @@ describe('VivahGo/src/api.js', function () {
 
     const localWindow = { location: { hostname: 'localhost' } };
     assert.equal(mod.resolveApiBaseUrl({}, localWindow), 'http://localhost:4000/api');
+    assert.equal(
+      mod.resolveApiBaseUrl({}, { location: { hostname: '127.0.0.1' } }),
+      'http://127.0.0.1:4000/api'
+    );
 
     assert.equal(
       mod.resolveApiBaseUrl({ VITE_API_BASE_URL: 'https://example.com/api/' }, localWindow),
@@ -208,6 +212,9 @@ describe('VivahGo/src/api.js', function () {
       await mod.submitCareerApplication({ jobId: 'full-stack-engineer' });
       await mod.fetchAdminSession('jwt-admin');
       await mod.fetchAdminApplications('jwt-admin');
+      await mod.fetchAdminResumeAccessUrl('jwt-admin', { key: 'careers/resumes/2026-03/resume.pdf', filename: 'resume.pdf', mode: 'preview' });
+      await mod.saveAdminCareerRejectionTemplate('jwt-admin', { subject: 'Subject', body: 'Body' });
+      await mod.rejectAdminCareerApplication('jwt-admin', { applicationId: 'app-1', subject: 'Subject', body: 'Body' });
       await mod.fetchAdminVendors('jwt-admin');
       await mod.updateAdminVendorApproval('jwt-admin', { vendorId: 'vendor-1', isApproved: true });
       await mod.fetchVerificationPresignedUrl('jwt-vendor', { filename: 'id.pdf', contentType: 'application/pdf', size: 123 });
@@ -221,7 +228,7 @@ describe('VivahGo/src/api.js', function () {
       delete global.fetch;
     }
 
-    assert.equal(calls.length, 19);
+    assert.equal(calls.length, 22);
     assert.match(calls[0].url, /\/auth\/csrf$/);
     assert.match(calls[1].url, /\/auth\/google$/);
     assert.equal(calls[1].options.headers['X-CSRF-Token'], 'csrf-token-1');
@@ -236,15 +243,22 @@ describe('VivahGo/src/api.js', function () {
     assert.equal(calls[7].options.headers['X-CSRF-Token'], 'csrf-token-1');
     assert.match(calls[8].url, /\/admin\/me$/);
     assert.match(calls[9].url, /\/admin\/applications$/);
-    assert.match(calls[10].url, /\/admin\/vendors$/);
+    assert.match(calls[10].url, /\/admin\/resume-download\?key=careers%2Fresumes%2F2026-03%2Fresume\.pdf&filename=resume\.pdf&mode=preview&response=json$/);
+    assert.equal(calls[10].options.headers.Authorization, 'Bearer jwt-admin');
+    assert.match(calls[11].url, /\/admin\/applications$/);
     assert.equal(calls[11].options.method, 'PATCH');
-    assert.match(calls[12].url, /\/media\/verification-presigned-url$/);
-    assert.match(calls[13].url, /\/vendor\/verification$/);
-    assert.equal(calls[13].options.method, 'POST');
-    assert.equal(calls[14].options.method, 'DELETE');
-    assert.match(calls[15].url, /\/admin\/staff$/);
+    assert.equal(calls[11].options.headers.Authorization, 'Bearer jwt-admin');
+    assert.match(calls[12].url, /\/admin\/applications$/);
+    assert.equal(calls[12].options.method, 'PATCH');
+    assert.match(calls[13].url, /\/admin\/vendors$/);
+    assert.equal(calls[14].options.method, 'PATCH');
+    assert.match(calls[15].url, /\/media\/verification-presigned-url$/);
+    assert.match(calls[16].url, /\/vendor\/verification$/);
     assert.equal(calls[16].options.method, 'POST');
-    assert.equal(calls[17].options.method, 'PUT');
-    assert.match(calls[18].url, /\/admin\/staff\?email=staff%40example\.com$/);
+    assert.equal(calls[17].options.method, 'DELETE');
+    assert.match(calls[18].url, /\/admin\/staff$/);
+    assert.equal(calls[19].options.method, 'POST');
+    assert.equal(calls[20].options.method, 'PUT');
+    assert.match(calls[21].url, /\/admin\/staff\?email=staff%40example\.com$/);
   });
 });

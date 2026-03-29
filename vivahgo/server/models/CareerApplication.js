@@ -20,6 +20,11 @@ const careerApplicationSchema = new mongoose.Schema(
     resumeSize: { type: Number, default: 0 },
     source: { type: String, default: 'careers-page', trim: true },
     status: { type: String, enum: ['new', 'reviewing', 'shortlisted', 'rejected'], default: 'new' },
+    rejectedAt: { type: Date, default: null },
+    rejectedBy: { type: String, default: '', trim: true },
+    rejectionEmailSubject: { type: String, default: '', trim: true, maxlength: 200 },
+    rejectionEmailSentAt: { type: Date, default: null },
+    resumeDeletedAt: { type: Date, default: null },
   },
   { timestamps: true }
 );

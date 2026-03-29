@@ -1,8 +1,11 @@
-const { getBillingReceiptModel, getVendorModel, handlePreflight, normalizeEmail, normalizeStaffRole, requireCsrfProtection, setCorsHeaders } = require('./_lib/core');
+const { getBillingReceiptModel, getCareerApplicationModel, getCareerEmailTemplateModel, getVendorModel, handlePreflight, normalizeEmail, normalizeStaffRole, requireCsrfProtection, setCorsHeaders } = require('./_lib/core');
 const { requireAdminSession, sanitizeStaffUser } = require('./_lib/admin');
 const { createPresignedGetUrl, normalizeMediaList, objectKeyMatchesScope } = require('./_lib/r2');
-const { createB2PresignedGetUrl } = require('./_lib/b2');
+const { createB2PresignedGetUrl, deleteB2Object } = require('./_lib/b2');
+const { getDefaultCareerRejectionTemplate, sanitizeCareerRejectionTemplate, sendCareerRejectionEmail } = require('./_lib/careers-admin');
 const { serializeApplication } = require('./careers');
+
+const CAREER_REJECTION_TEMPLATE_KEY = 'career-application-rejection';
 
 /******************************************************************************
  * Shared Helpers
@@ -18,6 +21,68 @@ function normalizeResumeStorageKey(value) {
 
 function isAllowedResumeStorageKey(key) {
   return key.startsWith('careers/resumes/') || key.startsWith('resumes/');
+}
+
+function normalizeResumeAccessMode(value) {
+  return String(value || '').trim().toLowerCase() === 'preview' ? 'preview' : 'download';
+}
+
+function normalizeResumeResponseMode(value) {
+  return String(value || '').trim().toLowerCase() === 'json' ? 'json' : 'redirect';
+}
+
+function normalizeResumeFilename(value, fallback = 'resume.pdf') {
+  const candidate = typeof value === 'string' ? value.trim() : '';
+  const normalized = (candidate || fallback)
+    .replace(/["\r\n]+/g, '')
+    .replace(/[\\/]+/g, '-')
+    .slice(0, 255);
+
+  return normalized || fallback;
+}
+
+function normalizeAction(value) {
+  return typeof value === 'string' ? value.trim().toLowerCase() : '';
+}
+
+function normalizeObjectId(value) {
+  return typeof value === 'string' ? value.trim() : '';
+}
+
+async function resolveCareerRejectionTemplate(CareerEmailTemplate) {
+  const defaults = getDefaultCareerRejectionTemplate();
+  if (!CareerEmailTemplate || typeof CareerEmailTemplate.findOne !== 'function') {
+    return defaults;
+  }
+
+  const existing = await resolveLean(CareerEmailTemplate.findOne({ templateKey: CAREER_REJECTION_TEMPLATE_KEY }));
+  if (!existing) {
+    return defaults;
+  }
+
+  return sanitizeCareerRejectionTemplate(existing);
+}
+
+async function saveCareerRejectionTemplate(CareerEmailTemplate, template, updatedBy) {
+  const sanitized = sanitizeCareerRejectionTemplate(template);
+  if (!CareerEmailTemplate || typeof CareerEmailTemplate.findOneAndUpdate !== 'function') {
+    return sanitized;
+  }
+
+  const updated = await resolveLean(CareerEmailTemplate.findOneAndUpdate(
+    { templateKey: CAREER_REJECTION_TEMPLATE_KEY },
+    {
+      $set: {
+        templateKey: CAREER_REJECTION_TEMPLATE_KEY,
+        subject: sanitized.subject,
+        body: sanitized.body,
+        updatedBy: updatedBy || '',
+      },
+    },
+    { new: true, upsert: true, setDefaultsOnInsert: true }
+  ));
+
+  return sanitizeCareerRejectionTemplate(updated || sanitized);
 }
 
 async function resolveLean(result) {
@@ -343,29 +408,114 @@ async function handleAdminStaff(req, res) {
 
 async function handleAdminApplications(req, res) {
   try {
-    if (req.method !== 'GET') {
-      res.setHeader('Allow', 'GET, OPTIONS');
-      return res.status(405).json({ error: 'Method not allowed.' });
+    if (req.method === 'GET') {
+      const session = await requireAdminSession(req, 'viewer');
+      if (session.error) {
+        return res.status(session.status).json({ error: session.error });
+      }
+
+      const CareerApplication = getCareerApplicationModel();
+      const CareerEmailTemplate = getCareerEmailTemplateModel();
+      const [applications, rejectionEmailTemplate] = await Promise.all([
+        CareerApplication.find({})
+          .select('-__v')
+          .sort({ createdAt: -1 })
+          .lean(),
+        resolveCareerRejectionTemplate(CareerEmailTemplate),
+      ]);
+
+      return res.status(200).json({
+        applications: applications.map(serializeApplication),
+        rejectionEmailTemplate,
+      });
     }
 
-    const session = await requireAdminSession(req, 'viewer');
-    if (session.error) {
-      return res.status(session.status).json({ error: session.error });
+    if (req.method === 'PATCH') {
+      const session = await requireAdminSession(req, 'editor');
+      if (session.error) {
+        return res.status(session.status).json({ error: session.error });
+      }
+
+      const action = normalizeAction(req.body?.action);
+      const CareerEmailTemplate = getCareerEmailTemplateModel();
+
+      if (action === 'save-rejection-template') {
+        const rejectionEmailTemplate = await saveCareerRejectionTemplate(CareerEmailTemplate, req.body, session.user.email || session.user.googleId || '');
+        return res.status(200).json({ ok: true, rejectionEmailTemplate });
+      }
+
+      if (action === 'reject-application') {
+        const applicationId = normalizeObjectId(req.body?.applicationId);
+        if (!applicationId) {
+          return res.status(400).json({ error: 'applicationId is required.' });
+        }
+
+        const CareerApplication = getCareerApplicationModel();
+        const application = await resolveLean(CareerApplication.findById(applicationId));
+        if (!application) {
+          return res.status(404).json({ error: 'Application not found.' });
+        }
+        if (application.status === 'rejected') {
+          return res.status(400).json({ error: 'This application has already been rejected.' });
+        }
+
+        const rejectionEmailTemplate = await saveCareerRejectionTemplate(
+          CareerEmailTemplate,
+          req.body,
+          session.user.email || session.user.googleId || ''
+        );
+
+        const delivery = await sendCareerRejectionEmail({
+          toEmail: normalizeEmail(application.email),
+          template: rejectionEmailTemplate,
+          application,
+        });
+
+        const resumeKey = normalizeResumeStorageKey(application.resumeFileId);
+        if (resumeKey) {
+          await deleteB2Object(resumeKey);
+        }
+
+        const updatedApplication = await resolveLean(CareerApplication.findByIdAndUpdate(
+          applicationId,
+          {
+            $set: {
+              status: 'rejected',
+              rejectedAt: new Date(),
+              rejectedBy: session.user.email || session.user.googleId || '',
+              rejectionEmailSubject: delivery.subject,
+              rejectionEmailSentAt: delivery.sentAt,
+              resumeDeletedAt: resumeKey ? new Date() : application.resumeDeletedAt || null,
+              resumeFileId: '',
+              resumeFileName: '',
+              resumeViewUrl: '',
+              resumeDownloadUrl: '',
+              resumeOriginalFileName: '',
+              resumeMimeType: '',
+              resumeSize: 0,
+            },
+          },
+          { new: true }
+        ));
+
+        return res.status(200).json({
+          ok: true,
+          application: serializeApplication(updatedApplication),
+          rejectionEmailTemplate,
+        });
+      }
+
+      return res.status(400).json({ error: 'Unsupported application action.' });
     }
 
-    const { getCareerApplicationModel } = require('./_lib/core');
-    const CareerApplication = getCareerApplicationModel();
-    const applications = await CareerApplication.find({})
-      .select('-__v')
-      .sort({ createdAt: -1 })
-      .lean();
-
-    return res.status(200).json({
-      applications: applications.map(serializeApplication),
-    });
+    res.setHeader('Allow', 'GET, PATCH, OPTIONS');
+    return res.status(405).json({ error: 'Method not allowed.' });
   } catch (error) {
     console.error('Admin application management failed:', error);
-    return res.status(500).json({ error: 'Could not load applications.' });
+    const errorMessage = req.method === 'GET'
+      ? 'Could not load applications.'
+      : 'Could not manage applications.';
+    return res.status(500).json({ error: errorMessage });
   }
 }
 
@@ -396,10 +546,16 @@ async function handleAdminSubscribers(req, res) {
       .sort({ subscriptionCurrentPeriodEnd: -1, updatedAt: -1 })
       .lean();
 
-    const receipts = await BillingReceipt.find({})
-      .select('-__v')
-      .sort({ issuedAt: -1, createdAt: -1 })
-      .lean();
+    let receipts = [];
+    try {
+      receipts = await BillingReceipt.find({})
+        .select('-__v')
+        .sort({ issuedAt: -1, createdAt: -1 })
+        .lean();
+    } catch (error) {
+      console.error('Admin receipt lookup failed:', error);
+      receipts = [];
+    }
 
     const latestReceiptByGoogleId = new Map();
     receipts.forEach(receipt => {
@@ -438,7 +594,23 @@ async function handleAdminResumeDownload(req, res) {
       return res.status(400).json({ error: 'Invalid resume key.' });
     }
 
-    const url = await createB2PresignedGetUrl(key, 300);
+    const mode = normalizeResumeAccessMode(req.query?.mode);
+    const responseMode = normalizeResumeResponseMode(req.query?.response);
+    const fallbackFilename = key.split('/').filter(Boolean).pop() || 'resume.pdf';
+    const filename = normalizeResumeFilename(req.query?.filename, fallbackFilename);
+    const url = await createB2PresignedGetUrl(key, 300, {
+      contentType: 'application/pdf',
+      contentDisposition: `${mode === 'preview' ? 'inline' : 'attachment'}; filename="${filename}"`,
+    });
+
+    if (responseMode === 'json') {
+      return res.status(200).json({
+        url,
+        mode,
+        filename,
+      });
+    }
+
     return res.redirect(302, url);
   } catch (error) {
     console.error('Admin resume download failed:', error);
@@ -459,7 +631,8 @@ async function handler(req, res) {
   const route = resolveAdminRoute(req);
 
   const shouldProtectAdminMutation = (route === 'vendors' && req.method === 'PATCH')
-    || (route === 'staff' && ['POST', 'PUT', 'DELETE'].includes(req.method));
+    || (route === 'staff' && ['POST', 'PUT', 'DELETE'].includes(req.method))
+    || (route === 'applications' && req.method === 'PATCH');
 
   if (shouldProtectAdminMutation && requireCsrfProtection(req, res)) {
     return;
