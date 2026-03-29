@@ -2440,6 +2440,585 @@ body { background: var(--color-deep-red); }
   line-height: 1.4;
 }
 
+.planner-login-screen {
+  background:
+    radial-gradient(circle at top left, rgba(196, 30, 58, 0.04), transparent 28%),
+    linear-gradient(180deg, #ffffff 0%, #fffdfb 100%);
+  padding: 24px 28px;
+}
+
+.planner-login-screen .planner-login-container {
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+  backdrop-filter: none;
+  width: min(1020px, 100%);
+  max-width: 1020px;
+  padding: 0;
+}
+
+.planner-login-screen .login-layout {
+  display: grid;
+  gap: 28px;
+  width: 100%;
+  min-width: 0;
+}
+
+.planner-login-screen .login-hero {
+  display: grid;
+  max-width: 540px;
+  min-width: 0;
+}
+
+.planner-login-screen .login-support {
+  display: grid;
+  gap: 18px;
+  max-width: 520px;
+  min-width: 0;
+}
+
+.planner-login-screen .login-benefits-mobile,
+.planner-login-screen .login-divider-mobile,
+.planner-login-screen .login-footer-mobile {
+  display: none;
+}
+
+.planner-login-screen .login-benefits-mobile {
+  gap: 12px;
+  margin: 0;
+}
+
+.planner-login-screen .login-header {
+  margin-bottom: 0;
+  text-align: left;
+}
+
+.planner-login-screen .login-logo {
+  justify-content: flex-start;
+  max-width: 180px;
+  margin: 0 0 12px;
+}
+
+.planner-login-screen .login-logo-mark {
+  display: inline-block;
+  max-width: 100%;
+  text-decoration: none;
+}
+
+.planner-login-screen .login-logo-image-desktop {
+  display: block;
+}
+
+.planner-login-screen .login-logo-image-mobile {
+  display: none;
+}
+
+.planner-login-screen .login-logo-image {
+  width: 100%;
+  height: auto;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  background: transparent;
+}
+
+.planner-login-screen .login-kicker {
+  margin: 0 0 8px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: rgba(107, 15, 15, 0.58);
+}
+
+.planner-login-screen .login-title {
+  max-width: 10ch;
+  margin: 0;
+  font-family: 'Jost', sans-serif;
+  font-size: clamp(2.6rem, 4.2vw, 4.25rem);
+  font-weight: 600;
+  line-height: 1.02;
+  color: #2f1812;
+  letter-spacing: -0.05em;
+}
+
+.planner-login-screen .login-subtitle {
+  max-width: 460px;
+  margin-top: 12px;
+  font-size: 1rem;
+  line-height: 1.65;
+  font-style: normal;
+  color: rgba(47, 24, 18, 0.68);
+}
+
+.planner-login-screen .login-benefits {
+  display: grid;
+  gap: 12px;
+  margin: 0;
+}
+
+.planner-login-screen .benefit-item {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  margin: 0;
+  padding: 0;
+  border-bottom: 0;
+}
+
+.planner-login-screen .benefit-icon {
+  width: 32px;
+  height: 32px;
+  min-width: 32px;
+  border-radius: 10px;
+  background: rgba(139, 26, 26, 0.07);
+  color: var(--color-crimson);
+}
+
+.planner-login-screen .benefit-text {
+  display: block;
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: 14px;
+  line-height: 1.45;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  color: rgba(47, 24, 18, 0.78);
+}
+
+.planner-login-screen .login-footer {
+  text-align: left;
+}
+
+.planner-login-screen .login-footer-text {
+  font-size: 13px;
+  color: rgba(47, 24, 18, 0.5);
+}
+
+.planner-login-screen .login-panel {
+  display: flex;
+  width: 100%;
+  min-width: 0;
+}
+
+.planner-login-screen .login-panel-card {
+  width: 100%;
+  min-width: 0;
+  background: rgba(255, 255, 255, 0.94);
+  border: 1px solid rgba(107, 15, 15, 0.06);
+  border-radius: 24px;
+  box-shadow: 0 16px 40px rgba(82, 46, 33, 0.09);
+  backdrop-filter: blur(12px);
+}
+
+.planner-login-screen .login-content {
+  margin: 0;
+  padding: 30px 28px;
+  width: 100%;
+  min-width: 0;
+}
+
+.planner-login-screen .login-panel-header {
+  text-align: center;
+}
+
+.planner-login-screen .login-panel-kicker {
+  margin: 0 0 10px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: rgba(107, 15, 15, 0.52);
+}
+
+.planner-login-screen .login-panel-title {
+  margin: 0;
+  font-family: 'Jost', sans-serif;
+  font-size: 2.15rem;
+  font-weight: 600;
+  line-height: 1.05;
+  color: #2f1812;
+  letter-spacing: -0.04em;
+}
+
+.planner-login-screen .login-panel-subtitle {
+  margin: 10px 0 22px;
+  font-size: 14px;
+  line-height: 1.55;
+  color: rgba(47, 24, 18, 0.62);
+}
+
+.planner-login-screen .login-actions {
+  align-items: stretch;
+  gap: 14px;
+}
+
+.planner-login-screen .google-login-wrap,
+.planner-login-screen .google-login-wrap > div,
+.planner-login-screen .google-button-inner-wrap,
+.planner-login-screen .login-secondary-btn,
+.planner-login-screen .login-home-btn {
+  width: 100%;
+  min-width: 0;
+  max-width: none;
+}
+
+.planner-login-screen .login-secondary-btn {
+  min-height: 52px;
+  border-radius: 14px;
+  border: 1px solid rgba(107, 15, 15, 0.12);
+  background: #fff;
+  color: #522e21;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  text-align: center;
+  line-height: 1.35;
+}
+
+.planner-login-screen .login-home-section {
+  margin-top: 24px;
+}
+
+.planner-login-screen .login-home-divider {
+  margin-bottom: 14px;
+}
+
+.planner-login-screen .login-home-divider,
+.planner-login-screen .login-divider-mobile {
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  width: 100%;
+}
+
+.planner-login-screen .divider-line {
+  background: rgba(107, 15, 15, 0.1);
+  min-width: 0;
+}
+
+.planner-login-screen .divider-text {
+  color: rgba(107, 15, 15, 0.56);
+  flex: 0 0 auto;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.planner-login-screen .login-home-btn {
+  min-height: 50px;
+  border-radius: 14px;
+  border: 1px solid rgba(107, 15, 15, 0.12);
+  background: #fff;
+  color: #522e21;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  text-align: center;
+  line-height: 1.35;
+}
+
+.planner-login-screen .login-status,
+.planner-login-screen .login-error,
+.planner-login-screen .login-oauth-help {
+  margin-top: 16px;
+  text-align: left;
+}
+
+@media (min-width: 900px) {
+  .planner-login-screen {
+    padding: 46px 40px;
+  }
+
+  .planner-login-screen .planner-login-container {
+    width: min(1080px, 100%);
+    max-width: 1080px;
+  }
+
+  .planner-login-screen .login-layout {
+    grid-template-areas:
+      "hero panel"
+      "support panel";
+    grid-template-columns: minmax(0, 1fr) minmax(392px, 428px);
+    align-items: start;
+    column-gap: 40px;
+    row-gap: 18px;
+  }
+
+  .planner-login-screen .login-hero {
+    grid-area: hero;
+    max-width: 560px;
+    padding-right: 0;
+  }
+
+  .planner-login-screen .login-header {
+    max-width: 560px;
+  }
+
+  .planner-login-screen .login-logo {
+    max-width: 206px;
+    margin-bottom: 14px;
+  }
+
+  .planner-login-screen .login-title {
+    max-width: 11ch;
+    font-size: clamp(2.9rem, 4vw, 4.35rem);
+  }
+
+  .planner-login-screen .login-support {
+    grid-area: support;
+    max-width: 560px;
+    gap: 16px;
+  }
+
+  .planner-login-screen .login-panel {
+    grid-area: panel;
+    align-self: start;
+    padding-top: 18px;
+  }
+
+  .planner-login-screen .login-panel-card {
+    box-shadow: 0 20px 48px rgba(82, 46, 33, 0.11);
+  }
+
+  .planner-login-screen .login-content {
+    padding: 36px 32px;
+  }
+}
+
+@media (min-width: 1280px) {
+  .planner-login-screen {
+    padding: 56px 48px;
+  }
+
+  .planner-login-screen .planner-login-container {
+    width: min(1160px, 100%);
+    max-width: 1160px;
+  }
+
+  .planner-login-screen .login-layout {
+    grid-template-columns: minmax(0, 1fr) minmax(408px, 448px);
+    column-gap: 44px;
+  }
+
+  .planner-login-screen .login-logo {
+    max-width: 220px;
+  }
+
+  .planner-login-screen .login-panel {
+    padding-top: 24px;
+  }
+}
+
+@media (max-width: 899px) {
+  .planner-login-screen {
+    background: linear-gradient(180deg, #fffaf6 0%, #fffdfb 100%);
+    padding: 16px;
+  }
+
+  .planner-login-screen .planner-login-container {
+    background: transparent;
+    backdrop-filter: none;
+    border-radius: 0;
+    padding: 0;
+    width: 100%;
+    max-width: 380px;
+    box-shadow: none;
+    border: 0;
+  }
+
+  .planner-login-screen .login-layout {
+    gap: 18px;
+  }
+
+  .planner-login-screen .login-hero {
+    max-width: 100%;
+    justify-items: center;
+  }
+
+  .planner-login-screen .login-header,
+  .planner-login-screen .login-status,
+  .planner-login-screen .login-error,
+  .planner-login-screen .login-oauth-help,
+  .planner-login-screen .login-footer-mobile {
+    text-align: center;
+  }
+
+  .planner-login-screen .login-logo {
+    max-width: min(280px, 100%);
+    width: 100%;
+    margin-bottom: 0;
+    margin-inline: auto;
+  }
+
+  .planner-login-screen .login-logo-image-desktop {
+    display: none;
+  }
+
+  .planner-login-screen .login-logo-image-mobile {
+    display: block;
+    border-radius: 14px;
+    border: 1px solid rgba(212, 175, 55, 0.35);
+    background: #fff;
+  }
+
+  .planner-login-screen .login-kicker,
+  .planner-login-screen .login-title,
+  .planner-login-screen .login-subtitle,
+  .planner-login-screen .login-panel-header,
+  .planner-login-screen .login-support {
+    display: none;
+  }
+
+  .planner-login-screen .login-panel-card {
+    background: transparent;
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+    backdrop-filter: none;
+  }
+
+  .planner-login-screen .login-content {
+    padding: 0;
+  }
+
+  .planner-login-screen .login-benefits-mobile,
+  .planner-login-screen .login-footer-mobile {
+    display: block;
+  }
+
+  .planner-login-screen .login-benefits-mobile {
+    display: grid;
+    justify-items: stretch;
+    width: fit-content;
+    max-width: min(100%, 360px);
+    gap: 16px;
+    min-width: 0;
+    margin-inline: auto;
+  }
+
+  .planner-login-screen .benefit-item {
+    flex-direction: row;
+    gap: 16px;
+    align-items: center;
+    justify-content: flex-start;
+    width: 100%;
+    max-width: none;
+    min-width: 0;
+    text-align: left;
+  }
+
+  .planner-login-screen .login-benefits-mobile {
+    margin-bottom: 20px;
+  }
+
+  .planner-login-screen .benefit-icon {
+    width: 28px;
+    height: 28px;
+    min-width: 28px;
+    align-self: center;
+    margin-inline: 0;
+    background: transparent;
+  }
+
+  .planner-login-screen .benefit-text {
+    font-size: 16px;
+    line-height: 1.5;
+    text-align: left;
+  }
+
+  .planner-login-screen .login-divider-mobile,
+  .planner-login-screen .login-home-divider {
+    display: flex;
+    margin: 0 0 18px;
+  }
+
+  .planner-login-screen .login-actions {
+    gap: 12px;
+  }
+
+  .planner-login-screen .login-secondary-btn {
+    min-height: 44px;
+  }
+
+  .planner-login-screen .login-home-section {
+    margin-top: 16px;
+  }
+
+  .planner-login-screen .login-footer-mobile {
+    margin-top: 16px;
+  }
+}
+
+@media (max-width: 420px) {
+  .planner-login-screen {
+    padding: 14px;
+  }
+
+  .planner-login-screen .planner-login-container {
+    max-width: 100%;
+  }
+
+  .planner-login-screen .login-logo {
+    max-width: min(248px, 100%);
+  }
+
+  .planner-login-screen .login-actions {
+    gap: 10px;
+  }
+
+  .planner-login-screen .login-secondary-btn,
+  .planner-login-screen .login-home-btn {
+    font-size: 14px;
+    padding: 12px 14px;
+  }
+
+  .planner-login-screen .login-home-section {
+    margin-top: 14px;
+  }
+}
+
+@media (max-width: 360px) {
+  .planner-login-screen {
+    padding: 12px;
+  }
+
+  .planner-login-screen .login-layout {
+    gap: 16px;
+  }
+
+  .planner-login-screen .login-logo {
+    max-width: min(220px, 100%);
+  }
+
+  .planner-login-screen .login-benefits-mobile {
+    gap: 10px;
+    margin-bottom: 16px;
+  }
+
+  .planner-login-screen .benefit-item {
+    flex-direction: column;
+    gap: 10px;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+  }
+
+  .planner-login-screen .benefit-icon {
+    width: 22px;
+    height: 22px;
+    min-width: 22px;
+    margin-inline: auto;
+  }
+
+  .planner-login-screen .benefit-text {
+    font-size: 13px;
+    line-height: 1.4;
+    text-align: center;
+  }
+
+  .planner-login-screen .login-divider-mobile {
+    margin-bottom: 16px;
+  }
+}
+
 .legal-link-btn {
   background: none;
   border: none;

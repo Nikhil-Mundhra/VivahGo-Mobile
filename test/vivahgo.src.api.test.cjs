@@ -29,6 +29,14 @@ describe('VivahGo/src/api.js', function () {
 
     const remoteWindow = { location: { hostname: 'app.example.com' } };
     assert.equal(mod.resolveApiBaseUrl({}, remoteWindow), '/api');
+    assert.equal(
+      mod.resolveApiBaseUrl({ VITE_API_BASE_URL: 'https://example.com/api/' }, remoteWindow),
+      '/api'
+    );
+    assert.equal(
+      mod.resolveApiBaseUrl({ VITE_API_BASE_URL: 'https://example.com/api/', VITE_USE_REMOTE_API: 'true' }, remoteWindow),
+      'https://example.com/api'
+    );
     assert.equal(mod.resolveApiBaseUrl({}, undefined), 'http://localhost:4000/api');
   });
 

@@ -18,27 +18,28 @@ function isLocalHostname(hostname) {
 export function resolveApiBaseUrl(env = getRuntimeEnv(), win = typeof window !== 'undefined' ? window : undefined) {
   const configuredBaseUrl = env.VITE_API_BASE_URL;
 
-  // Local development should default to the local API unless explicitly overridden.
   if (win) {
     const host = win.location.hostname;
     const isLocalHost = isLocalHostname(host);
 
-    if (isLocalHost && env.VITE_USE_REMOTE_API !== 'true') {
+    // Browsers on deployed hosts should use same-origin API routes by default.
+    // This avoids unnecessary cross-origin requests and CORS failures.
+    if (isLocalHost) {
+      if (env.VITE_USE_REMOTE_API === 'true' && configuredBaseUrl) {
+        return configuredBaseUrl.replace(/\/$/, '');
+      }
       return `http://${host}:4000/api`;
     }
+
+    if (env.VITE_USE_REMOTE_API === 'true' && configuredBaseUrl) {
+      return configuredBaseUrl.replace(/\/$/, '');
+    }
+
+    return '/api';
   }
 
   if (configuredBaseUrl) {
     return configuredBaseUrl.replace(/\/$/, '');
-  }
-
-  if (win) {
-    const host = win.location.hostname;
-    if (isLocalHostname(host)) {
-      return `http://${host}:4000/api`;
-    }
-
-    return '/api';
   }
 
   return 'http://localhost:4000/api';
