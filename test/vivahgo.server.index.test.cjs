@@ -402,6 +402,96 @@ describe('VivahGo/server/index.js', function () {
     assert.equal(resUnverified.body.error, 'Google account email must be verified.');
   });
 
+  itWithHttpServer('removes related planner data on account delete', async function () {
+    const mod = await loadServerModule();
+
+    const userDeletes = [];
+    const plannerDeletes = [];
+    const collaboratorRemovals = [];
+    const vendorDeletes = [];
+    const receiptDeletes = [];
+
+    const app = mod.createApp({
+      jwtSecret: 'test-secret',
+      UserModel: {
+        async findOne() {
+          return {
+            toObject() {
+              return {
+                googleId: 'gid-delete',
+                email: 'delete-me@example.com',
+                name: 'Delete Me',
+              };
+            },
+          };
+        },
+        async deleteOne(query) {
+          userDeletes.push(query);
+          return { acknowledged: true };
+        },
+      },
+      PlannerModel: {
+        async deleteOne(query) {
+          plannerDeletes.push(query);
+          return { acknowledged: true };
+        },
+        async updateMany(query, update) {
+          collaboratorRemovals.push({ query, update });
+          return { acknowledged: true };
+        },
+      },
+      VendorModel: {
+        async deleteOne(query) {
+          vendorDeletes.push(query);
+          return { acknowledged: true };
+        },
+      },
+      BillingReceiptModel: {
+        async deleteMany(query) {
+          receiptDeletes.push(query);
+          return { acknowledged: true };
+        },
+      },
+    });
+
+    const token = jwt.sign(
+      {
+        sub: 'gid-delete',
+        email: 'delete-me@example.com',
+        name: 'Delete Me',
+      },
+      'test-secret',
+      { expiresIn: '7d' }
+    );
+
+    const { csrfToken, cookies } = await bootstrapCsrf(app);
+    const res = await request(app)
+      .delete('/api/auth/me')
+      .set('Cookie', [...cookies, `vivahgo_session=${token}`])
+      .set('X-CSRF-Token', csrfToken);
+
+    assert.equal(res.status, 200);
+    assert.equal(res.body.ok, true);
+    assert.equal(userDeletes.length, 1);
+    assert.deepEqual(userDeletes[0], { googleId: 'gid-delete' });
+    assert.equal(plannerDeletes.length, 1);
+    assert.deepEqual(plannerDeletes[0], { googleId: 'gid-delete' });
+    assert.equal(collaboratorRemovals.length, 1);
+    assert.deepEqual(collaboratorRemovals[0].query, {
+      googleId: { $ne: 'gid-delete' },
+      'marriages.collaborators.email': 'delete-me@example.com',
+    });
+    assert.deepEqual(collaboratorRemovals[0].update, {
+      $pull: {
+        'marriages.$[].collaborators': { email: 'delete-me@example.com' },
+      },
+    });
+    assert.equal(vendorDeletes.length, 1);
+    assert.deepEqual(vendorDeletes[0], { googleId: 'gid-delete' });
+    assert.equal(receiptDeletes.length, 1);
+    assert.deepEqual(receiptDeletes[0], { googleId: 'gid-delete' });
+  });
+
   itWithHttpServer('covers planner GET/PUT success plus error branches', async function () {
     const mod = await loadServerModule();
 

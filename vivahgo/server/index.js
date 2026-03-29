@@ -1787,10 +1787,42 @@ export function createApp(options = {}) {
 
   app.delete('/api/auth/me', (req, res, next) => authMiddleware(req, res, next, injectedJwtSecret), async (req, res) => {
     try {
-      await Promise.all([
-        UserModel.deleteOne({ googleId: req.auth.sub }),
-        PlannerModel.deleteOne({ googleId: req.auth.sub }),
-      ]);
+      const normalizedEmail = normalizeEmail(req.auth.email || '');
+      const deletionTasks = [];
+
+      if (typeof UserModel?.deleteOne === 'function') {
+        deletionTasks.push(UserModel.deleteOne({ googleId: req.auth.sub }));
+      }
+
+      if (typeof PlannerModel?.deleteOne === 'function') {
+        deletionTasks.push(PlannerModel.deleteOne({ googleId: req.auth.sub }));
+      }
+
+      if (normalizedEmail && typeof PlannerModel?.updateMany === 'function') {
+        deletionTasks.push(
+          PlannerModel.updateMany(
+            {
+              googleId: { $ne: req.auth.sub },
+              'marriages.collaborators.email': normalizedEmail,
+            },
+            {
+              $pull: {
+                'marriages.$[].collaborators': { email: normalizedEmail },
+              },
+            }
+          )
+        );
+      }
+
+      if (typeof VendorModel?.deleteOne === 'function') {
+        deletionTasks.push(VendorModel.deleteOne({ googleId: req.auth.sub }));
+      }
+
+      if (typeof BillingReceiptModel?.deleteMany === 'function') {
+        deletionTasks.push(BillingReceiptModel.deleteMany({ googleId: req.auth.sub }));
+      }
+
+      await Promise.all(deletionTasks);
       clearSessionCookie(req, res);
       return res.json({ ok: true });
     } catch (err) {

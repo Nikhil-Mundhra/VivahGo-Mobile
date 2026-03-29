@@ -110,6 +110,7 @@ export default function PlannerShell() {
   const [accessibleWorkspaces, setAccessibleWorkspaces] = useState([]);
   const [isSwitchingWorkspace, setIsSwitchingWorkspace] = useState(false);
   const [customTemplates, setCustomTemplates] = useState([]);
+  const [requiresOnboarding, setRequiresOnboarding] = useState(false);
   // Subscription
   const [subscription, setSubscription] = useState({ tier: "starter", status: "active", currentPeriodEnd: null });
   const [showUpgradePrompt, setShowUpgradePrompt] = useState(false);
@@ -212,6 +213,10 @@ export default function PlannerShell() {
   const setActiveExpenses = createPlanScopedSetter(setExpenses, activePlanId);
   const setActiveGuests = createPlanScopedSetter(setGuests, activePlanId);
   const setActiveTasks = createPlanScopedSetter(setTasks, activePlanId);
+
+  function shouldShowOnboarding(nextPlanner) {
+    return !hasWeddingProfile(normalizePlanner(nextPlanner).wedding);
+  }
 
   const applyPlanner = useCallback((nextPlanner, nextAccess) => {
     const planner = normalizePlanner(nextPlanner);
@@ -715,6 +720,7 @@ export default function PlannerShell() {
             setAuthMode("demo");
             setUser(session.user || null);
             applyPlanner(savedPlanner || createDemoPlanner());
+            setRequiresOnboarding(false);
             setScreen("splash");
           }
           return;
@@ -722,15 +728,17 @@ export default function PlannerShell() {
 
         if (session.mode === "google" && session.token) {
           const { planner, access, plannerOwnerId: resolvedOwnerId } = await fetchPlanner(session.token, session.plannerOwnerId);
+          const nextRequiresOnboarding = shouldShowOnboarding(planner);
           if (!cancelled) {
             setAuthMode("google");
             setAuthToken(session.token);
             setUser(session.user || null);
             applyPlanner(planner, access);
+            setRequiresOnboarding(nextRequiresOnboarding);
             setPlannerOwnerId(resolvedOwnerId || session.plannerOwnerId || session.user?.id || "");
             await refreshAccessibleWorkspaces(session.token);
             await fetchAndApplySubscription(session.token);
-            setScreen("app");
+            setScreen(nextRequiresOnboarding ? "splash" : "app");
           }
           return;
         }
@@ -823,6 +831,7 @@ export default function PlannerShell() {
     persistSession({ mode: "demo", user: demoUser });
     localStorage.setItem(DEMO_PLANNER_STORAGE_KEY, JSON.stringify(demoPlanner));
     setLoginError("");
+    setRequiresOnboarding(false);
     setTab("home");
     setScreen("splash");
   }
@@ -836,18 +845,20 @@ export default function PlannerShell() {
       setIsLoggingIn(true);
       setLoginError("");
       const { user: authenticatedUser, planner, access, plannerOwnerId: resolvedOwnerId } = await loginWithGoogle(credentialResponse.credential);
+      const nextRequiresOnboarding = shouldShowOnboarding(planner);
       const nextSession = persistSession({ mode: "google", user: authenticatedUser, plannerOwnerId: resolvedOwnerId || authenticatedUser.id || "" });
 
       setAuthMode("google");
       setAuthToken(nextSession?.token || "");
       setUser(authenticatedUser);
       applyPlanner(planner, access);
+      setRequiresOnboarding(nextRequiresOnboarding);
       setPlannerOwnerId(resolvedOwnerId || authenticatedUser.id || "");
       await refreshAccessibleWorkspaces(nextSession?.token);
       await fetchAndApplySubscription(nextSession?.token);
       setTab("home");
       setSaveState("idle");
-      setScreen("app");
+      setScreen("splash");
     } catch (error) {
       console.error("Login failed:", error);
       setLoginError(error.message || "Google login failed.");
@@ -874,6 +885,7 @@ export default function PlannerShell() {
     setPlannerOwnerId("");
     setAccessibleWorkspaces([]);
     applyPlanner(createBlankPlanner());
+    setRequiresOnboarding(false);
     setTab("home");
     setSaveState("idle");
     setScreen("login");
@@ -889,6 +901,7 @@ export default function PlannerShell() {
     setPlannerOwnerId("");
     setAccessibleWorkspaces([]);
     applyPlanner(createBlankPlanner());
+    setRequiresOnboarding(false);
     setTab("home");
     setSaveState("idle");
     setScreen("login");
@@ -915,11 +928,13 @@ export default function PlannerShell() {
     setTasks(current => mergeActivePlanCollection(current, seededCollections.tasks, activePlanId));
 
     applyWeddingToActivePlan(nextWedding);
+    setRequiresOnboarding(false);
     setScreen("app");
   }
 
   function handleSkipOnboarding() {
     applyWeddingToActivePlan({ ...EMPTY_WEDDING });
+    setRequiresOnboarding(false);
     setScreen("app");
   }
 
@@ -1092,9 +1107,9 @@ export default function PlannerShell() {
       )}
       {screen === "splash" && (
         <SplashScreen
-          onStart={() => setScreen(hasWeddingProfile(wedding) ? "app" : "onboard")}
+          onStart={() => setScreen(requiresOnboarding ? "onboard" : "app")}
           onSkip={handleSkipOnboarding}
-          showSkip={!hasWeddingProfile(wedding)}
+          showSkip={requiresOnboarding}
         />
       )}
       {screen === "onboard" && <OnboardingScreen onComplete={handleOnboardComplete} />}
