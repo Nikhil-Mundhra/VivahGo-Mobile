@@ -679,7 +679,7 @@ export default function AdminPortalPage() {
         <section className="bg-white rounded-3xl border border-stone-200 shadow-sm overflow-hidden">
           <div className="px-5 py-4 border-b border-stone-200">
             <h2 className="text-lg font-semibold text-stone-900">Career applications</h2>
-            <p className="text-sm text-stone-500">Resumes are stored in Google Drive and linked here for staff review.</p>
+            <p className="text-sm text-stone-500">Resumes are stored securely and linked here for staff review.</p>
           </div>
           <div className="divide-y divide-stone-100">
             {applicationsLoading && (
@@ -712,13 +712,12 @@ export default function AdminPortalPage() {
                   <div className="mt-3 flex flex-wrap gap-3 text-sm">
                     {application.linkedInUrl && <a href={application.linkedInUrl} target="_blank" rel="noreferrer" className="text-rose-600 hover:underline">LinkedIn</a>}
                     {application.portfolioUrl && <a href={application.portfolioUrl} target="_blank" rel="noreferrer" className="text-rose-600 hover:underline">Portfolio</a>}
-                    {application.resumeDriveViewUrl && <a href={application.resumeDriveViewUrl} target="_blank" rel="noreferrer" className="text-rose-600 hover:underline">Open resume</a>}
-                    {application.resumeDriveDownloadUrl && <a href={application.resumeDriveDownloadUrl} target="_blank" rel="noreferrer" className="text-rose-600 hover:underline">Download PDF</a>}
+                    {application.resumeFileId && <a href={`/api/admin/resume-download?key=${encodeURIComponent(application.resumeFileId)}`} target="_blank" rel="noreferrer" className="text-rose-600 hover:underline">Download PDF</a>}
                   </div>
                 </div>
                 <div className="text-xs text-stone-400 lg:text-right">
-                  <p>Drive file</p>
-                  <p className="mt-1 break-all">{application.resumeDriveFileName || application.resumeOriginalFileName || 'Resume PDF'}</p>
+                  <p>Resume file</p>
+                  <p className="mt-1 break-all">{application.resumeFileName || application.resumeOriginalFileName || 'Resume PDF'}</p>
                 </div>
               </div>
             ))}

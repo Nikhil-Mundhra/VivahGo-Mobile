@@ -1,6 +1,6 @@
 const careerCatalog = require('../config/careers.json');
 const { applyRateLimit, connectDb, getCareerApplicationModel, handlePreflight, normalizeEmail, requireCsrfProtection, setCorsHeaders } = require('./_lib/core');
-const { uploadPdfToDrive } = require('./_lib/googleDrive');
+const { uploadResumeToB2 } = require('./_lib/b2');
 
 const MAX_RESUME_SIZE_BYTES = 2 * 1024 * 1024;
 const MAX_BASE64_LENGTH = Math.ceil(MAX_RESUME_SIZE_BYTES * 4 / 3) + 32;
@@ -30,10 +30,10 @@ function serializeApplication(doc = {}) {
     coverLetter: plain.coverLetter || '',
     jobId: plain.jobId || '',
     jobTitle: plain.jobTitle || '',
-    resumeDriveFileId: plain.resumeDriveFileId || '',
-    resumeDriveFileName: plain.resumeDriveFileName || '',
-    resumeDriveViewUrl: plain.resumeDriveViewUrl || '',
-    resumeDriveDownloadUrl: plain.resumeDriveDownloadUrl || '',
+    resumeFileId: plain.resumeFileId || '',
+    resumeFileName: plain.resumeFileName || '',
+    resumeViewUrl: plain.resumeViewUrl || '',
+    resumeDownloadUrl: plain.resumeDownloadUrl || '',
     resumeOriginalFileName: plain.resumeOriginalFileName || '',
     resumeMimeType: plain.resumeMimeType || '',
     resumeSize: plain.resumeSize || 0,
@@ -159,7 +159,7 @@ async function handler(req, res) {
   }
 
   try {
-    const driveFile = await uploadPdfToDrive({
+    const uploadedResume = await uploadResumeToB2({
       buffer: resumeBuffer,
       filename: resumeFilename,
       fullName,
@@ -178,10 +178,10 @@ async function handler(req, res) {
       coverLetter,
       jobId: job.id,
       jobTitle: job.title,
-      resumeDriveFileId: driveFile.id,
-      resumeDriveFileName: driveFile.name,
-      resumeDriveViewUrl: driveFile.webViewLink,
-      resumeDriveDownloadUrl: driveFile.webContentLink,
+      resumeFileId: uploadedResume.id,
+      resumeFileName: uploadedResume.name,
+      resumeViewUrl: uploadedResume.viewUrl,
+      resumeDownloadUrl: uploadedResume.downloadUrl,
       resumeOriginalFileName: resumeFilename,
       resumeMimeType,
       resumeSize: resumeBuffer.length,

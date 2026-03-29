@@ -309,7 +309,7 @@ export default function CareersPage() {
                 <p className="text-sm font-semibold uppercase tracking-[0.24em] text-rose-500">Application Form</p>
                 <h2 className="mt-3 text-3xl font-bold text-stone-900">Send us your profile</h2>
                 <p className="mt-4 text-sm leading-6 text-stone-600">
-                  Choose a role, share a few details, and upload your resume PDF. We save resumes in our Google Drive hiring folder and review them from the admin console.
+                  Choose a role, share a few details, and upload your resume PDF. We review resumes from the admin console.
                 </p>
                 {selectedCareer && (
                   <div className="mt-6 rounded-3xl bg-stone-50 p-5">

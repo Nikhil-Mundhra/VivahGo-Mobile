@@ -1,6 +1,7 @@
 const { getBillingReceiptModel, getVendorModel, handlePreflight, normalizeEmail, normalizeStaffRole, requireCsrfProtection, setCorsHeaders } = require('./_lib/core');
 const { requireAdminSession, sanitizeStaffUser } = require('./_lib/admin');
 const { createPresignedGetUrl, normalizeMediaList, objectKeyMatchesScope } = require('./_lib/r2');
+const { createB2PresignedGetUrl } = require('./_lib/b2');
 const { serializeApplication } = require('./careers');
 
 /******************************************************************************
@@ -409,6 +410,35 @@ async function handleAdminSubscribers(req, res) {
 }
 
 /******************************************************************************
+ * /api/admin/resume-download — presigned B2 redirect
+ ******************************************************************************/
+
+async function handleAdminResumeDownload(req, res) {
+  try {
+    if (req.method !== 'GET') {
+      res.setHeader('Allow', 'GET, OPTIONS');
+      return res.status(405).json({ error: 'Method not allowed.' });
+    }
+
+    const session = await requireAdminSession(req, 'viewer');
+    if (session.error) {
+      return res.status(session.status).json({ error: session.error });
+    }
+
+    const key = String(req.query?.key || '').trim();
+    if (!key || !key.startsWith('resumes/')) {
+      return res.status(400).json({ error: 'Invalid resume key.' });
+    }
+
+    const url = await createB2PresignedGetUrl(key, 300);
+    return res.redirect(302, url);
+  } catch (error) {
+    console.error('Admin resume download failed:', error);
+    return res.status(500).json({ error: 'Could not generate download link.' });
+  }
+}
+
+/******************************************************************************
  * Main Entrypoint
  ******************************************************************************/
 
@@ -443,6 +473,10 @@ async function handler(req, res) {
     return handleAdminApplications(req, res);
   }
 
+  if (route === 'resume-download') {
+    return handleAdminResumeDownload(req, res);
+  }
+
   if (route === 'subscribers') {
     return handleAdminSubscribers(req, res);
   }
@@ -456,4 +490,5 @@ module.exports.handleAdminMe = handleAdminMe;
 module.exports.handleAdminStaff = handleAdminStaff;
 module.exports.handleAdminVendors = handleAdminVendors;
 module.exports.handleAdminApplications = handleAdminApplications;
+module.exports.handleAdminResumeDownload = handleAdminResumeDownload;
 module.exports.handleAdminSubscribers = handleAdminSubscribers;

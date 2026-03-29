@@ -16,7 +16,7 @@ import User from './models/User.js';
 import Vendor from './models/Vendor.js';
 import CareerApplication from './models/CareerApplication.js';
 import BillingReceipt from './models/BillingReceipt.js';
-import googleDriveHelpers from '../../api/_lib/googleDrive.js';
+import b2Helpers from '../../api/_lib/b2.js';
 import r2Helpers from '../../api/_lib/r2.js';
 
 const port = Number(process.env.PORT || 4000);
@@ -97,7 +97,7 @@ const DEFAULT_SUBSCRIPTION_AMOUNT_MAP = {
 
 const COUPON_SECRET_FILE_PATH = new URL('../../config/subscription-coupons.local.json', import.meta.url);
 const CAREERS_FILE_PATH = new URL('../../config/careers.json', import.meta.url);
-const { uploadPdfToDrive } = googleDriveHelpers;
+const { uploadResumeToB2, createB2PresignedGetUrl } = b2Helpers;
 const { createPresignedGetUrl, createPresignedPutUrl, objectKeyMatchesScope } = r2Helpers;
 const MAX_CAREER_RESUME_SIZE_BYTES = 2 * 1024 * 1024;
 const MAX_VERIFICATION_FILE_SIZE_BYTES = 10 * 1024 * 1024;
@@ -307,10 +307,10 @@ function serializeCareerApplication(application = {}) {
     coverLetter: plain.coverLetter || '',
     jobId: plain.jobId || '',
     jobTitle: plain.jobTitle || '',
-    resumeDriveFileId: plain.resumeDriveFileId || '',
-    resumeDriveFileName: plain.resumeDriveFileName || '',
-    resumeDriveViewUrl: plain.resumeDriveViewUrl || '',
-    resumeDriveDownloadUrl: plain.resumeDriveDownloadUrl || '',
+    resumeFileId: plain.resumeFileId || '',
+    resumeFileName: plain.resumeFileName || '',
+    resumeViewUrl: plain.resumeViewUrl || '',
+    resumeDownloadUrl: plain.resumeDownloadUrl || '',
     resumeOriginalFileName: plain.resumeOriginalFileName || '',
     resumeMimeType: plain.resumeMimeType || '',
     resumeSize: plain.resumeSize || 0,
@@ -1451,7 +1451,7 @@ export function createApp(options = {}) {
     VendorModel = Vendor,
     CareerApplicationModel = CareerApplication,
     BillingReceiptModel = BillingReceipt,
-    uploadCareerResume = uploadPdfToDrive,
+    uploadCareerResume = uploadResumeToB2,
   } = options;
 
   const oauthClient =
@@ -1549,7 +1549,7 @@ export function createApp(options = {}) {
     }
 
     try {
-      const driveFile = await uploadCareerResume({
+      const uploadedResume = await uploadCareerResume({
         buffer: resumeBuffer,
         filename: resumeFilename,
         fullName,
@@ -1566,10 +1566,10 @@ export function createApp(options = {}) {
         coverLetter,
         jobId: job.id,
         jobTitle: job.title,
-        resumeDriveFileId: driveFile.id,
-        resumeDriveFileName: driveFile.name,
-        resumeDriveViewUrl: driveFile.webViewLink,
-        resumeDriveDownloadUrl: driveFile.webContentLink,
+        resumeFileId: uploadedResume.id,
+        resumeFileName: uploadedResume.name,
+        resumeViewUrl: uploadedResume.viewUrl,
+        resumeDownloadUrl: uploadedResume.downloadUrl,
         resumeOriginalFileName: resumeFilename,
         resumeMimeType,
         resumeSize: resumeBuffer.length,
@@ -2285,6 +2285,26 @@ export function createApp(options = {}) {
     } catch (error) {
       console.error('Admin applications fetch failed:', error);
       return res.status(500).json({ error: 'Could not load applications.' });
+    }
+  });
+
+  app.get('/api/admin/resume-download', (req, res, next) => authMiddleware(req, res, next, injectedJwtSecret), async (req, res) => {
+    try {
+      const session = await resolveAdminSession(UserModel, req.auth, 'viewer');
+      if (session.error) {
+        return res.status(session.status).json({ error: session.error });
+      }
+
+      const key = String(req.query?.key || '').trim();
+      if (!key || !key.startsWith('resumes/')) {
+        return res.status(400).json({ error: 'Invalid resume key.' });
+      }
+
+      const url = await createB2PresignedGetUrl(key, 300);
+      return res.redirect(302, url);
+    } catch (error) {
+      console.error('Admin resume download failed:', error);
+      return res.status(500).json({ error: 'Could not generate download link.' });
     }
   });
 

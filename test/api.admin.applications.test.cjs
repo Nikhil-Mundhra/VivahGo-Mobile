@@ -40,10 +40,10 @@ describe('api/admin.js -> applications route', function () {
               email: 'aarav@example.com',
               jobId: 'full-stack-engineer',
               jobTitle: 'Full Stack Engineer',
-              resumeDriveFileId: 'drive-1',
-              resumeDriveFileName: 'resume.pdf',
-              resumeDriveViewUrl: 'https://drive.google.com/file/d/drive-1/view',
-              resumeDriveDownloadUrl: 'https://drive.google.com/uc?id=drive-1&export=download',
+              resumeFileId: 'b2-key-1',
+              resumeFileName: 'resume.pdf',
+              resumeViewUrl: '',
+              resumeDownloadUrl: '',
               resumeOriginalFileName: 'resume.pdf',
               resumeMimeType: 'application/pdf',
               resumeSize: 1024,
@@ -77,6 +77,6 @@ describe('api/admin.js -> applications route', function () {
     assert.equal(res.statusCode, 200);
     assert.equal(res.body.applications.length, 1);
     assert.equal(res.body.applications[0].jobTitle, 'Full Stack Engineer');
-    assert.equal(res.body.applications[0].resumeDriveFileId, 'drive-1');
+    assert.equal(res.body.applications[0].resumeFileId, 'b2-key-1');
   });
 });

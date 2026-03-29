@@ -30,7 +30,7 @@ VivahGo is a wedding planning platform built for Indian weddings. It combines a 
 - Vendor portal with business registration, profile editing, portfolio/media management, and verification document uploads.
 - Public vendor directory backed by approved vendor records.
 - Admin portal for vendor moderation, staff management, career applications, and paid subscriber visibility.
-- Careers page with application submission and resume upload to Google Drive.
+- Careers page with application submission and resume upload to Backblaze B2.
 - Subscription checkout for `premium` and `studio` plans with Razorpay, coupon support, and receipt generation.
 - Feedback submission flow and legal/about modals.
 - Capacitor iOS wrapper for mobile packaging.
@@ -64,7 +64,7 @@ VivahGo is a wedding planning platform built for Indian weddings. It combines a 
 - Authentication: Google OAuth token verification + JWT sessions
 - Payments: Razorpay
 - File storage: Cloudflare R2
-- Resume storage: Google Drive service account uploads
+- Resume storage: Backblaze B2 (S3-compatible)
 - Analytics: Vercel Analytics, Vercel Speed Insights
 - Mobile shell: Capacitor iOS
 - Testing: Mocha, Supertest, c8
@@ -134,10 +134,11 @@ cp vivahgo/.env.example vivahgo/.env
   - `R2_BUCKET_NAME`
   - `R2_PUBLIC_URL`
 - Admin bootstrap: `ADMIN_OWNER_EMAIL`
-- Careers upload:
-  - `GOOGLE_DRIVE_SERVICE_ACCOUNT_EMAIL`
-  - `GOOGLE_DRIVE_PRIVATE_KEY`
-  - `GOOGLE_DRIVE_CAREERS_FOLDER_ID`
+- Careers resume upload (Backblaze B2):
+  - `B2_ACCESS_KEY_ID`
+  - `B2_SECRET_ACCESS_KEY`
+  - `B2_ENDPOINT`
+  - `B2_BUCKET_NAME`
 
 Use [vivahgo/.env.example](/Users/nikhil/Documents/VivahGo-mobile/vivahgo/.env.example) as the source of truth for local setup.
 

@@ -5,7 +5,7 @@ const { appPath, toAbs } = require('./helpers/testUtils.cjs');
 
 const SOURCE_JS_FILES = [
   'api/_lib/core.js',
-  'api/_lib/googleDrive.js',
+  'api/_lib/b2.js',
   'api/admin.js',
   'api/auth.js',
   'api/careers.js',

@@ -3,7 +3,7 @@ const assert = require('node:assert/strict');
 const { createRes } = require('./helpers/testUtils.cjs');
 
 const corePath = require.resolve('../api/_lib/core');
-const drivePath = require.resolve('../api/_lib/googleDrive');
+const b2Path = require.resolve('../api/_lib/b2');
 const handlerPath = require.resolve('../api/careers');
 
 function csrfHeaders(headers = {}) {
@@ -16,11 +16,11 @@ function csrfHeaders(headers = {}) {
 
 describe('api/careers.js', function () {
   const originalCore = require(corePath);
-  const originalDrive = require(drivePath);
+  const originalB2 = require(b2Path);
 
   afterEach(function () {
     require.cache[corePath].exports = originalCore;
-    require.cache[drivePath].exports = originalDrive;
+    require.cache[b2Path].exports = originalB2;
     delete require.cache[handlerPath];
   });
 
@@ -56,13 +56,13 @@ describe('api/careers.js', function () {
       }),
     };
 
-    require.cache[drivePath].exports = {
-      ...originalDrive,
-      uploadPdfToDrive: async () => ({
-        id: 'drive-1',
+    require.cache[b2Path].exports = {
+      ...originalB2,
+      uploadResumeToB2: async () => ({
+        id: 'b2-key-1',
         name: 'resume.pdf',
-        webViewLink: 'https://drive.google.com/file/d/drive-1/view',
-        webContentLink: 'https://drive.google.com/uc?id=drive-1&export=download',
+        viewUrl: '',
+        downloadUrl: '',
         mimeType: 'application/pdf',
       }),
     };
@@ -93,7 +93,7 @@ describe('api/careers.js', function () {
     assert.equal(res.body.ok, true);
     assert.equal(res.body.application.jobId, 'full-stack-engineer');
     assert.equal(res.body.application.jobTitle, 'Full Stack Engineer');
-    assert.equal(res.body.application.resumeDriveFileId, 'drive-1');
+    assert.equal(res.body.application.resumeFileId, 'b2-key-1');
     assert.equal(created.length, 1);
     assert.equal(created[0].email, 'aarav@example.com');
   });
