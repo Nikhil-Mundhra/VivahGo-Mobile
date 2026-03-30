@@ -18,7 +18,7 @@ export const CHATBASE_HOST = runtimeEnv.VITE_CHATBASE_HOST
   || "https://www.chatbase.co/";
 
 export function shouldShowChatbaseForRoute(routeInfo = {}) {
-  return Boolean(routeInfo?.isMarketingHomeRoute || routeInfo?.isPricingRoute);
+  return Boolean(routeInfo?.isMarketingHomeRoute || routeInfo?.isPricingRoute || routeInfo?.queryPageSlug);
 }
 
 export function removeChatbaseArtifacts(chatbotId) {

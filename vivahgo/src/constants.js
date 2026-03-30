@@ -182,7 +182,7 @@ export const VENDOR_SUBTYPE_OPTIONS = {
 };
 
 // WhatsApp customer support number (country code + number, no + or spaces)
-export const WHATSAPP_SUPPORT_NUMBER = "917060410033";
+export const WHATSAPP_SUPPORT_NUMBER = "918383874103";
 
 export const FEEDBACK_APP_VERSION = "1.0.0";
 

@@ -3,16 +3,19 @@ import { getRouteInfo } from "./appRoutes.js";
 import { CHATBASE_CHATBOT_ID, initializeChatbase, removeChatbaseArtifacts, shouldShowChatbaseForRoute } from "./chatbase.js";
 import { usePageSeo } from "./seo.js";
 import { getMarketingUrl, getPlannerUrl } from "./siteUrls.js";
+import queryPages from "./content/query-pages.json";
 
 const PlannerPage = lazy(() => import("./pages/PlannerPage.jsx"));
 const MarketingHomePage = lazy(() => import("./pages/MarketingHomePage.jsx"));
 const CareersPage = lazy(() => import("./pages/CareersPage.jsx"));
 const GuidesPage = lazy(() => import("./pages/GuidesPage.jsx"));
 const GuideArticlePage = lazy(() => import("./pages/GuideArticlePage.jsx"));
+const QueryCapturePage = lazy(() => import("./pages/QueryCapturePage.jsx"));
 const GuestRsvpPage = lazy(() => import("./pages/GuestRsvpPage.jsx"));
 const WeddingWebsitePage = lazy(() => import("./pages/WeddingWebsitePage.jsx"));
 const VendorPortalPage = lazy(() => import("./pages/VendorPortalPage.jsx"));
 const AdminPortalPage = lazy(() => import("./pages/AdminPortalPage.jsx"));
+const QUERY_PAGE_BY_SLUG = Object.fromEntries(queryPages.map((page) => [page.slug, page]));
 
 function PageFallback() {
   return <div className="app-page-fallback" aria-hidden="true" />;
@@ -23,16 +26,17 @@ export default function App() {
   const hostname = typeof window !== "undefined" ? window.location.hostname : "";
   const routeInfo = getRouteInfo(pathname, { hostname });
   const shouldShowChatbase = shouldShowChatbaseForRoute(routeInfo);
+  const queryPage = routeInfo.queryPageSlug ? QUERY_PAGE_BY_SLUG[routeInfo.queryPageSlug] : null;
   const fallbackSeo = routeInfo.isMarketingHomeRoute
     ? {
-      title: "VivahGo | Indian Wedding Planner App for Cultural Weddings",
-      description: "VivahGo is an Indian wedding planner app for cultural weddings with checklist tracking, budgets, guest lists, vendors, RSVPs, ceremonies, and wedding websites.",
+      title: "VivahGo | Wedding Planner App for Indian Weddings",
+      description: "VivahGo is a wedding planner app for Indian weddings that helps couples, families, and planners manage checklists, budgets, guests, vendors, RSVPs, timelines, and wedding websites in one shared workspace.",
       canonicalUrl: getMarketingUrl("/"),
     }
     : routeInfo.isPricingRoute
       ? {
         title: "VivahGo Pricing | Plans for Couples and Planners",
-        description: "Compare Indian wedding planner app pricing for couples, families, planners, and studios managing guests, budgets, vendors, RSVPs, and wedding websites.",
+        description: "Compare wedding planner app pricing for couples, families, planners, and studios managing guests, budgets, vendors, RSVPs, and wedding websites.",
         canonicalUrl: getMarketingUrl("/pricing"),
       }
       : routeInfo.isGuidesRoute
@@ -46,6 +50,12 @@ export default function App() {
           title: "VivahGo Guide",
           description: "An Indian wedding planning guide from VivahGo.",
           canonicalUrl: getMarketingUrl(`/guides/${routeInfo.guideSlug}`),
+        }
+      : queryPage
+        ? {
+          title: queryPage.seoTitle,
+          description: queryPage.seoDescription,
+          canonicalUrl: getMarketingUrl(`/${queryPage.slug}`),
         }
       : routeInfo.isCareersRoute
         ? {
@@ -124,6 +134,8 @@ export default function App() {
     page = <GuidesPage />;
   } else if (routeInfo.guideSlug) {
     page = <GuideArticlePage guideSlug={routeInfo.guideSlug} />;
+  } else if (routeInfo.queryPageSlug) {
+    page = <QueryCapturePage pageSlug={routeInfo.queryPageSlug} />;
   } else if (routeInfo.isMarketingHomeRoute) {
     page = <MarketingHomePage page="home" />;
   } else if (routeInfo.isPricingRoute) {

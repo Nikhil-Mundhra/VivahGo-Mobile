@@ -1,0 +1,392 @@
+[
+  {
+    "slug": "wedding-planner-app",
+    "title": "Wedding Planner App",
+    "seoTitle": "VivahGo Wedding Planner App | Shared Planning for Indian Weddings",
+    "seoDescription": "VivahGo is a wedding planner app for Indian weddings that helps couples, families, and planners manage tasks, budgets, guests, vendors, RSVPs, timelines, and wedding websites in one place.",
+    "heroKicker": "Wedding planner app for real Indian wedding workflows",
+    "heroTitle": "The wedding planner app that keeps your entire wedding organized in one place.",
+    "heroSummary": "VivahGo gives couples, families, and planners one shared workspace for tasks, budgets, guests, vendors, RSVPs, timelines, and wedding websites.",
+    "heroBody": "Use it when your wedding planning has outgrown chats, spreadsheets, and repeated family calls. Instead of rebuilding context every day, keep one current plan that everyone can see.",
+    "highlights": [
+      {
+        "title": "One shared wedding workspace",
+        "description": "Keep the latest plan visible to couples, parents, siblings, and planners without version-control chaos."
+      },
+      {
+        "title": "Checklist, budget, guests, and vendors together",
+        "description": "Manage the moving parts of the wedding from one connected system instead of separate tools."
+      },
+      {
+        "title": "Built for multi-event Indian weddings",
+        "description": "Handle roka, mehndi, sangeet, haldi, wedding day, and reception with ceremony-level structure."
+      },
+      {
+        "title": "Useful before and during the wedding",
+        "description": "Plan earlier with clarity, then use the same workspace to execute once vendors and guests are in motion."
+      }
+    ],
+    "sections": [
+      {
+        "heading": "Why couples look for a wedding planner app",
+        "paragraphs": [
+          "Wedding planning gets difficult when the real work is spread across WhatsApp groups, notes, spreadsheets, and memory. The problem is not that there are too many decisions. The problem is that no one can see the same version of those decisions at the same time.",
+          "A useful wedding planner app should reduce repeated follow-up, make ownership obvious, and keep tasks connected to budgets, guests, and events instead of storing them as isolated lists."
+        ],
+        "bullets": [
+          "Track who owns what and what is still pending.",
+          "Keep event timelines tied to real planning work.",
+          "See the impact of guest, vendor, and budget changes quickly."
+        ]
+      },
+      {
+        "heading": "What a better wedding planning system should help you do",
+        "paragraphs": [
+          "The best wedding planner app is not just a checklist. It acts like the operating system for the wedding. It keeps the plan live while the wedding keeps changing.",
+          "That means the app should be useful whether you are planning your own wedding, coordinating with family, or running weddings as a professional planner."
+        ],
+        "bullets": [
+          "Move from scattered updates to one source of truth.",
+          "Connect ceremony planning with budgets, guests, and vendors.",
+          "Make collaboration easier without creating more noise."
+        ]
+      }
+    ],
+    "faqs": [
+      {
+        "question": "Who is this wedding planner app for?",
+        "answer": "VivahGo is for couples, families, and wedding planners who need one shared place to manage the wedding plan."
+      },
+      {
+        "question": "Can it handle Indian weddings with multiple ceremonies?",
+        "answer": "Yes. VivahGo is designed for Indian weddings with several events, many stakeholders, and ceremony-level coordination."
+      },
+      {
+        "question": "What makes it different from using WhatsApp and spreadsheets?",
+        "answer": "Chats and spreadsheets can store information, but they do not keep the wedding plan live, shared, and easy to act on. VivahGo is built to do that."
+      }
+    ],
+    "relatedGuideSlugs": [
+      "indian-wedding-checklist",
+      "wedding-budget-planner",
+      "vendor-coordination"
+    ],
+    "relatedPageSlugs": [
+      "wedding-checklist-app",
+      "guest-list-rsvp-app",
+      "wedding-vendor-manager-app"
+    ]
+  },
+  {
+    "slug": "wedding-checklist-app",
+    "title": "Wedding Checklist App",
+    "seoTitle": "Wedding Checklist App | VivahGo for Indian Wedding Planning",
+    "seoDescription": "Use VivahGo as your wedding checklist app to manage ceremony-level tasks, owners, deadlines, family approvals, and execution work across your entire wedding.",
+    "heroKicker": "Wedding checklist app for couples, families, and planners",
+    "heroTitle": "A wedding checklist app that turns planning lists into actual execution.",
+    "heroSummary": "VivahGo helps you track wedding tasks by ceremony, owner, deadline, and status so nothing important disappears into chats or memory.",
+    "heroBody": "Instead of one long messy wedding to-do list, build a checklist that reflects the real shape of the wedding and the people responsible for moving it forward.",
+    "highlights": [
+      {
+        "title": "Ceremony-level task planning",
+        "description": "Break the wedding into event-specific checklists instead of keeping one flat list for everything."
+      },
+      {
+        "title": "Clear ownership",
+        "description": "Assign every important task to the person or team responsible for approvals and execution."
+      },
+      {
+        "title": "Live progress visibility",
+        "description": "See what is complete, what is pending, and what is getting blocked before it becomes urgent."
+      },
+      {
+        "title": "Connected planning context",
+        "description": "Keep your checklist tied to the same wedding workspace as budgets, guests, and vendors."
+      }
+    ],
+    "sections": [
+      {
+        "heading": "Why a wedding checklist app works better than a static list",
+        "paragraphs": [
+          "A wedding checklist becomes useful when it mirrors how the wedding is actually getting planned. Tasks should connect to ceremonies, approvals, vendor dependencies, and payment moments instead of existing as disconnected reminders.",
+          "That is why a wedding checklist app can be more useful than a spreadsheet or note. It keeps the checklist active while the wedding plan evolves."
+        ],
+        "bullets": [
+          "Track deadlines and owners together.",
+          "Separate ceremony-specific work from general planning.",
+          "Review progress with family or planners in one place."
+        ]
+      },
+      {
+        "heading": "Use the checklist to reduce follow-up and confusion",
+        "paragraphs": [
+          "The biggest value of a checklist is not having a longer list. It is reducing the repeated follow-up that happens when no one knows what was decided, who is handling it, or whether it is already done.",
+          "A cleaner checklist creates calmer planning because it becomes easier to trust the current state of the wedding."
+        ],
+        "bullets": [
+          "Keep one current task list instead of multiple private copies.",
+          "Use progress reviews to catch slippage early.",
+          "Move key tasks into a shared planning workflow instead of relying on memory."
+        ]
+      }
+    ],
+    "faqs": [
+      {
+        "question": "Can I organize the checklist by function or ceremony?",
+        "answer": "Yes. VivahGo works best when your checklist is broken into ceremony-level workflows rather than one generic wedding to-do list."
+      },
+      {
+        "question": "Does the checklist work for family collaboration too?",
+        "answer": "Yes. The checklist is useful when family members need visibility into who owns what and what still needs action."
+      },
+      {
+        "question": "Is this only for early-stage planning?",
+        "answer": "No. A wedding checklist app is valuable early for structure and later for execution when deadlines and dependencies start multiplying."
+      }
+    ],
+    "relatedGuideSlugs": [
+      "indian-wedding-checklist",
+      "punjabi-wedding-timeline",
+      "vendor-coordination"
+    ],
+    "relatedPageSlugs": [
+      "wedding-planner-app",
+      "wedding-budget-planner-app",
+      "guest-list-rsvp-app"
+    ]
+  },
+  {
+    "slug": "wedding-budget-planner-app",
+    "title": "Wedding Budget Planner App",
+    "seoTitle": "Wedding Budget Planner App | VivahGo for Wedding Budget Tracking",
+    "seoDescription": "Use VivahGo as your wedding budget planner app to track planned spend, actual spend, vendor balances, due dates, and ceremony-wise wedding costs in one place.",
+    "heroKicker": "Wedding budget planner app for cleaner cost visibility",
+    "heroTitle": "A wedding budget planner app that shows what you have spent, what is pending, and what is drifting.",
+    "heroSummary": "VivahGo helps you organize wedding budgets by category, event, vendor, payment stage, and due date so budget stress shows up earlier.",
+    "heroBody": "Track finances in the same workspace as your wedding timeline, vendors, and guest decisions so cost changes stay connected to the planning choices causing them.",
+    "highlights": [
+      {
+        "title": "Planned vs actual spend",
+        "description": "Compare what you expected to spend with what is already committed or paid."
+      },
+      {
+        "title": "Vendor balance tracking",
+        "description": "See advances, pending balances, and due dates instead of losing them in chat history."
+      },
+      {
+        "title": "Ceremony-wise budget view",
+        "description": "Understand which events are driving overspend and where pressure is building."
+      },
+      {
+        "title": "Connected financial decisions",
+        "description": "Link guest changes, venue shifts, and vendor updates back to the budget impact."
+      }
+    ],
+    "sections": [
+      {
+        "heading": "Why a wedding budget planner app matters",
+        "paragraphs": [
+          "Wedding budgets often feel under control until the pending balances start piling up near the event. That usually happens because the budget is stored separately from the rest of the planning system.",
+          "A wedding budget planner app is most useful when it shows not just what has been spent, but what has been promised, what is due next, and which wedding decisions are causing the number to move."
+        ],
+        "bullets": [
+          "Track category-level and ceremony-level spend together.",
+          "Watch vendor due dates and pending commitments early.",
+          "Use one live budget instead of scattered private sheets."
+        ]
+      },
+      {
+        "heading": "Connect the budget to real wedding operations",
+        "paragraphs": [
+          "Budget planning becomes calmer when financial decisions are not isolated from guest planning, vendor coordination, and event timelines. The cost of the wedding gets clearer when it stays attached to the planning context around it.",
+          "That makes a budget planner app much more operationally useful than a total number in a spreadsheet."
+        ],
+        "bullets": [
+          "Review cost changes after guest or venue changes.",
+          "Tie payment tracking to vendor status.",
+          "Catch overspending earlier with one shared budget view."
+        ]
+      }
+    ],
+    "faqs": [
+      {
+        "question": "Can I track vendor advances and balances?",
+        "answer": "Yes. VivahGo is designed to help you log advances, pending balances, due dates, and total commitments for vendors."
+      },
+      {
+        "question": "Does it work for multi-event Indian weddings?",
+        "answer": "Yes. The budget planner is especially helpful when several ceremonies are sharing or splitting venue, decor, hospitality, and vendor costs."
+      },
+      {
+        "question": "Why not just use a budget spreadsheet?",
+        "answer": "A spreadsheet can store numbers, but a budget planner app becomes more useful when it stays connected to guests, vendors, and ceremony timelines."
+      }
+    ],
+    "relatedGuideSlugs": [
+      "wedding-budget-planner",
+      "vendor-coordination",
+      "guest-list-rsvp"
+    ],
+    "relatedPageSlugs": [
+      "wedding-planner-app",
+      "wedding-checklist-app",
+      "wedding-vendor-manager-app"
+    ]
+  },
+  {
+    "slug": "guest-list-rsvp-app",
+    "title": "Guest List and RSVP App",
+    "seoTitle": "Guest List RSVP App | VivahGo for Wedding Guest Tracking",
+    "seoDescription": "Use VivahGo as your wedding guest list and RSVP app to manage confirmations, headcounts, family sides, follow-ups, invitation status, and guest planning in one place.",
+    "heroKicker": "Guest list and RSVP app for cleaner wedding headcounts",
+    "heroTitle": "A guest list and RSVP app that keeps your wedding headcount trustworthy.",
+    "heroSummary": "VivahGo helps you manage invitations, confirmations, family sides, follow-ups, and guest counts so hospitality and budget decisions are based on the latest numbers.",
+    "heroBody": "When guest planning lives in multiple sheets and message threads, it becomes hard to trust the final count. Use one current guest workflow instead.",
+    "highlights": [
+      {
+        "title": "One master guest list",
+        "description": "Keep all guest data in one current system instead of several family-managed versions."
+      },
+      {
+        "title": "RSVP status tracking",
+        "description": "Monitor pending, yes, and no responses without rebuilding headcounts manually."
+      },
+      {
+        "title": "Family-side visibility",
+        "description": "Track guest ownership, relation groups, and invitation status in a way families can actually use."
+      },
+      {
+        "title": "Operationally useful guest data",
+        "description": "Use updated guest counts to inform hospitality, transport, rooming, and catering decisions."
+      }
+    ],
+    "sections": [
+      {
+        "heading": "Why a guest list and RSVP app matters",
+        "paragraphs": [
+          "Guest planning affects far more than invitations. It shapes hospitality, transport, venue readiness, rooming, and catering assumptions across the wedding. That means the guest list needs to stay current if the rest of the plan is going to stay reliable.",
+          "A guest list and RSVP app helps because it keeps the latest numbers visible without forcing anyone to chase the newest spreadsheet."
+        ],
+        "bullets": [
+          "Store invitation status and RSVP status together.",
+          "Keep updated headcounts easy to trust.",
+          "Reduce repeated calls and manual reconciliations."
+        ]
+      },
+      {
+        "heading": "Use guest tracking to improve the rest of the wedding plan",
+        "paragraphs": [
+          "The guest list becomes most valuable when it informs the rest of the wedding. Updated confirmations should make it easier to review transport, hospitality, seating, and budget decisions instead of living in a separate admin corner.",
+          "That is why the guest list and RSVP flow works best inside the same workspace as events and budgets."
+        ],
+        "bullets": [
+          "Tie guest count changes to hospitality decisions.",
+          "Keep RSVP follow-ups connected to the plan.",
+          "Use one guest view for couples, families, and planners."
+        ]
+      }
+    ],
+    "faqs": [
+      {
+        "question": "Can I send wedding RSVP links from VivahGo?",
+        "answer": "Yes. VivahGo supports RSVP workflows so couples and planners can keep invitation responses and guest counts together."
+      },
+      {
+        "question": "Does it help with family-managed guest lists too?",
+        "answer": "Yes. It is especially helpful when multiple family branches are contributing names and no one wants conflicting versions."
+      },
+      {
+        "question": "Why is guest planning so important to the rest of the wedding?",
+        "answer": "Because headcounts directly affect catering, transport, hospitality, rooming, and budget planning across the wedding."
+      }
+    ],
+    "relatedGuideSlugs": [
+      "guest-list-rsvp",
+      "wedding-budget-planner",
+      "indian-wedding-checklist"
+    ],
+    "relatedPageSlugs": [
+      "wedding-planner-app",
+      "wedding-checklist-app",
+      "wedding-vendor-manager-app"
+    ]
+  },
+  {
+    "slug": "wedding-vendor-manager-app",
+    "title": "Wedding Vendor Manager App",
+    "seoTitle": "Wedding Vendor Manager App | VivahGo for Vendor Coordination",
+    "seoDescription": "Use VivahGo as your wedding vendor manager app to track bookings, deliverables, payment checkpoints, timelines, and event-day coordination across all your wedding vendors.",
+    "heroKicker": "Wedding vendor manager app for cleaner coordination",
+    "heroTitle": "A wedding vendor manager app that keeps vendor bookings, payments, and execution aligned.",
+    "heroSummary": "VivahGo helps you coordinate photographers, decorators, venues, makeup artists, choreographers, transport, hospitality teams, and planners from one shared wedding workspace.",
+    "heroBody": "When vendor information is spread across chats and separate notes, it becomes hard to trust what has been booked, what is pending, and what depends on what. Use one live system instead.",
+    "highlights": [
+      {
+        "title": "Vendor booking visibility",
+        "description": "Track what has been confirmed, what is pending, and what still needs approval."
+      },
+      {
+        "title": "Payment checkpoint tracking",
+        "description": "Keep advances, pending balances, and due dates close to the rest of vendor planning."
+      },
+      {
+        "title": "Event-day coordination",
+        "description": "See which vendor supports which event, when they are needed, and who owns the handoff."
+      },
+      {
+        "title": "Shared execution view",
+        "description": "Keep couples, families, and planners aligned on the same current vendor plan."
+      }
+    ],
+    "sections": [
+      {
+        "heading": "Why a wedding vendor manager app matters",
+        "paragraphs": [
+          "Vendor coordination breaks down when no one can quickly answer what was promised, what was paid, which event the vendor supports, and whether there are dependencies on another team. That is why vendor planning needs more than a contact list.",
+          "A wedding vendor manager app is useful because it keeps scope, timing, payment status, and event-day expectations in the same planning system."
+        ],
+        "bullets": [
+          "Track booking status, deliverables, and due dates together.",
+          "Connect vendors to the ceremonies they support.",
+          "Reduce repeated clarification calls before major events."
+        ]
+      },
+      {
+        "heading": "Use the vendor plan to reduce execution risk",
+        "paragraphs": [
+          "The best vendor plan is not the longest one. It is the clearest one. Every major vendor should be easy to understand in terms of ownership, payment, timing, and event-day responsibility.",
+          "That clarity becomes especially valuable in weddings with several ceremonies and many teams working in parallel."
+        ],
+        "bullets": [
+          "Review vendor risks before each major function.",
+          "Tie payments back to vendor commitments.",
+          "Keep one event-day view for the core execution team."
+        ]
+      }
+    ],
+    "faqs": [
+      {
+        "question": "Which vendors can I track in VivahGo?",
+        "answer": "VivahGo can help coordinate venues, decorators, photographers, videographers, makeup artists, choreographers, transport providers, pandits, entertainers, and other wedding vendors."
+      },
+      {
+        "question": "Can planners use it for client weddings?",
+        "answer": "Yes. Vendor coordination is one of the strongest use cases for planners and studios managing several wedding stakeholders."
+      },
+      {
+        "question": "Why is a vendor manager app better than a spreadsheet?",
+        "answer": "Because vendor planning becomes more useful when payment tracking, event timing, and ownership stay connected to the rest of the wedding plan."
+      }
+    ],
+    "relatedGuideSlugs": [
+      "vendor-coordination",
+      "wedding-budget-planner",
+      "punjabi-wedding-timeline"
+    ],
+    "relatedPageSlugs": [
+      "wedding-planner-app",
+      "wedding-budget-planner-app",
+      "guest-list-rsvp-app"
+    ]
+  }
+]

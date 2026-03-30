@@ -19,6 +19,7 @@ import { createDemoPlanner } from "../plannerDefaults";
 import { DEFAULT_SITE_URL, usePageSeo } from "../seo.js";
 import { getMarketingUrl, getPlannerUrl } from "../siteUrls.js";
 import seoKeywordLibrary from "../generated/seo-keywords.json";
+import queryPages from "../content/query-pages.json";
 
 const DEMO_PLANNER = createDemoPlanner();
 
@@ -58,6 +59,73 @@ const outcomes = [
   "No missed payments or tasks",
   "Full visibility across events",
   "Less stress during planning",
+];
+
+const plannerAppCapabilities = [
+  {
+    title: "Wedding checklist app",
+    description: "Break every ceremony into trackable tasks, owners, and deadlines instead of burying decisions in chats.",
+  },
+  {
+    title: "Wedding budget planner",
+    description: "See planned spend, actual spend, pending balances, and ceremony-level budget pressure in one place.",
+  },
+  {
+    title: "Guest list and RSVP tracker",
+    description: "Keep family sides, confirmations, headcounts, and follow-ups current without juggling multiple sheets.",
+  },
+  {
+    title: "Wedding vendor manager",
+    description: "Track bookings, payment checkpoints, deliverables, and event-day coordination for all your vendors.",
+  },
+  {
+    title: "Multi-event wedding timeline",
+    description: "Organize roka, mehndi, sangeet, haldi, wedding day, and reception inside one connected timeline.",
+  },
+  {
+    title: "Family collaboration workspace",
+    description: "Give couples, parents, siblings, and planners shared visibility without creating version-control chaos.",
+  },
+  {
+    title: "Payment and due-date tracking",
+    description: "Spot upcoming vendor balances, overdue payments, and cost pressure before they become last-minute stress.",
+  },
+  {
+    title: "Wedding reminders and follow-ups",
+    description: "Keep nudges, confirmations, and planning follow-ups moving so nothing important quietly slips.",
+  },
+  {
+    title: "Ceremony-by-ceremony planning",
+    description: "Manage rituals, decor, hospitality, logistics, and ownership separately for each function while seeing the whole wedding together.",
+  },
+  {
+    title: "Shared source of truth",
+    description: "Keep the latest plan, notes, dates, and decisions in one place instead of repeating updates across chats and calls.",
+  },
+  {
+    title: "Wedding website builder",
+    description: "Create a guest-facing wedding website with event details, venue information, and a polished public experience.",
+  },
+  {
+    title: "Planner and studio workflows",
+    description: "Run multiple client weddings with better operational visibility, cleaner handoffs, and less follow-up overhead.",
+  },
+  {
+    title: "Vendor and guest coordination",
+    description: "Connect guest counts, vendor readiness, payments, and event flow so decisions stay operationally useful.",
+  },
+  {
+    title: "Indian wedding planning templates",
+    description: "Start faster with cultural wedding structures built for ceremonies, stakeholders, and real coordination work.",
+  },
+  {
+    title: "Wedding planning dashboard",
+    description: "See the state of your tasks, budgets, guests, vendors, and events from one decision-making screen.",
+  },
+  {
+    title: "Couple and planner friendly setup",
+    description: "Get started quickly whether you are self-planning your wedding or managing weddings as a professional.",
+  },
 ];
 
 const differentiators = [
@@ -115,9 +183,9 @@ const faqs = [
 ];
 
 const socialLinks = [
-  { name: "Instagram", href: "https://www.instagram.com/", label: "Follow VivahGo on Instagram" },
+  { name: "Instagram", href: "https://www.instagram.com/vivah.go/", label: "Follow VivahGo on Instagram" },
   { name: "YouTube", href: "https://www.youtube.com/", label: "Watch VivahGo on YouTube" },
-  { name: "LinkedIn", href: "https://www.linkedin.com/", label: "Connect with VivahGo on LinkedIn" },
+  { name: "LinkedIn", href: "https://www.linkedin.com/company/vivahgo/", label: "Connect with VivahGo on LinkedIn" },
 ];
 
 const structuredDataKeywords = seoKeywordLibrary.clusters.primary.slice(0, 24);
@@ -125,6 +193,7 @@ const coverageTopics = [
   ...seoKeywordLibrary.clusters.primary.slice(0, 8),
   ...seoKeywordLibrary.clusters.cultural.slice(0, 4),
 ];
+const queryCapturePages = queryPages.slice(0, 5);
 const MARKETING_HOME_URL = getMarketingUrl("/");
 const PLANNER_HOME_URL = getPlannerUrl("/");
 
@@ -182,7 +251,7 @@ const homeStructuredData = [
     name: "VivahGo",
     url: MARKETING_HOME_URL,
     logo: `${DEFAULT_SITE_URL}/logo.svg`,
-    description: "Indian wedding planning software for couples, families, and planners managing ceremonies, guests, budgets, vendors, and wedding websites.",
+    description: "Wedding planning software for Indian weddings with shared checklists, budgets, guest management, vendor coordination, RSVPs, timelines, and wedding websites.",
     keywords: structuredDataKeywords.join(", "),
     areaServed: ["India", "UAE", "USA", "UK", "Canada", "Australia", "Singapore"],
   },
@@ -191,7 +260,7 @@ const homeStructuredData = [
     "@type": "WebSite",
     name: "VivahGo",
     url: MARKETING_HOME_URL,
-    description: "Wedding planning software for Indian weddings with shared tasks, budgets, guests, vendors, and event management.",
+    description: "Wedding planner app for Indian weddings with shared checklists, budgets, guests, vendors, timelines, and event management.",
     inLanguage: "en-IN",
     keywords: structuredDataKeywords.join(", "),
   },
@@ -202,7 +271,7 @@ const homeStructuredData = [
     url: MARKETING_HOME_URL,
     applicationCategory: "BusinessApplication",
     operatingSystem: "Web",
-    description: "Indian wedding planner app for cultural weddings with checklists, budgets, vendor coordination, guest RSVP tracking, and wedding websites.",
+    description: "Wedding planner app for Indian weddings with checklists, budgets, guest list management, vendor coordination, RSVP tracking, timelines, and wedding websites.",
     keywords: structuredDataKeywords.join(", "),
     featureList: [
       "Wedding checklist management",
@@ -346,13 +415,13 @@ export default function MarketingHomePage({ page = "home" }) {
   const seoConfig = isPricingPage
     ? {
       title: "VivahGo Pricing | Plans for Couples and Planners",
-      description: "Compare Indian wedding planner app pricing for couples, families, planners, and studios managing guests, budgets, vendors, RSVPs, and wedding websites.",
+      description: "Compare wedding planner app pricing for couples, families, planners, and studios managing guests, budgets, vendors, RSVPs, and wedding websites.",
       canonicalUrl: getMarketingUrl("/pricing"),
       structuredData: pricingStructuredData,
     }
     : {
-      title: "VivahGo | Indian Wedding Planner App for Cultural Weddings",
-      description: "VivahGo is an Indian wedding planner app for cultural weddings with checklist tracking, budgets, guest lists, vendors, RSVPs, ceremonies, and wedding websites.",
+      title: "VivahGo | Wedding Planner App for Indian Weddings",
+      description: "VivahGo is a wedding planner app for Indian weddings that helps couples, families, and planners manage checklists, budgets, guests, vendors, RSVPs, timelines, and wedding websites in one shared workspace.",
       canonicalUrl: MARKETING_HOME_URL,
       structuredData: homeStructuredData,
     };
@@ -897,7 +966,7 @@ export default function MarketingHomePage({ page = "home" }) {
       <main className="marketing-main">
         <section className="marketing-hero">
           <div className="marketing-hero-copy">
-            <p className="marketing-kicker">For Indian weddings with too many chats, lists, and opinions</p>
+            <p className="marketing-kicker">Wedding planner app for Indian weddings with too many chats, lists, and opinions</p>
             <figure className="marketing-hero-visual marketing-hero-visual-inline">
               <img
                 src="/MainHero.png"
@@ -908,9 +977,12 @@ export default function MarketingHomePage({ page = "home" }) {
               <div className="marketing-hero-visual-badge marketing-hero-visual-badge-left">Before: scattered planning</div>
               <div className="marketing-hero-visual-badge marketing-hero-visual-badge-right">After: one shared workspace</div>
             </figure>
-            <h1>Plan your entire wedding in one place. Without chaos, confusion, or constant follow‑ups.</h1>
+            <h1>The wedding planner app that keeps your entire wedding in one place.</h1>
             <p className="marketing-summary">
-              Manage guests, budgets, vendors, and family coordination together in a single shared workspace.
+              VivahGo helps couples, families, and planners manage guests, budgets, vendors, RSVPs, timelines, and family coordination together in a single shared workspace.
+            </p>
+            <p className="marketing-summary">
+              Use it as your wedding checklist app, budget planner, guest list manager, RSVP tracker, and vendor coordination system across every ceremony.
             </p>
 
             <div className="marketing-hero-actions">
@@ -1089,6 +1161,45 @@ export default function MarketingHomePage({ page = "home" }) {
             <a className="marketing-primary-action" href={PLANNER_HOME_URL}>
               Try it free in 2 minutes
             </a>
+          </div>
+        </section>
+
+        <section className="marketing-section" aria-labelledby="planner-app-capabilities-title">
+          <div className="marketing-section-heading">
+            <p className="marketing-section-kicker">Planner App Features</p>
+            <h2 id="planner-app-capabilities-title">Everything a wedding planner app should actually help you manage.</h2>
+            <p>VivahGo is built to handle the planning work that usually gets split across WhatsApp, spreadsheets, notes, and repeated family calls.</p>
+          </div>
+
+          <div className="marketing-feature-grid">
+            {plannerAppCapabilities.map((item) => (
+              <article className="marketing-feature-card marketing-feature-card-left" key={item.title}>
+                <h3>{item.title}</h3>
+                <p>{item.description}</p>
+              </article>
+            ))}
+          </div>
+        </section>
+
+        <section className="marketing-section" aria-labelledby="query-capture-pages-title">
+          <div className="marketing-section-heading">
+            <p className="marketing-section-kicker">Planning Pages</p>
+            <h2 id="query-capture-pages-title">Explore dedicated pages for the exact planning workflow you need.</h2>
+            <p>These focused pages make it easier to jump straight into checklist planning, budgeting, guest tracking, vendor coordination, and broader wedding planning workflows.</p>
+          </div>
+
+          <div className="marketing-guides-grid">
+            {queryCapturePages.map((page) => (
+              <a className="marketing-guide-card marketing-guide-card-link" href={`/${page.slug}`} key={page.slug}>
+                <div className="marketing-guide-card-body">
+                  <div className="marketing-guide-card-meta">
+                    <span>Planning Page</span>
+                  </div>
+                  <h3>{page.title}</h3>
+                  <p>{page.heroSummary}</p>
+                </div>
+              </a>
+            ))}
           </div>
         </section>
 

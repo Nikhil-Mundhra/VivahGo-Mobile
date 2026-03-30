@@ -4,10 +4,13 @@ const { createRes } = require('./helpers/testUtils.cjs');
 const {
   buildGuideMetadata,
   buildMarketingMetadata,
+  buildQueryPageMetadata,
   buildRsvpMetadata,
+  buildRouteSnapshot,
   buildWebsiteMetadata,
   createPageHandler,
   injectMetadataIntoHtml,
+  injectRootMarkupIntoHtml,
 } = require('../api/page');
 
 describe('api/page.js', function () {
@@ -27,6 +30,15 @@ describe('api/page.js', function () {
     assert.match(html, /meta name="robots" content="noindex, nofollow"/);
     assert.match(html, /meta property="og:url" content="https:\/\/vivahgo\.com\/asha-rohan-1"/);
     assert.doesNotMatch(html, /<title>Old<\/title>/);
+  });
+
+  it('injects crawlable root markup into the app shell', function () {
+    const html = injectRootMarkupIntoHtml(
+      '<!doctype html><html><head></head><body><div id="root"></div></body></html>',
+      '<main><h1>Wedding planner app</h1><p>Server snapshot</p></main>'
+    );
+
+    assert.match(html, /<div id="root"><main><h1>Wedding planner app<\/h1><p>Server snapshot<\/p><\/main><\/div>/);
   });
 
   it('builds marketing metadata for home, pricing, guides, and careers pages', function () {
@@ -56,6 +68,74 @@ describe('api/page.js', function () {
     assert.match(guideMeta.title, /Budget Planning Guide/);
     assert.equal(guideMeta.canonicalPath, '/guides/wedding-budget-planner');
     assert.equal(missingGuideMeta.robots, 'noindex, nofollow');
+  });
+
+  it('builds query page metadata for a valid slug and noindexes missing pages', function () {
+    const req = { headers: { host: 'vivahgo.com', 'x-forwarded-proto': 'https' } };
+    const queryMeta = buildQueryPageMetadata(req, 'wedding-planner-app', {
+      page: {
+        slug: 'wedding-planner-app',
+        title: 'Wedding Planner App',
+        seoTitle: 'VivahGo Wedding Planner App',
+        seoDescription: 'Query page description.',
+        highlights: [{ title: 'One workspace' }],
+        faqs: [{ question: 'Who is it for?', answer: 'Couples and planners.' }],
+      },
+    }, 200);
+    const missingMeta = buildQueryPageMetadata(req, 'missing-page', { error: 'Planning page not found.' }, 404);
+
+    assert.equal(queryMeta.canonicalPath, '/wedding-planner-app');
+    assert.match(queryMeta.title, /Wedding Planner App/);
+    assert.equal(missingMeta.robots, 'noindex, nofollow');
+  });
+
+  it('builds crawlable snapshots for indexable marketing routes', function () {
+    const homeSnapshot = buildRouteSnapshot({ route: 'home', statusCode: 200, payload: null });
+    const guideSnapshot = buildRouteSnapshot({
+      route: 'guide',
+      statusCode: 200,
+      payload: {
+        guide: {
+          slug: 'wedding-budget-planner',
+          title: 'Indian Wedding Budget Planning Guide',
+          summary: 'Budget summary.',
+          seoDescription: 'Budget SEO description.',
+          sections: [
+            {
+              heading: 'Track the budget',
+              paragraphs: ['Paragraph body.'],
+              bullets: ['Watch pending balances.'],
+            },
+          ],
+        },
+      },
+    });
+    const querySnapshot = buildRouteSnapshot({
+      route: 'query',
+      statusCode: 200,
+      payload: {
+        page: {
+          slug: 'wedding-planner-app',
+          title: 'Wedding Planner App',
+          heroKicker: 'Wedding planner app',
+          heroTitle: 'The wedding planner app that keeps your wedding organized.',
+          heroSummary: 'Summary.',
+          heroBody: 'Body copy.',
+          highlights: [{ title: 'One workspace', description: 'Description.' }],
+          sections: [{ heading: 'Why it matters', paragraphs: ['Paragraph body.'], bullets: ['Bullet item.'] }],
+          faqs: [{ question: 'Who is it for?', answer: 'Couples and planners.' }],
+          relatedPageSlugs: [],
+          relatedGuideSlugs: [],
+        },
+      },
+    });
+
+    assert.match(homeSnapshot, /The wedding planner app that keeps your entire wedding in one place/);
+    assert.match(homeSnapshot, /Wedding checklist app/);
+    assert.match(guideSnapshot, /Indian Wedding Budget Planning Guide/);
+    assert.match(guideSnapshot, /Watch pending balances/);
+    assert.match(querySnapshot, /The wedding planner app that keeps your wedding organized/);
+    assert.match(querySnapshot, /Bullet item/);
   });
 
   it('builds wedding and rsvp metadata from planner payloads', function () {
@@ -106,6 +186,29 @@ describe('api/page.js', function () {
     assert.match(res.body, /VivahGo Pricing/);
     assert.match(res.body, /<link rel="canonical" href="https:\/\/vivahgo\.com\/pricing"/);
     assert.match(res.body, /application\/ld\+json/);
+    assert.match(res.body, /Wedding Planner App Pricing/);
+    assert.match(res.body, /Starter/);
+  });
+
+  it('renders crawlable home html through the page handler', async function () {
+    const handler = createPageHandler({
+      loadHtmlTemplate: async () => '<!doctype html><html><head><script type="module" src="/assets/app.js"></script></head><body><div id="root"></div></body></html>',
+      plannerHandlers: {},
+    });
+    const req = {
+      method: 'GET',
+      headers: { host: 'vivahgo.com', 'x-forwarded-proto': 'https' },
+      query: { route: 'home' },
+    };
+    const res = createRes();
+
+    await handler(req, res);
+
+    assert.equal(res.statusCode, 200);
+    assert.match(res.body, /Wedding Planner App for Indian Weddings/);
+    assert.match(res.body, /The wedding planner app that keeps your entire wedding in one place/);
+    assert.match(res.body, /Wedding checklist app/);
+    assert.match(res.body, /https:\/\/vivahgo\.com\/guides\/indian-wedding-checklist/);
   });
 
   it('renders guide html for a valid guide slug', async function () {
@@ -125,6 +228,27 @@ describe('api/page.js', function () {
     assert.equal(res.statusCode, 200);
     assert.match(res.body, /Indian Wedding Budget Planning Guide/);
     assert.match(res.body, /https:\/\/vivahgo\.com\/guides\/wedding-budget-planner/);
+    assert.match(res.body, /Budget by category and by ceremony/);
+  });
+
+  it('renders query page html for a valid query slug', async function () {
+    const handler = createPageHandler({
+      loadHtmlTemplate: async () => '<!doctype html><html><head><script type="module" src="/assets/app.js"></script></head><body><div id="root"></div></body></html>',
+      plannerHandlers: {},
+    });
+    const req = {
+      method: 'GET',
+      headers: { host: 'vivahgo.com', 'x-forwarded-proto': 'https' },
+      query: { route: 'query', slug: 'wedding-planner-app' },
+    };
+    const res = createRes();
+
+    await handler(req, res);
+
+    assert.equal(res.statusCode, 200);
+    assert.match(res.body, /VivahGo Wedding Planner App/);
+    assert.match(res.body, /The wedding planner app that keeps your entire wedding organized in one place/);
+    assert.match(res.body, /https:\/\/vivahgo\.com\/wedding-planner-app/);
   });
 
   it('renders guide html and returns 404 for an unknown guide slug', async function () {

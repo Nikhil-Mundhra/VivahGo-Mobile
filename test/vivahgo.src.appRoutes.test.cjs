@@ -22,6 +22,8 @@ describe('VivahGo/src/appRoutes.js', function () {
     assert.equal(mod.getRouteInfo('/pricing').isPricingRoute, true);
     assert.equal(mod.getRouteInfo('/guides').isGuidesRoute, true);
     assert.equal(mod.getRouteInfo('/guides/wedding-budget-planner').guideSlug, 'wedding-budget-planner');
+    assert.equal(mod.getRouteInfo('/wedding-planner-app').queryPageSlug, 'wedding-planner-app');
+    assert.equal(mod.getRouteInfo('/wedding-planner-app').bodyRoute, 'home');
     assert.equal(mod.getRouteInfo('/rsvp/test-token').rsvpToken, 'test-token');
     assert.equal(mod.getRouteInfo('/rsvp/test-token').bodyRoute, 'rsvp');
     assert.equal(mod.getRouteInfo('/careers').isCareersRoute, true);
@@ -56,10 +58,12 @@ describe('VivahGo/src/appRoutes.js', function () {
     assert.equal(mod.getRouteInfo('/pricing').publicWeddingSlug, '');
     assert.equal(mod.getRouteInfo('/guides').publicWeddingSlug, '');
     assert.equal(mod.getRouteInfo('/guides/wedding-budget-planner').publicWeddingSlug, '');
+    assert.equal(mod.getRouteInfo('/wedding-planner-app').publicWeddingSlug, '');
     assert.equal(mod.getRouteInfo('/rsvp/test-token').publicWeddingSlug, '');
     assert.equal(mod.getRouteInfo('/admin').publicWeddingSlug, '');
     assert.equal(mod.getRouteInfo('/wedding').bodyRoute, 'wedding');
     assert.equal(mod.getRouteInfo('/riya-arjun').bodyRoute, 'wedding');
     assert.equal(mod.getRouteInfo('/guides/wedding-budget-planner').bodyRoute, 'home');
+    assert.equal(mod.getRouteInfo('/guest-list-rsvp-app').queryPageSlug, 'guest-list-rsvp-app');
   });
 });

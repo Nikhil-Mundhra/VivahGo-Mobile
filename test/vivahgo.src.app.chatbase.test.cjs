@@ -29,7 +29,7 @@ describe('VivahGo/src/chatbase.js', function () {
     delete global.document;
   });
 
-  it('enables chatbase on home and pricing routes only', async function () {
+  it('enables chatbase on core marketing routes', async function () {
     const appMod = await loadAppModule();
     const routeMod = await loadRouteModule();
 
@@ -39,6 +39,10 @@ describe('VivahGo/src/chatbase.js', function () {
     );
     assert.equal(
       appMod.shouldShowChatbaseForRoute(routeMod.getRouteInfo('/pricing', { hostname: 'vivahgo.com' })),
+      true
+    );
+    assert.equal(
+      appMod.shouldShowChatbaseForRoute(routeMod.getRouteInfo('/wedding-planner-app', { hostname: 'vivahgo.com' })),
       true
     );
     assert.equal(
