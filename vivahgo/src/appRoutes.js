@@ -6,6 +6,7 @@ export const QUERY_CAPTURE_PAGE_SLUGS = [
   "wedding-budget-planner-app",
   "guest-list-rsvp-app",
   "wedding-vendor-manager-app",
+  "indian-wedding-budget-template",
   "free-wedding-budget-template",
   "wedding-guest-list-template",
   "for-wedding-planners",

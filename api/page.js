@@ -16,6 +16,11 @@ const COVERAGE_TOPICS = [
 ];
 const GUIDE_BY_SLUG = new Map(guides.map((guide) => [guide.slug, guide]));
 const QUERY_PAGE_BY_SLUG = new Map(queryPages.map((page) => [page.slug, page]));
+const DEFAULT_DONUT_COLORS = ['#bb4d28', '#d06d3d', '#f3bf73', '#7d2512', '#a95c2b', '#f0d6a2', '#6b3a2c', '#e18f5e'];
+const BUDGET_TEMPLATE_PAGE_SLUG = 'indian-wedding-budget-template';
+const QUERY_PAGE_ALIASES = {
+  'free-wedding-budget-template': BUDGET_TEMPLATE_PAGE_SLUG,
+};
 const PAGE_CONTENT_SECURITY_POLICY = [
   "default-src 'self'",
   "base-uri 'self'",
@@ -44,70 +49,56 @@ const HOME_FAQS = [
     answer: 'As early as possible. It helps most before details spread across WhatsApp, notes, and spreadsheets.',
   },
 ];
-const HOME_SNAPSHOT_CAPABILITIES = [
+const HOME_SNAPSHOT_CAPABILITY_BUCKETS = [
   {
-    title: 'Wedding checklist app',
-    description: 'Track ceremony-level tasks, owners, and deadlines instead of letting planning drift across WhatsApp and notes.',
+    label: 'Plan',
+    intro: 'Structure the wedding early so every ceremony starts from the same playbook.',
+    items: [
+      {
+        title: 'Stay on top of every ceremony',
+        description: 'Use the wedding checklist app to track tasks, owners, and deadlines across every function.',
+      },
+      {
+        title: 'Keep the full timeline usable',
+        description: 'Map roka, mehndi, sangeet, haldi, wedding day, and reception in one connected timeline.',
+      },
+      {
+        title: 'Start faster with Indian wedding templates',
+        description: 'Use templates built for cultural ceremonies, stakeholders, and multi-event weddings.',
+      },
+    ],
   },
   {
-    title: 'Wedding budget planner',
-    description: 'Monitor planned spend, actual spend, pending balances, and ceremony-wise budget pressure from one dashboard.',
+    label: 'Track',
+    intro: 'See the whole wedding in one dashboard, then go deeper where decisions are moving.',
+    items: [
+      {
+        title: 'Stay in control of your budget',
+        description: 'Use the wedding budget planner to compare planned vs actual spend before it becomes stress.',
+      },
+      {
+        title: 'Keep guest decisions current',
+        description: 'Track guests, RSVPs, family sides, and headcounts without juggling multiple sheets.',
+      },
+      {
+        title: 'See payments before they turn urgent',
+        description: 'Monitor vendor advances, due dates, and pending balances from one dashboard.',
+      },
+    ],
   },
   {
-    title: 'Guest list and RSVP tracker',
-    description: 'Keep headcounts, family sides, confirmations, and follow-ups organized in one current guest workflow.',
-  },
-  {
-    title: 'Wedding vendor manager',
-    description: 'Coordinate vendors, payment checkpoints, deliverables, and event-day dependencies without repeated follow-ups.',
-  },
-  {
-    title: 'Multi-event wedding timeline',
-    description: 'Map every ceremony, venue shift, owner, and dependency inside one connected wedding plan.',
-  },
-  {
-    title: 'Family collaboration workspace',
-    description: 'Give couples, parents, and planners one shared planning view without confusing parallel versions.',
-  },
-  {
-    title: 'Payment and due-date tracking',
-    description: 'Watch upcoming vendor balances, pending commitments, and payment deadlines before they turn urgent.',
-  },
-  {
-    title: 'Wedding reminders and follow-ups',
-    description: 'Keep confirmations, reminders, and planning follow-ups moving so important details do not stall.',
-  },
-  {
-    title: 'Ceremony-by-ceremony planning',
-    description: 'Track rituals, hospitality, logistics, and decor separately for each function while keeping the full wedding connected.',
-  },
-  {
-    title: 'Shared source of truth',
-    description: 'Keep dates, notes, owners, and decisions in one place instead of repeating the same update across calls and chats.',
-  },
-  {
-    title: 'Wedding website builder',
-    description: 'Publish a guest-facing wedding website with event details, venue information, and a polished public experience.',
-  },
-  {
-    title: 'Planner and studio workflows',
-    description: 'Support wedding planners and studios managing multiple client weddings with clearer operational visibility.',
-  },
-  {
-    title: 'Vendor and guest coordination',
-    description: 'Connect guest counts, vendor readiness, and event flow so every planning decision stays actionable.',
-  },
-  {
-    title: 'Indian wedding planning templates',
-    description: 'Start faster with planning structures designed for cultural ceremonies, family involvement, and multi-event weddings.',
-  },
-  {
-    title: 'Wedding planning dashboard',
-    description: 'Review tasks, budgets, guests, vendors, and event status from one decision-making screen.',
-  },
-  {
-    title: 'Couple and planner friendly setup',
-    description: 'Get organized quickly whether you are planning your own wedding or running weddings professionally.',
+    label: 'Coordinate',
+    intro: 'Keep people, vendors, and approvals aligned without repeated follow-ups.',
+    items: [
+      {
+        title: 'Run vendor work with less follow-up',
+        description: 'Use the wedding vendor manager to track bookings, deliverables, and event-day dependencies.',
+      },
+      {
+        title: 'Keep everyone on the same page',
+        description: 'Give couples, families, and planners one shared workspace instead of parallel versions.',
+      },
+    ],
   },
 ];
 const HOME_SNAPSHOT_AUDIENCES = [
@@ -152,6 +143,10 @@ const PRICING_SNAPSHOT_PLANS = [
 ];
 
 let cachedHtmlTemplate = null;
+
+function getCanonicalQueryPageSlug(slug = '') {
+  return QUERY_PAGE_ALIASES[slug] || slug;
+}
 
 function escapeHtml(value) {
   return String(value || '')
@@ -199,6 +194,187 @@ function renderSnapshotActions(actions) {
   return `<div class="marketing-hero-actions">${safeActions.map((action) => (
     `<a class="${escapeAttribute(action.className || 'marketing-secondary-action')}" href="${escapeAttribute(action.href)}"${action.download ? ' download' : ''}>${escapeHtml(action.label)}</a>`
   )).join('')}</div>`;
+}
+
+function formatChartNumber(value) {
+  const numericValue = Number(value);
+  if (!Number.isFinite(numericValue)) {
+    return String(value || '');
+  }
+
+  return Number.isInteger(numericValue) ? String(numericValue) : numericValue.toFixed(1);
+}
+
+function formatChartValue(value, unit = '') {
+  const normalizedUnit = String(unit || '').trim();
+  if (normalizedUnit === 'Rs. lakh') {
+    return `Rs. ${formatChartNumber(value)} lakh`;
+  }
+  if (normalizedUnit === '%') {
+    return `${formatChartNumber(value)}%`;
+  }
+
+  return normalizedUnit ? `${formatChartNumber(value)} ${normalizedUnit}` : formatChartNumber(value);
+}
+
+function buildDonutBackground(segments = []) {
+  const safeSegments = Array.isArray(segments) ? segments : [];
+  let offset = 0;
+
+  const stops = safeSegments.map((segment, index) => {
+    const value = Math.max(0, Number(segment?.value) || 0);
+    const nextOffset = offset + value;
+    const color = segment?.color || DEFAULT_DONUT_COLORS[index % DEFAULT_DONUT_COLORS.length];
+    const stop = `${color} ${offset}% ${nextOffset}%`;
+    offset = nextOffset;
+    return stop;
+  });
+
+  return stops.length ? `conic-gradient(${stops.join(', ')})` : 'conic-gradient(#e9d4be 0% 100%)';
+}
+
+function buildQueryPageDataSnapshot(page) {
+  const dataInsights = Array.isArray(page?.dataInsights) ? page.dataInsights.filter((item) => item?.value && item?.label) : [];
+  const dataCharts = Array.isArray(page?.dataCharts) ? page.dataCharts.filter((item) => item?.title) : [];
+  if (!dataInsights.length && !dataCharts.length) {
+    return '';
+  }
+
+  const insightMarkup = dataInsights.map((item) => `
+            <article class="marketing-data-card">
+              <p class="marketing-data-value">${escapeHtml(item.value)}</p>
+              <h3>${escapeHtml(item.label)}</h3>
+              ${item.detail ? `<p class="marketing-data-caption">${escapeHtml(item.detail)}</p>` : ''}
+            </article>`).join('');
+
+  const chartMarkup = dataCharts.map((chart) => {
+    if (chart.type === 'donut') {
+      const donutSegments = Array.isArray(chart.segments) ? chart.segments.filter((segment) => segment?.label) : [];
+      if (!donutSegments.length) {
+        return '';
+      }
+
+      const legendMarkup = donutSegments.map((segment, index) => {
+        const color = segment?.color || DEFAULT_DONUT_COLORS[index % DEFAULT_DONUT_COLORS.length];
+        return `
+                    <div class="marketing-chart-legend-row">
+                      <span class="marketing-chart-dot" style="background-color: ${escapeAttribute(color)};" aria-hidden="true"></span>
+                      <div>
+                        <strong>${escapeHtml(segment.label)}</strong>
+                        <p>${escapeHtml(formatChartValue(segment.value, '%'))}${segment.detail ? ` • ${escapeHtml(segment.detail)}` : ''}</p>
+                      </div>
+                    </div>`;
+      }).join('');
+
+      return `
+            <article class="marketing-data-card marketing-data-card-chart">
+              <div class="marketing-data-chart-header">
+                <h3>${escapeHtml(chart.title)}</h3>
+                ${chart.description ? `<p>${escapeHtml(chart.description)}</p>` : ''}
+              </div>
+              <div class="marketing-donut-layout">
+                <div class="marketing-donut-chart" style="background: ${escapeAttribute(buildDonutBackground(donutSegments))};">
+                  <div class="marketing-donut-chart-hole">
+                    <strong>${escapeHtml(chart.centerLabel || '100%')}</strong>
+                    ${chart.centerNote ? `<span>${escapeHtml(chart.centerNote)}</span>` : ''}
+                  </div>
+                </div>
+                <div class="marketing-chart-legend">${legendMarkup}
+                </div>
+              </div>
+              ${chart.note ? `<p class="marketing-data-note">${escapeHtml(chart.note)}</p>` : ''}
+            </article>`;
+    }
+
+    if (chart.type === 'range-bars') {
+      const rangeItems = Array.isArray(chart.items) ? chart.items.filter((item) => item?.label) : [];
+      if (!rangeItems.length) {
+        return '';
+      }
+      const maxValue = Math.max(...rangeItems.map((item) => Number(item?.max) || 0), 1);
+      const rows = rangeItems.map((item, index) => {
+        const minValue = Math.max(0, Number(item?.min) || 0);
+        const upperValue = Math.max(minValue, Number(item?.max) || 0);
+        const left = `${(minValue / maxValue) * 100}%`;
+        const width = `${((upperValue - minValue) / maxValue) * 100}%`;
+        const color = item?.color || DEFAULT_DONUT_COLORS[index % DEFAULT_DONUT_COLORS.length];
+
+        return `
+                    <div class="marketing-range-row">
+                      <div class="marketing-range-header">
+                        <strong>${escapeHtml(item.label)}</strong>
+                        <span>${escapeHtml(formatChartValue(minValue, chart.unit))} to ${escapeHtml(formatChartValue(upperValue, chart.unit))}</span>
+                      </div>
+                      <div class="marketing-range-track">
+                        <div class="marketing-range-fill" style="left: ${escapeAttribute(left)}; width: ${escapeAttribute(width)}; background-color: ${escapeAttribute(color)};"></div>
+                      </div>
+                      ${item.detail ? `<p class="marketing-range-note">${escapeHtml(item.detail)}</p>` : ''}
+                    </div>`;
+      }).join('');
+
+      return `
+            <article class="marketing-data-card marketing-data-card-chart">
+              <div class="marketing-data-chart-header">
+                <h3>${escapeHtml(chart.title)}</h3>
+                ${chart.description ? `<p>${escapeHtml(chart.description)}</p>` : ''}
+              </div>
+              <div class="marketing-range-chart">${rows}
+              </div>
+              ${chart.note ? `<p class="marketing-data-note">${escapeHtml(chart.note)}</p>` : ''}
+            </article>`;
+    }
+
+    if (chart.type === 'bars') {
+      const barItems = Array.isArray(chart.items) ? chart.items.filter((item) => item?.label) : [];
+      if (!barItems.length) {
+        return '';
+      }
+      const maxValue = Math.max(...barItems.map((item) => Number(item?.value) || 0), 1);
+      const rows = barItems.map((item, index) => {
+        const numericValue = Math.max(0, Number(item?.value) || 0);
+        const width = `${(numericValue / maxValue) * 100}%`;
+        const color = item?.color || DEFAULT_DONUT_COLORS[index % DEFAULT_DONUT_COLORS.length];
+
+        return `
+                    <div class="marketing-bars-row">
+                      <div class="marketing-range-header">
+                        <strong>${escapeHtml(item.label)}</strong>
+                        <span>${escapeHtml(formatChartValue(numericValue, chart.unit))}</span>
+                      </div>
+                      <div class="marketing-range-track">
+                        <div class="marketing-bars-fill" style="width: ${escapeAttribute(width)}; background-color: ${escapeAttribute(color)};"></div>
+                      </div>
+                      ${item.detail ? `<p class="marketing-range-note">${escapeHtml(item.detail)}</p>` : ''}
+                    </div>`;
+      }).join('');
+
+      return `
+            <article class="marketing-data-card marketing-data-card-chart">
+              <div class="marketing-data-chart-header">
+                <h3>${escapeHtml(chart.title)}</h3>
+                ${chart.description ? `<p>${escapeHtml(chart.description)}</p>` : ''}
+              </div>
+              <div class="marketing-bars-chart">${rows}
+              </div>
+              ${chart.note ? `<p class="marketing-data-note">${escapeHtml(chart.note)}</p>` : ''}
+            </article>`;
+    }
+
+    return '';
+  }).filter(Boolean).join('');
+
+  return `
+        <section class="marketing-section" aria-labelledby="seo-query-data-title">
+          <div class="marketing-section-heading">
+            <p class="marketing-section-kicker">${escapeHtml(page.dataSectionKicker || 'Budget Benchmarks')}</p>
+            <h2 id="seo-query-data-title">${escapeHtml(page.dataSectionTitle || 'Planning data that makes the budget easier to trust.')}</h2>
+            ${page.dataSectionIntro ? `<p>${escapeHtml(page.dataSectionIntro)}</p>` : ''}
+          </div>
+          ${insightMarkup ? `<div class="marketing-data-grid">${insightMarkup}
+          </div>` : ''}
+          ${chartMarkup ? `<div class="marketing-data-chart-grid">${chartMarkup}
+          </div>` : ''}
+        </section>`;
 }
 
 function getRequestSiteUrl(req) {
@@ -349,10 +525,18 @@ function injectRootMarkupIntoHtml(html, rootMarkup = '') {
 }
 
 function buildHomeSnapshot() {
-  const capabilityMarkup = HOME_SNAPSHOT_CAPABILITIES.map((item) => `
-            <article class="marketing-feature-card marketing-feature-card-left">
-              <h3>${escapeHtml(item.title)}</h3>
-              <p>${escapeHtml(item.description)}</p>
+  const capabilityMarkup = HOME_SNAPSHOT_CAPABILITY_BUCKETS.map((bucket) => `
+            <article class="marketing-feature-card marketing-feature-card-left marketing-capability-bucket-card">
+              <div class="marketing-capability-bucket-head">
+                <p class="marketing-capability-bucket-label">${escapeHtml(bucket.label)}</p>
+                <p class="marketing-capability-bucket-intro">${escapeHtml(bucket.intro)}</p>
+              </div>
+              <div class="marketing-capability-list">${bucket.items.map((item) => `
+                <div class="marketing-capability-item">
+                  <h3>${escapeHtml(item.title)}</h3>
+                  <p>${escapeHtml(item.description)}</p>
+                </div>`).join('')}
+              </div>
             </article>`).join('');
   const queryPageMarkup = queryPages.map((page) => `
               <article class="marketing-guide-card">
@@ -397,9 +581,9 @@ function buildHomeSnapshot() {
           <div class="marketing-section-heading">
             <p class="marketing-section-kicker">Planner App Features</p>
             <h2 id="seo-home-capabilities-title">Everything a wedding planner app should actually help you manage.</h2>
-            <p>VivahGo is built to handle the planning work that usually gets split across WhatsApp, spreadsheets, notes, and repeated family calls.</p>
+            <p>VivahGo keeps the core planning workflows clear enough to scan and strong enough to run a real wedding from.</p>
           </div>
-          <div class="marketing-feature-grid">${capabilityMarkup}
+          <div class="marketing-feature-grid marketing-capability-bucket-grid">${capabilityMarkup}
           </div>
         </section>
 
@@ -591,6 +775,308 @@ function isRenderableQueryPage(page) {
   return hasTitle && hasSlug && (hasHero || hasHighlights || hasSections || hasFaqs);
 }
 
+function buildBudgetTemplateQuerySnapshot(page) {
+  const statItems = Array.isArray(page?.dataInsights) ? page.dataInsights.slice(0, 4).filter((item) => item?.value && item?.label) : [];
+  const splitChart = (page?.dataCharts || []).find((chart) => chart.type === 'donut');
+  const regionChart = (page?.dataCharts || []).find((chart) => chart.type === 'range-bars' && chart.title === 'Regional budget ranges');
+  const guestCountChart = (page?.dataCharts || []).find((chart) => chart.title === 'Estimated catering spend by guest count');
+  const prioritiesChart = (page?.dataCharts || []).find((chart) => chart.type === 'bars');
+  const costOverviewItems = Array.isArray(page?.costOverviewItems) ? page.costOverviewItems.filter((item) => item?.label) : [];
+  const costBreakdownRows = Array.isArray(page?.costBreakdownRows) ? page.costBreakdownRows.filter((item) => item?.category) : [];
+  const seoBudgetSteps = Array.isArray(page?.seoBudgetSteps) ? page.seoBudgetSteps.filter((item) => item?.title) : [];
+  const splitSegments = Array.isArray(splitChart?.segments) ? splitChart.segments.filter((segment) => segment?.label) : [];
+  const regionItems = Array.isArray(regionChart?.items) ? regionChart.items.filter((item) => item?.label) : [];
+  const guestItems = Array.isArray(guestCountChart?.items) ? guestCountChart.items.filter((item) => item?.label) : [];
+  const priorityItems = Array.isArray(prioritiesChart?.items) ? prioritiesChart.items.filter((item) => item?.label) : [];
+  const howItWorksSteps = Array.isArray(page?.howItWorksSteps) ? page.howItWorksSteps.filter((item) => item?.title) : [];
+  const useCases = Array.isArray(page?.useCases) ? page.useCases.filter((item) => item?.title) : [];
+  const resourceLinks = Array.isArray(page?.resourceLinks) ? page.resourceLinks.filter((item) => item?.href && item?.label) : [];
+  const faqItems = Array.isArray(page?.faqs) ? page.faqs.filter((item) => item?.question && item?.answer) : [];
+  const [buildSection, savingsSection, templateSection] = Array.isArray(page?.sections) ? page.sections : [];
+  const maxRegionValue = Math.max(...regionItems.map((item) => Number(item?.max) || 0), 1);
+  const maxPriorityValue = Math.max(...priorityItems.map((item) => Number(item?.value) || 0), 1);
+
+  const statsMarkup = statItems.map((item) => `
+            <article class="marketing-budget-stat-card">
+              <strong>${escapeHtml(item.value)}</strong>
+              <h2>${escapeHtml(item.label)}</h2>
+              ${item.detail ? `<p>${escapeHtml(item.detail)}</p>` : ''}
+            </article>`).join('');
+
+  const costOverviewMarkup = costOverviewItems.map((item) => `
+            <article class="marketing-budget-overview-card">
+              <p class="marketing-budget-overview-label">${escapeHtml(item.label)}</p>
+              <strong>${escapeHtml(item.value)}</strong>
+              ${item.detail ? `<p>${escapeHtml(item.detail)}</p>` : ''}
+            </article>`).join('');
+
+  const breakdownRowMarkup = costBreakdownRows.map((item) => `
+                  <tr>
+                    <td><strong>${escapeHtml(item.category)}</strong>${item.note ? `<span>${escapeHtml(item.note)}</span>` : ''}</td>
+                    <td>${escapeHtml(item.share)}</td>
+                    <td>${escapeHtml(item.range)}</td>
+                  </tr>`).join('');
+
+  const featureMarkup = (page?.highlights || []).map((item, index) => `
+            <article class="marketing-budget-feature-card">
+              <span class="marketing-budget-step-number">${escapeHtml(String(index + 1).padStart(2, '0'))}</span>
+              <h3>${escapeHtml(item.title)}</h3>
+              <p>${escapeHtml(item.description)}</p>
+            </article>`).join('');
+
+  const personaMarkup = useCases.map((item, index) => `
+            <article class="marketing-budget-persona-card">
+              <span class="marketing-budget-step-number">${escapeHtml(String(index + 1).padStart(2, '0'))}</span>
+              <h3>${escapeHtml(item.title)}</h3>
+              <p>${escapeHtml(item.description)}</p>
+            </article>`).join('');
+
+  const segmentMarkup = splitSegments.map((segment, index) => {
+    const color = segment?.color || DEFAULT_DONUT_COLORS[index % DEFAULT_DONUT_COLORS.length];
+    return `
+                  <div class="marketing-budget-segment-pill">
+                    <span class="marketing-chart-dot" style="background-color: ${escapeAttribute(color)};" aria-hidden="true"></span>
+                    <strong>${escapeHtml(segment.label)}</strong>
+                    <span>${escapeHtml(formatChartValue(segment.value, '%'))}</span>
+                  </div>`;
+  }).join('');
+
+  const regionMarkup = regionItems.map((item, index) => {
+    const minValue = Math.max(0, Number(item?.min) || 0);
+    const maxValue = Math.max(minValue, Number(item?.max) || 0);
+    const left = `${(minValue / maxRegionValue) * 100}%`;
+    const width = `${((maxValue - minValue) / maxRegionValue) * 100}%`;
+    const color = item?.color || DEFAULT_DONUT_COLORS[index % DEFAULT_DONUT_COLORS.length];
+
+    return `
+                  <div class="marketing-budget-region-row">
+                    <div class="marketing-budget-region-header">
+                      <strong>${escapeHtml(item.label)}</strong>
+                      <span>${escapeHtml(formatChartValue(minValue, regionChart?.unit))} to ${escapeHtml(formatChartValue(maxValue, regionChart?.unit))}</span>
+                    </div>
+                    <div class="marketing-range-track">
+                      <div class="marketing-range-fill" style="left: ${escapeAttribute(left)}; width: ${escapeAttribute(width)}; background-color: ${escapeAttribute(color)};"></div>
+                    </div>
+                  </div>`;
+  }).join('');
+
+  const guestMarkup = guestItems.map((item) => `
+            <article class="marketing-budget-scenario-card">
+              <p class="marketing-budget-overview-label">${escapeHtml(item.label)}</p>
+              <strong>${escapeHtml(formatChartValue(item.min, guestCountChart?.unit))} to ${escapeHtml(formatChartValue(item.max, guestCountChart?.unit))}</strong>
+              ${item.detail ? `<p>${escapeHtml(item.detail)}</p>` : ''}
+            </article>`).join('');
+
+  const priorityMarkup = priorityItems.map((item, index) => {
+    const color = item?.color || DEFAULT_DONUT_COLORS[index % DEFAULT_DONUT_COLORS.length];
+    const width = `${((Number(item?.value) || 0) / maxPriorityValue) * 100}%`;
+    return `
+                  <div class="marketing-budget-priority-row">
+                    <div class="marketing-budget-priority-header">
+                      <strong>${escapeHtml(item.label)}</strong>
+                      <span>${escapeHtml(formatChartValue(item.value, prioritiesChart?.unit))}</span>
+                    </div>
+                    <div class="marketing-range-track">
+                      <div class="marketing-bars-fill" style="width: ${escapeAttribute(width)}; background-color: ${escapeAttribute(color)};"></div>
+                    </div>
+                    </div>`;
+  }).join('');
+
+  const seoStepMarkup = seoBudgetSteps.map((step, index) => `
+            <article class="marketing-budget-step-card">
+              <div class="marketing-budget-step-top">
+                <span class="marketing-budget-step-number">${escapeHtml(String(index + 1).padStart(2, '0'))}</span>
+              </div>
+              <h3>${escapeHtml(step.title)}</h3>
+              <p>${escapeHtml(step.description || '')}</p>
+            </article>`).join('');
+
+  const stepMarkup = howItWorksSteps.map((step, index) => `
+            <article class="marketing-budget-step-card">
+              <div class="marketing-budget-step-top">
+                <span class="marketing-budget-step-number">${escapeHtml(String(index + 1).padStart(2, '0'))}</span>
+              </div>
+              <h3>${escapeHtml(step.title)}</h3>
+              <p>${escapeHtml(step.description || '')}</p>
+            </article>`).join('');
+
+  const copyCardMarkup = [buildSection, savingsSection].filter(Boolean).map((section) => `
+            <article class="marketing-budget-copy-card">
+              <h3>${escapeHtml(section.heading)}</h3>
+              ${section.paragraphs?.[0] ? `<p>${escapeHtml(section.paragraphs[0])}</p>` : ''}
+              ${renderSnapshotList(section.bullets, 'marketing-budget-bullet-list')}
+            </article>`).join('');
+
+  const templateMarkup = Array.isArray(templateSection?.bullets) ? templateSection.bullets.map((bullet) => `
+            <article class="marketing-budget-checklist-item">
+              <span aria-hidden="true"></span>
+              <p>${escapeHtml(bullet)}</p>
+            </article>`).join('') : '';
+
+  const resourceMarkup = resourceLinks.map((item) => `
+            <a class="marketing-budget-resource-card" href="${escapeAttribute(item.href)}">
+              <strong>${escapeHtml(item.label)}</strong>
+              ${item.description ? `<span>${escapeHtml(item.description)}</span>` : ''}
+            </a>`).join('');
+
+  const faqMarkup = faqItems.map((item) => `
+            <details class="marketing-budget-faq-item">
+              <summary>${escapeHtml(item.question)}</summary>
+              <p>${escapeHtml(item.answer)}</p>
+            </details>`).join('');
+
+  return `
+    <div class="marketing-home-shell marketing-budget-template-page" data-seo-snapshot="query-page-budget-template">
+      <main class="marketing-main marketing-budget-main">
+        <section class="marketing-budget-hero">
+          <div class="marketing-budget-hero-copy">
+            <p class="marketing-section-kicker">${escapeHtml(page.heroKicker)}</p>
+            <h1>${escapeHtml(page.heroTitle)}</h1>
+            <p class="marketing-budget-hero-summary">${escapeHtml(page.heroSummary)}</p>
+            ${renderSnapshotActions([
+              { href: page.heroPrimaryHref || '/templates/wedding-budget-template.csv', label: page.heroPrimaryLabel || 'Download free CSV', className: 'marketing-primary-action', download: page.heroPrimaryDownload },
+              { href: page.heroSecondaryHref || 'https://planner.vivahgo.com/', label: page.heroSecondaryLabel || 'Use it live in VivahGo', className: 'marketing-secondary-action', download: page.heroSecondaryDownload },
+            ])}
+            <p class="marketing-budget-hero-note">${escapeHtml(page.heroBody || '')}</p>
+          </div>
+          <div class="marketing-budget-mockup">
+            <div class="marketing-budget-mockup-window" role="img" aria-label="Indian wedding budget template India spreadsheet preview">
+              <div class="marketing-budget-mockup-topbar">
+                <div class="marketing-budget-mockup-dots" aria-hidden="true"><span></span><span></span><span></span></div>
+                <p>Indian Wedding Budget Template</p>
+              </div>
+              <div class="marketing-budget-mockup-summary">
+                <article><span>Total Budget</span><strong>Rs. 20L</strong></article>
+                <article><span>Committed</span><strong>Rs. 9.8L</strong></article>
+                <article><span>Due Next</span><strong>Rs. 2.4L</strong></article>
+              </div>
+              <div class="marketing-budget-mockup-chart">
+                <div class="marketing-budget-mockup-chart-row"><div class="marketing-budget-mockup-chart-label"><span>Venue + Decor</span><strong>25%</strong></div><div class="marketing-budget-mockup-chart-track"><div class="marketing-budget-mockup-chart-fill" style="width: 82%;"></div></div></div>
+                <div class="marketing-budget-mockup-chart-row"><div class="marketing-budget-mockup-chart-label"><span>Catering</span><strong>25%</strong></div><div class="marketing-budget-mockup-chart-track"><div class="marketing-budget-mockup-chart-fill" style="width: 78%;"></div></div></div>
+                <div class="marketing-budget-mockup-chart-row"><div class="marketing-budget-mockup-chart-label"><span>Attire + Styling</span><strong>18%</strong></div><div class="marketing-budget-mockup-chart-track"><div class="marketing-budget-mockup-chart-fill" style="width: 56%;"></div></div></div>
+                <div class="marketing-budget-mockup-chart-row"><div class="marketing-budget-mockup-chart-label"><span>Travel + Stay</span><strong>10%</strong></div><div class="marketing-budget-mockup-chart-track"><div class="marketing-budget-mockup-chart-fill" style="width: 34%;"></div></div></div>
+              </div>
+              <div class="marketing-budget-mockup-table">
+                <div class="marketing-budget-mockup-table-row"><div><strong>Venue</strong><span>Due in 7 days</span></div><p>Rs. 1.8L</p></div>
+                <div class="marketing-budget-mockup-table-row"><div><strong>Caterer</strong><span>Deposit paid</span></div><p>Rs. 1.2L</p></div>
+                <div class="marketing-budget-mockup-table-row"><div><strong>Photo Team</strong><span>Pending approval</span></div><p>Rs. 75k</p></div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        ${statsMarkup ? `<section class="marketing-budget-section" aria-labelledby="budget-stats-title"><div class="marketing-budget-stats-row">${statsMarkup}
+        </div></section>` : ''}
+
+        ${costOverviewMarkup ? `<section class="marketing-budget-section" aria-labelledby="budget-cost-overview-title">
+          <div class="marketing-budget-section-heading">
+            <p class="marketing-section-kicker">Wedding Cost Overview</p>
+            <h2 id="budget-cost-overview-title">${escapeHtml(page.costOverviewTitle || 'What does an Indian wedding cost in 2025?')}</h2>
+            ${page.costOverviewIntro ? `<p>${escapeHtml(page.costOverviewIntro)}</p>` : ''}
+          </div>
+          <div class="marketing-budget-overview-grid">${costOverviewMarkup}
+          </div>
+          <p class="marketing-budget-inline-copy marketing-budget-bridge">${escapeHtml(page.costOverviewBridge || '')} Pair it with the <a href="/wedding-guest-list-template">wedding guest list template</a>, the <a href="/guides/guest-list-rsvp">guest list and RSVP guide</a>, and the <a href="/wedding-budget-planner-app">wedding budget planner app</a> so the numbers stay connected to real guest decisions.</p>
+        </section>` : ''}
+
+        <section class="marketing-budget-section" aria-labelledby="budget-breakdown-title">
+          <div class="marketing-budget-section-heading">
+            <p class="marketing-section-kicker">Category Breakdown</p>
+            <h2 id="budget-breakdown-title">${escapeHtml(page.costBreakdownTitle || 'Indian Wedding Cost Breakdown by Category')}</h2>
+            ${page.costBreakdownIntro ? `<p>${escapeHtml(page.costBreakdownIntro)}</p>` : ''}
+          </div>
+          <div class="marketing-budget-breakdown-layout">
+            ${breakdownRowMarkup ? `<article class="marketing-budget-table-card">
+              <table class="marketing-budget-cost-table">
+                <thead>
+                  <tr>
+                    <th>Category</th>
+                    <th>% of Budget</th>
+                    <th>Typical Cost Range</th>
+                  </tr>
+                </thead>
+                <tbody>${breakdownRowMarkup}
+                </tbody>
+              </table>
+            </article>` : ''}
+            ${splitSegments.length ? `<article class="marketing-budget-chart-card marketing-budget-chart-card-tall"><div class="marketing-budget-chart-copy"><h3>${escapeHtml(splitChart?.title || 'Sample budget split')}</h3>${splitChart?.description ? `<p>${escapeHtml(splitChart.description)}</p>` : ''}</div><div class="marketing-budget-donut-stack"><div class="marketing-donut-chart marketing-budget-donut-chart" style="background: ${escapeAttribute(buildDonutBackground(splitSegments))};"><div class="marketing-donut-chart-hole"><strong>${escapeHtml(splitChart?.centerLabel || '100%')}</strong>${splitChart?.centerNote ? `<span>${escapeHtml(splitChart.centerNote)}</span>` : ''}</div></div><div class="marketing-budget-segment-list">${segmentMarkup}</div></div>${splitChart?.note ? `<p class="marketing-budget-inline-copy">${escapeHtml(splitChart.note)}</p>` : ''}<p class="marketing-budget-inline-copy">Need more detail? Read the <a href="/guides/wedding-budget-planner">wedding budget planning guide</a> and connect vendor payments inside the <a href="/wedding-vendor-manager-app">wedding vendor manager app</a>.</p></article>` : ''}
+          </div>
+        </section>
+
+        <section class="marketing-budget-section" aria-labelledby="budget-features-title">
+          <div class="marketing-budget-section-heading">
+            <p class="marketing-section-kicker">What This Solves</p>
+            <h2 id="budget-features-title">A budget page that is fast to scan and useful in real planning.</h2>
+          </div>
+          <div class="marketing-budget-feature-grid">${featureMarkup}
+          </div>
+        </section>
+
+        <section class="marketing-budget-section" aria-labelledby="budget-personas-title">
+          <div class="marketing-budget-section-heading">
+            <p class="marketing-section-kicker">Who It&apos;s For</p>
+            <h2 id="budget-personas-title">Pick the same template up whether you are planning, approving, or managing.</h2>
+          </div>
+          <div class="marketing-budget-persona-row">${personaMarkup}
+          </div>
+        </section>
+
+        <section class="marketing-budget-section marketing-budget-section-soft" aria-labelledby="budget-insights-title">
+          <div class="marketing-budget-section-heading">
+            <p class="marketing-section-kicker">${escapeHtml(page.dataSectionKicker || 'Indian Wedding Budget Data')}</p>
+            <h2 id="budget-insights-title">${escapeHtml(page.dataSectionTitle || 'Use benchmark data before you lock the big-budget categories.')}</h2>
+            ${page.dataSectionIntro ? `<p>${escapeHtml(page.dataSectionIntro)}</p>` : ''}
+          </div>
+          <div class="marketing-budget-chart-grid">
+            ${regionItems.length ? `<article class="marketing-budget-chart-card"><div class="marketing-budget-chart-copy"><h3>${escapeHtml(regionChart?.title || 'Regional budget ranges')}</h3>${regionChart?.description ? `<p>${escapeHtml(regionChart.description)}</p>` : ''}</div><div class="marketing-budget-region-list">${regionMarkup}</div></article>` : ''}
+            ${priorityItems.length ? `<article class="marketing-budget-chart-card"><h3>${escapeHtml(prioritiesChart?.title || 'What couples prioritised in 2024')}</h3><div class="marketing-budget-priority-list">${priorityMarkup}</div></article>` : ''}
+          </div>
+          ${resourceMarkup ? `<div class="marketing-budget-resource-row">${resourceMarkup}
+          </div>` : ''}
+        </section>
+
+        ${guestMarkup ? `<section class="marketing-budget-section" aria-labelledby="budget-per-guest-title">
+          <div class="marketing-budget-section-heading">
+            <p class="marketing-section-kicker">Per Guest Cost</p>
+            <h2 id="budget-per-guest-title">${escapeHtml(page.perGuestTitle || 'Cost of Indian Wedding per Guest')}</h2>
+            ${page.perGuestIntro ? `<p>${escapeHtml(page.perGuestIntro)}</p>` : ''}
+          </div>
+          <div class="marketing-budget-per-guest-layout">
+            <article class="marketing-budget-formula-card">
+              <p class="marketing-budget-formula-label">Planning formula</p>
+              <strong>${escapeHtml(page.perGuestFormula || 'Total catering cost = guest count × cost per plate × number of functions')}</strong>
+              <p>Use the <a href="/wedding-guest-list-template">wedding guest list template</a> or the <a href="/guest-list-rsvp-app">guest list and RSVP app</a> first, because the guest count is what makes this number expand or stay controlled.</p>
+            </article>
+            <div class="marketing-budget-scenario-grid">${guestMarkup}
+            </div>
+          </div>
+        </section>` : ''}
+
+        ${seoStepMarkup ? `<section class="marketing-budget-section" aria-labelledby="budget-seo-steps-title"><div class="marketing-budget-section-heading"><p class="marketing-section-kicker">How To Build It</p><h2 id="budget-seo-steps-title">${escapeHtml(page.seoBudgetStepsTitle || 'How to Create a Wedding Budget in India')}</h2>${page.seoBudgetStepsIntro ? `<p>${escapeHtml(page.seoBudgetStepsIntro)}</p>` : ''}</div><div class="marketing-budget-step-grid marketing-budget-seo-step-grid">${seoStepMarkup}</div></section>` : ''}
+
+        ${stepMarkup ? `<section class="marketing-budget-section" aria-labelledby="budget-steps-title"><div class="marketing-budget-section-heading"><p class="marketing-section-kicker">Use It In VivahGo</p><h2 id="budget-steps-title">Start with a template. Move into a live budget system when more people need one current version.</h2></div><div class="marketing-budget-step-grid">${stepMarkup}</div></section>` : ''}
+
+        ${copyCardMarkup ? `<section class="marketing-budget-section" aria-labelledby="budget-practical-title"><div class="marketing-budget-section-heading"><p class="marketing-section-kicker">Practical Tips</p><h2 id="budget-practical-title">Use short action lists so the budget stays practical, not theoretical.</h2></div><div class="marketing-budget-copy-grid">${copyCardMarkup}</div></section>` : ''}
+
+        ${templateMarkup ? `<section class="marketing-budget-section" aria-labelledby="budget-template-structure-title"><div class="marketing-budget-section-heading"><p class="marketing-section-kicker">Template Structure</p><h2 id="budget-template-structure-title">${escapeHtml(templateSection?.heading || 'What to include in your template')}</h2>${templateSection?.paragraphs?.[0] ? `<p>${escapeHtml(templateSection.paragraphs[0])}</p>` : ''}</div><div class="marketing-budget-checklist-grid">${templateMarkup}</div><p class="marketing-budget-inline-copy marketing-budget-template-link-copy">If you want the budget to connect with tasks, guests, and vendors, move next to the <a href="/wedding-planner-app">wedding planner app</a> or the <a href="/for-wedding-planners">planner workflow page</a>.</p></section>` : ''}
+
+        ${faqMarkup ? `<section class="marketing-budget-section" aria-labelledby="budget-faq-title"><div class="marketing-budget-section-heading"><p class="marketing-section-kicker">FAQs</p><h2 id="budget-faq-title">Questions people ask before locking an Indian wedding budget.</h2></div><div class="marketing-budget-faq-list">${faqMarkup}
+        </div></section>` : ''}
+
+        <section class="marketing-budget-final-cta" aria-labelledby="budget-final-cta-title">
+          <div class="marketing-budget-final-cta-copy">
+            <h2 id="budget-final-cta-title">${escapeHtml(page.finalCtaTitle || 'Stop guessing your wedding budget')}</h2>
+            <p>${escapeHtml(page.finalCtaBody || 'Start with a template. Move to a live system when things get real.')}</p>
+          </div>
+          ${renderSnapshotActions([
+            { href: page.finalPrimaryHref || 'https://planner.vivahgo.com/', label: page.finalPrimaryLabel || 'Start Budget in VivahGo', className: 'marketing-primary-action', download: page.finalPrimaryDownload },
+            { href: page.finalSecondaryHref || '/templates/wedding-budget-template.csv', label: page.finalSecondaryLabel || 'Download CSV', className: 'marketing-secondary-action', download: page.finalSecondaryDownload },
+          ])}
+        </section>
+      </main>
+    </div>`;
+}
+
 function buildQueryPageSnapshot(page) {
   if (!isRenderableQueryPage(page)) {
     return `
@@ -611,6 +1097,10 @@ function buildQueryPageSnapshot(page) {
       </div>`;
   }
 
+  if (page.slug === BUDGET_TEMPLATE_PAGE_SLUG) {
+    return buildBudgetTemplateQuerySnapshot(page);
+  }
+
   const highlightMarkup = page.highlights.map((item) => `
             <article class="marketing-feature-card marketing-feature-card-left">
               <h3>${escapeHtml(item.title)}</h3>
@@ -621,6 +1111,13 @@ function buildQueryPageSnapshot(page) {
               <h3>${escapeHtml(item.title || '')}</h3>
               <p>${escapeHtml(item.description || '')}</p>
             </article>`).join('');
+  const heroMediaMarkup = page.heroMedia?.src ? `
+        <section class="marketing-section marketing-inline-media-section" aria-label="${escapeAttribute(`${page.title} image`)}">
+          <figure class="marketing-inline-media-card">
+            <img class="marketing-inline-media-image" src="${escapeAttribute(page.heroMedia.src)}" alt="${escapeAttribute(page.heroMedia.alt || page.title)}"${page.heroMedia.aspectRatio ? ` style="aspect-ratio: ${escapeAttribute(page.heroMedia.aspectRatio)};"` : ''} loading="eager" decoding="async" />
+            ${page.heroMedia.creditLabel && page.heroMedia.creditHref ? `<figcaption class="marketing-inline-media-caption"><a href="${escapeAttribute(page.heroMedia.creditHref)}" target="_blank" rel="noreferrer">${escapeHtml(page.heroMedia.creditLabel)}</a></figcaption>` : ''}
+          </figure>
+        </section>` : '';
   const sectionMarkup = page.sections.map((section) => `
             <section class="marketing-guide-subsection">
               <h2>${escapeHtml(section.heading)}</h2>
@@ -665,6 +1162,8 @@ function buildQueryPageSnapshot(page) {
           </div>
         </section>
 
+        ${heroMediaMarkup}
+
         <section class="marketing-section" aria-labelledby="seo-query-highlights-title">
           <div class="marketing-section-heading">
             <p class="marketing-section-kicker">Why This Page Matters</p>
@@ -683,6 +1182,8 @@ function buildQueryPageSnapshot(page) {
           <div class="marketing-feature-grid">${useCaseMarkup}
           </div>
         </section>` : ''}
+
+        ${buildQueryPageDataSnapshot(page)}
 
         <section class="marketing-section marketing-guide-section">
           <div class="marketing-guide-body">${sectionMarkup}
@@ -816,7 +1317,16 @@ async function getRouteData(req, plannerHandlers = plannerModule) {
 
   if (route === 'query') {
     const slug = String(req.query?.slug || '').trim();
-    const page = QUERY_PAGE_BY_SLUG.get(slug) || null;
+    const canonicalSlug = getCanonicalQueryPageSlug(slug);
+    const page = QUERY_PAGE_BY_SLUG.get(canonicalSlug) || null;
+    if (canonicalSlug !== slug && isRenderableQueryPage(page)) {
+      return {
+        route,
+        statusCode: 302,
+        redirectTo: `/${canonicalSlug}`,
+        payload: { page },
+      };
+    }
     if (!isRenderableQueryPage(page)) {
       return {
         route,
@@ -1083,14 +1593,117 @@ function buildGuideMetadata(req, slug, payload, statusCode) {
 }
 
 function buildQueryPageMetadata(req, slug, payload, statusCode) {
-  const page = payload?.page || QUERY_PAGE_BY_SLUG.get(slug) || null;
+  const canonicalSlug = getCanonicalQueryPageSlug(slug);
+  const page = payload?.page || QUERY_PAGE_BY_SLUG.get(canonicalSlug) || null;
+  const faqItems = Array.isArray(page?.faqs) ? page.faqs.filter((item) => item?.question && item?.answer) : [];
+  const highlightItems = Array.isArray(page?.highlights) ? page.highlights.filter((item) => item?.title) : [];
+  const relatedResources = [
+    ...(Array.isArray(page?.resourceLinks) ? page.resourceLinks.filter((item) => item?.href && item?.label).map((item) => ({
+      name: item.label,
+      url: buildMarketingUrl(item.href),
+    })) : []),
+    ...((page?.relatedPageSlugs || []).map((itemSlug) => QUERY_PAGE_BY_SLUG.get(itemSlug)).filter(Boolean).map((item) => ({
+      name: item.title,
+      url: buildMarketingUrl(`/${item.slug}`),
+    }))),
+    ...((page?.relatedGuideSlugs || []).map((guideSlug) => GUIDE_BY_SLUG.get(guideSlug)).filter(Boolean).map((guide) => ({
+      name: guide.title,
+      url: buildMarketingUrl(`/guides/${guide.slug}`),
+    }))),
+  ];
   if (statusCode !== 200 || !isRenderableQueryPage(page)) {
     return {
       title: 'Page Not Found | VivahGo',
       description: payload?.error || 'The requested planning page could not be found.',
-      canonicalPath: `/${slug}`,
+      canonicalPath: `/${canonicalSlug || slug}`,
       robots: 'noindex, nofollow',
     };
+  }
+
+  const structuredData = [
+    {
+      '@context': 'https://schema.org',
+      '@type': 'WebPage',
+      name: page.seoTitle,
+      url: buildMarketingUrl(`/${page.slug}`),
+      description: page.seoDescription,
+      keywords: Array.isArray(page.keywords) ? page.keywords.join(', ') : undefined,
+    },
+    {
+      '@context': 'https://schema.org',
+      '@type': 'BreadcrumbList',
+      itemListElement: [
+        { '@type': 'ListItem', position: 1, name: 'Home', item: buildMarketingUrl('/') },
+        { '@type': 'ListItem', position: 2, name: page.title, item: buildMarketingUrl(`/${page.slug}`) },
+      ],
+    },
+  ];
+
+  if (page.slug === BUDGET_TEMPLATE_PAGE_SLUG) {
+    structuredData.push({
+      '@context': 'https://schema.org',
+      '@type': 'Article',
+      headline: page.seoTitle,
+      description: page.seoDescription,
+      url: buildMarketingUrl(`/${page.slug}`),
+      mainEntityOfPage: buildMarketingUrl(`/${page.slug}`),
+      dateModified: page.schemaDateModified,
+      author: {
+        '@type': 'Organization',
+        name: 'VivahGo',
+      },
+      publisher: {
+        '@type': 'Organization',
+        name: 'VivahGo',
+        logo: {
+          '@type': 'ImageObject',
+          url: buildMarketingUrl('/logo.svg'),
+        },
+      },
+      keywords: Array.isArray(page.keywords) ? page.keywords.join(', ') : '',
+    });
+  }
+
+  if (faqItems.length) {
+    structuredData.push({
+      '@context': 'https://schema.org',
+      '@type': 'FAQPage',
+      mainEntity: faqItems.map((item) => ({
+        '@type': 'Question',
+        name: item.question,
+        acceptedAnswer: {
+          '@type': 'Answer',
+          text: item.answer,
+        },
+      })),
+    });
+  }
+
+  if (highlightItems.length) {
+    structuredData.push({
+      '@context': 'https://schema.org',
+      '@type': 'ItemList',
+      name: `${page.title} capabilities`,
+      itemListElement: highlightItems.map((item, index) => ({
+        '@type': 'ListItem',
+        position: index + 1,
+        name: item.title,
+      })),
+    });
+  }
+
+  if (relatedResources.length) {
+    structuredData.push({
+      '@context': 'https://schema.org',
+      '@type': 'ItemList',
+      name: `${page.title} related resources`,
+      itemListElement: relatedResources.map((item, index) => ({
+        '@type': 'ListItem',
+        position: index + 1,
+        name: item.name,
+        url: item.url,
+      })),
+    });
   }
 
   return {
@@ -1098,45 +1711,7 @@ function buildQueryPageMetadata(req, slug, payload, statusCode) {
     description: page.seoDescription,
     canonicalPath: `/${page.slug}`,
     robots: 'index, follow',
-    structuredData: [
-      {
-        '@context': 'https://schema.org',
-        '@type': 'WebPage',
-        name: page.seoTitle,
-        url: buildMarketingUrl(`/${page.slug}`),
-        description: page.seoDescription,
-      },
-      {
-        '@context': 'https://schema.org',
-        '@type': 'BreadcrumbList',
-        itemListElement: [
-          { '@type': 'ListItem', position: 1, name: 'Home', item: buildMarketingUrl('/') },
-          { '@type': 'ListItem', position: 2, name: page.title, item: buildMarketingUrl(`/${page.slug}`) },
-        ],
-      },
-      {
-        '@context': 'https://schema.org',
-        '@type': 'FAQPage',
-        mainEntity: (page.faqs || []).map((item) => ({
-          '@type': 'Question',
-          name: item.question,
-          acceptedAnswer: {
-            '@type': 'Answer',
-            text: item.answer,
-          },
-        })),
-      },
-      {
-        '@context': 'https://schema.org',
-        '@type': 'ItemList',
-        name: `${page.title} capabilities`,
-        itemListElement: (page.highlights || []).map((item, index) => ({
-          '@type': 'ListItem',
-          position: index + 1,
-          name: item.title,
-        })),
-      },
-    ],
+    structuredData,
   };
 }
 

@@ -738,6 +738,1040 @@ body[data-route='home'] #root {
   margin: 8px 0 12px;
 }
 
+.marketing-capability-bucket-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.marketing-capability-bucket-card {
+  display: grid;
+  gap: 20px;
+  align-content: start;
+}
+
+.marketing-capability-bucket-head {
+  display: grid;
+  gap: 10px;
+}
+
+.marketing-capability-bucket-label {
+  margin: 0;
+  font-size: 0.8rem;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--marketing-accent-deep);
+}
+
+.marketing-capability-bucket-intro {
+  margin: 0;
+  color: var(--marketing-muted-strong);
+  line-height: 1.6;
+}
+
+.marketing-capability-list {
+  display: grid;
+  gap: 14px;
+}
+
+.marketing-capability-item {
+  padding-top: 14px;
+  border-top: 1px solid rgba(87, 50, 38, 0.08);
+}
+
+.marketing-capability-item:first-child {
+  padding-top: 0;
+  border-top: 0;
+}
+
+.marketing-capability-item h3 {
+  margin: 0 0 8px;
+  font-size: 1.14rem;
+  line-height: 1.3;
+}
+
+.marketing-capability-item p {
+  margin: 0;
+  line-height: 1.6;
+}
+
+.marketing-data-grid,
+.marketing-data-chart-grid {
+  display: grid;
+  gap: 18px;
+  margin-top: 28px;
+}
+
+.marketing-data-grid {
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+}
+
+.marketing-data-chart-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.marketing-data-card {
+  background: linear-gradient(180deg, rgba(255, 251, 246, 0.98) 0%, rgba(248, 237, 220, 0.92) 100%);
+  border: 1px solid rgba(87, 50, 38, 0.1);
+  border-radius: 26px;
+  padding: 22px 24px;
+  box-shadow: 0 24px 48px rgba(120, 61, 36, 0.08);
+}
+
+.marketing-data-card h3 {
+  margin: 0;
+  font-size: 1.28rem;
+  line-height: 1.22;
+  color: var(--marketing-ink);
+}
+
+.marketing-data-card-chart {
+  display: grid;
+  gap: 18px;
+  align-content: start;
+}
+
+.marketing-data-value {
+  margin: 0 0 10px;
+  font-size: clamp(1.9rem, 3vw, 2.8rem);
+  line-height: 1;
+  letter-spacing: -0.04em;
+  font-weight: 800;
+  color: var(--marketing-accent-deep);
+}
+
+.marketing-data-caption {
+  margin: 10px 0 0;
+  color: var(--marketing-muted-strong);
+  line-height: 1.65;
+}
+
+.marketing-data-chart-header {
+  display: grid;
+  gap: 10px;
+}
+
+.marketing-data-chart-header p,
+.marketing-data-note,
+.marketing-range-note {
+  margin: 0;
+  color: var(--marketing-muted-strong);
+  line-height: 1.7;
+}
+
+.marketing-donut-layout {
+  display: grid;
+  grid-template-columns: minmax(180px, 220px) 1fr;
+  gap: 20px;
+  align-items: center;
+}
+
+.marketing-donut-chart {
+  width: min(220px, 100%);
+  aspect-ratio: 1 / 1;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  margin: 0 auto;
+  box-shadow: inset 0 0 0 1px rgba(87, 50, 38, 0.06);
+}
+
+.marketing-donut-chart-hole {
+  width: 58%;
+  height: 58%;
+  border-radius: 50%;
+  background: rgba(255, 251, 246, 0.97);
+  box-shadow: 0 10px 24px rgba(111, 55, 31, 0.1);
+  display: grid;
+  place-items: center;
+  text-align: center;
+  padding: 14px;
+}
+
+.marketing-donut-chart-hole strong {
+  font-size: 1.6rem;
+  line-height: 1;
+  color: var(--marketing-accent-deep);
+}
+
+.marketing-donut-chart-hole span {
+  display: block;
+  margin-top: 6px;
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--marketing-muted);
+}
+
+.marketing-chart-legend,
+.marketing-range-chart,
+.marketing-bars-chart {
+  display: grid;
+  gap: 14px;
+}
+
+.marketing-chart-legend-row {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 12px;
+  align-items: start;
+}
+
+.marketing-chart-legend-row strong,
+.marketing-range-header strong {
+  color: var(--marketing-ink);
+}
+
+.marketing-chart-legend-row p {
+  margin: 4px 0 0;
+  color: var(--marketing-muted-strong);
+  line-height: 1.55;
+}
+
+.marketing-chart-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 999px;
+  margin-top: 5px;
+  box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.6);
+}
+
+.marketing-range-row,
+.marketing-bars-row {
+  display: grid;
+  gap: 8px;
+}
+
+.marketing-range-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 18px;
+}
+
+.marketing-range-header span {
+  color: var(--marketing-muted);
+  font-size: 0.94rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.marketing-range-track {
+  position: relative;
+  width: 100%;
+  height: 14px;
+  border-radius: 999px;
+  background: rgba(222, 188, 149, 0.42);
+  overflow: hidden;
+}
+
+.marketing-range-fill,
+.marketing-bars-fill {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  border-radius: 999px;
+  box-shadow: 0 10px 18px rgba(125, 37, 18, 0.15);
+}
+
+.marketing-bars-fill {
+  left: 0;
+}
+
+.marketing-data-note {
+  padding-top: 6px;
+  border-top: 1px solid rgba(87, 50, 38, 0.08);
+}
+
+.marketing-inline-media-section {
+  padding-top: 0;
+}
+
+.marketing-inline-media-card {
+  max-width: 560px;
+  margin: 0 auto;
+  display: grid;
+  gap: 12px;
+}
+
+.marketing-inline-media-image {
+  display: block;
+  width: 100%;
+  object-fit: cover;
+  border-radius: 28px;
+  border: 1px solid rgba(87, 50, 38, 0.1);
+  box-shadow: 0 28px 60px rgba(112, 55, 31, 0.14);
+  background: rgba(242, 228, 211, 0.92);
+}
+
+.marketing-inline-media-caption {
+  margin: 0;
+  text-align: center;
+  color: var(--marketing-muted);
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+.marketing-inline-media-caption a {
+  color: inherit;
+  text-decoration-color: rgba(125, 37, 18, 0.35);
+  text-underline-offset: 0.18em;
+}
+
+.marketing-inline-media-caption a:hover,
+.marketing-inline-media-caption a:focus-visible {
+  color: var(--marketing-accent-deep);
+}
+
+.marketing-budget-template-page {
+  background: #ffffff;
+}
+
+.marketing-budget-template-page::before,
+.marketing-budget-template-page::after {
+  display: none;
+}
+
+.marketing-budget-template-page .marketing-header {
+  width: min(1180px, calc(100% - 48px));
+  margin: 0 auto;
+  padding: 20px 0 12px;
+  gap: 16px;
+}
+
+.marketing-budget-template-page .marketing-brand-mark {
+  width: clamp(156px, 18vw, 248px);
+  max-height: 70px;
+}
+
+.marketing-budget-template-page .marketing-nav {
+  gap: 18px;
+}
+
+.marketing-budget-template-page .marketing-auth {
+  gap: 10px;
+}
+
+.marketing-budget-template-page .marketing-header-link-button,
+.marketing-budget-template-page .marketing-auth-button {
+  min-height: 46px;
+}
+
+.marketing-budget-template-page .marketing-header-link-button {
+  padding: 0 16px;
+  background: rgba(255, 251, 247, 0.94);
+  border-color: rgba(87, 50, 38, 0.12);
+}
+
+.marketing-budget-template-page .marketing-auth-button {
+  padding: 0 20px;
+  box-shadow: 0 14px 24px rgba(136, 49, 22, 0.18);
+}
+
+.marketing-budget-template-page .marketing-main {
+  width: min(1180px, calc(100% - 48px));
+}
+
+.marketing-budget-template-page .marketing-section-kicker {
+  letter-spacing: 0.12em;
+}
+
+.marketing-budget-template-page .marketing-primary-action,
+.marketing-budget-template-page .marketing-secondary-action {
+  min-width: 186px;
+}
+
+.marketing-budget-template-page .marketing-secondary-action {
+  background: rgba(255, 252, 248, 0.96);
+  border-color: rgba(87, 50, 38, 0.1);
+  box-shadow: none;
+}
+
+.marketing-budget-main {
+  padding: 28px 0 96px;
+}
+
+.marketing-budget-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(420px, 500px);
+  gap: 52px;
+  align-items: center;
+  padding: 28px 0 40px;
+}
+
+.marketing-budget-hero-copy {
+  display: grid;
+  gap: 16px;
+  align-content: start;
+  text-align: left;
+}
+
+.marketing-budget-hero-copy h1 {
+  margin: 0;
+  max-width: 12ch;
+  font-size: clamp(3rem, 4.8vw, 3.5rem);
+  line-height: 1.02;
+  letter-spacing: -0.04em;
+  color: var(--marketing-ink);
+}
+
+.marketing-budget-hero-summary {
+  max-width: 34rem;
+  margin: 0;
+  font-size: clamp(1.12rem, 1.8vw, 1.28rem);
+  line-height: 1.55;
+  color: var(--marketing-muted-strong);
+}
+
+.marketing-budget-hero-note {
+  max-width: 31rem;
+  margin: 4px 0 0;
+  font-size: 0.98rem;
+  line-height: 1.65;
+  color: var(--marketing-muted);
+}
+
+.marketing-budget-hero-actions {
+  justify-content: flex-start;
+  gap: 12px;
+  margin-top: 10px;
+}
+
+.marketing-budget-mockup {
+  display: grid;
+}
+
+.marketing-budget-mockup-window {
+  display: grid;
+  gap: 18px;
+  padding: 24px;
+  border-radius: 32px;
+  border: 1px solid rgba(87, 50, 38, 0.1);
+  background:
+    linear-gradient(180deg, rgba(255, 252, 248, 0.98) 0%, rgba(247, 239, 228, 0.94) 100%);
+  box-shadow: 0 36px 80px rgba(114, 59, 35, 0.14);
+}
+
+.marketing-budget-mockup-topbar,
+.marketing-budget-mockup-chart-label,
+.marketing-budget-mockup-table-row,
+.marketing-budget-region-header,
+.marketing-budget-priority-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.marketing-budget-mockup-topbar p,
+.marketing-budget-mockup-table-row p,
+.marketing-budget-priority-header span,
+.marketing-budget-region-header span {
+  margin: 0;
+}
+
+.marketing-budget-mockup-topbar p {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--marketing-muted-strong);
+}
+
+.marketing-budget-mockup-dots {
+  display: inline-flex;
+  gap: 6px;
+}
+
+.marketing-budget-mockup-dots span {
+  width: 9px;
+  height: 9px;
+  border-radius: 999px;
+  background: rgba(125, 37, 18, 0.2);
+}
+
+.marketing-budget-mockup-summary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.marketing-budget-mockup-summary article,
+.marketing-budget-stat-card,
+.marketing-budget-overview-card,
+.marketing-budget-feature-card,
+.marketing-budget-persona-card,
+.marketing-budget-chart-card,
+.marketing-budget-support-card,
+.marketing-budget-table-card,
+.marketing-budget-formula-card,
+.marketing-budget-scenario-card,
+.marketing-budget-step-card,
+.marketing-budget-copy-card,
+.marketing-budget-checklist-item,
+.marketing-budget-faq-item {
+  border: 1px solid rgba(87, 50, 38, 0.08);
+  background: rgba(255, 255, 255, 0.88);
+}
+
+.marketing-budget-mockup-summary article {
+  padding: 16px;
+  border-radius: 22px;
+}
+
+.marketing-budget-mockup-summary span,
+.marketing-budget-stat-card h2,
+.marketing-budget-feature-card p,
+.marketing-budget-persona-card p,
+.marketing-budget-chart-copy p,
+.marketing-budget-support-card p,
+.marketing-budget-copy-card p,
+.marketing-budget-checklist-item p,
+.marketing-budget-inline-list li,
+.marketing-budget-step-card p {
+  color: var(--marketing-muted-strong);
+}
+
+.marketing-budget-mockup-summary span {
+  display: block;
+  margin-bottom: 10px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.marketing-budget-mockup-summary strong {
+  font-size: 1.3rem;
+  line-height: 1.1;
+  color: var(--marketing-accent-deep);
+}
+
+.marketing-budget-mockup-chart,
+.marketing-budget-region-list,
+.marketing-budget-priority-list {
+  display: grid;
+  gap: 14px;
+}
+
+.marketing-budget-mockup-chart-row,
+.marketing-budget-region-row,
+.marketing-budget-priority-row {
+  display: grid;
+  gap: 8px;
+}
+
+.marketing-budget-mockup-chart-label span,
+.marketing-budget-mockup-table-row span,
+.marketing-budget-inline-list strong,
+.marketing-budget-checklist-item p {
+  font-size: 0.95rem;
+}
+
+.marketing-budget-mockup-chart-label strong,
+.marketing-budget-priority-header strong,
+.marketing-budget-region-header strong {
+  color: var(--marketing-ink);
+}
+
+.marketing-budget-mockup-chart-track {
+  height: 12px;
+  border-radius: 999px;
+  background: rgba(222, 188, 149, 0.36);
+  overflow: hidden;
+}
+
+.marketing-budget-mockup-chart-fill {
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--marketing-accent) 0%, var(--marketing-accent-soft) 100%);
+}
+
+.marketing-budget-mockup-table {
+  display: grid;
+  gap: 10px;
+}
+
+.marketing-budget-mockup-table-row {
+  padding: 14px 16px;
+  border-radius: 20px;
+  background: rgba(255, 250, 244, 0.9);
+}
+
+.marketing-budget-mockup-table-row strong {
+  display: block;
+  margin-bottom: 4px;
+  color: var(--marketing-ink);
+}
+
+.marketing-budget-mockup-table-row span,
+.marketing-budget-priority-header span,
+.marketing-budget-region-header span,
+.marketing-budget-inline-list span {
+  color: var(--marketing-muted);
+  font-size: 0.92rem;
+}
+
+.marketing-budget-section {
+  padding: 96px 0 0;
+}
+
+.marketing-budget-section-soft {
+  margin-top: 28px;
+  padding: 72px 40px;
+  border-radius: 36px;
+  background: linear-gradient(180deg, #fbf7f2 0%, #f6efe5 100%);
+}
+
+.marketing-budget-section-heading {
+  max-width: 44rem;
+  text-align: left;
+}
+
+.marketing-budget-section-heading h2,
+.marketing-budget-final-cta-copy h2 {
+  margin: 12px 0 12px;
+  font-size: clamp(2rem, 3.2vw, 2.35rem);
+  line-height: 1.08;
+  letter-spacing: -0.03em;
+  color: var(--marketing-ink);
+}
+
+.marketing-budget-section-heading p,
+.marketing-budget-final-cta-copy p {
+  margin: 0;
+  font-size: 1.02rem;
+  line-height: 1.7;
+  color: var(--marketing-muted-strong);
+}
+
+.marketing-budget-stats-row,
+.marketing-budget-overview-grid,
+.marketing-budget-feature-grid,
+.marketing-budget-persona-row,
+.marketing-budget-breakdown-layout,
+.marketing-budget-chart-grid,
+.marketing-budget-resource-row,
+.marketing-budget-per-guest-layout,
+.marketing-budget-scenario-grid,
+.marketing-budget-step-grid,
+.marketing-budget-copy-grid,
+.marketing-budget-checklist-grid,
+.marketing-budget-faq-list {
+  display: grid;
+  gap: 18px;
+  margin-top: 28px;
+}
+
+.marketing-budget-stats-row {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.marketing-budget-overview-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.marketing-budget-feature-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.marketing-budget-persona-row {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.marketing-budget-breakdown-layout,
+.marketing-budget-chart-grid,
+.marketing-budget-per-guest-layout,
+.marketing-budget-copy-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.marketing-budget-resource-row {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.marketing-budget-scenario-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.marketing-budget-step-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.marketing-budget-checklist-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.marketing-budget-stat-card,
+.marketing-budget-overview-card,
+.marketing-budget-feature-card,
+.marketing-budget-persona-card,
+.marketing-budget-chart-card,
+.marketing-budget-support-card,
+.marketing-budget-table-card,
+.marketing-budget-formula-card,
+.marketing-budget-scenario-card,
+.marketing-budget-step-card,
+.marketing-budget-copy-card {
+  border-radius: 28px;
+  padding: 24px;
+}
+
+.marketing-budget-stat-card strong {
+  display: block;
+  margin-bottom: 14px;
+  font-size: clamp(2rem, 3vw, 2.7rem);
+  line-height: 1;
+  letter-spacing: -0.04em;
+  color: var(--marketing-accent-deep);
+}
+
+.marketing-budget-stat-card h2 {
+  margin: 0 0 10px;
+  font-size: 1.15rem;
+  line-height: 1.3;
+}
+
+.marketing-budget-stat-card p {
+  margin: 0;
+  line-height: 1.6;
+}
+
+.marketing-budget-overview-card,
+.marketing-budget-scenario-card,
+.marketing-budget-formula-card {
+  display: grid;
+  gap: 12px;
+  align-content: start;
+}
+
+.marketing-budget-overview-card strong,
+.marketing-budget-scenario-card strong,
+.marketing-budget-formula-card strong {
+  font-size: clamp(1.5rem, 2.4vw, 2rem);
+  line-height: 1.15;
+  letter-spacing: -0.03em;
+  color: var(--marketing-accent-deep);
+}
+
+.marketing-budget-overview-card p,
+.marketing-budget-scenario-card p,
+.marketing-budget-formula-card p {
+  margin: 0;
+  line-height: 1.65;
+  color: var(--marketing-muted-strong);
+}
+
+.marketing-budget-overview-label,
+.marketing-budget-formula-label {
+  margin: 0;
+  font-size: 0.82rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--marketing-accent-deep);
+}
+
+.marketing-budget-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 46px;
+  height: 46px;
+  border-radius: 16px;
+  background: rgba(187, 77, 40, 0.08);
+  color: var(--marketing-accent-deep);
+}
+
+.marketing-budget-icon svg {
+  width: 22px;
+  height: 22px;
+}
+
+.marketing-budget-feature-card,
+.marketing-budget-persona-card,
+.marketing-budget-copy-card,
+.marketing-budget-step-card {
+  display: grid;
+  gap: 14px;
+  align-content: start;
+}
+
+.marketing-budget-feature-card h3,
+.marketing-budget-persona-card h3,
+.marketing-budget-chart-card h3,
+.marketing-budget-support-card h3,
+.marketing-budget-step-card h3,
+.marketing-budget-copy-card h3 {
+  margin: 0;
+  font-size: 1.28rem;
+  line-height: 1.24;
+  color: var(--marketing-ink);
+}
+
+.marketing-budget-feature-card p,
+.marketing-budget-persona-card p,
+.marketing-budget-chart-copy p,
+.marketing-budget-support-card p,
+.marketing-budget-step-card p,
+.marketing-budget-copy-card p {
+  margin: 0;
+  line-height: 1.65;
+}
+
+.marketing-budget-donut-stack {
+  display: grid;
+  gap: 18px;
+}
+
+.marketing-budget-inline-copy {
+  max-width: 48rem;
+  margin: 22px 0 0;
+  font-size: 1rem;
+  line-height: 1.7;
+  color: var(--marketing-muted-strong);
+}
+
+.marketing-budget-inline-copy a,
+.marketing-budget-formula-card a,
+.marketing-budget-resource-card {
+  color: var(--marketing-accent-deep);
+}
+
+.marketing-budget-inline-copy a {
+  font-weight: 700;
+  text-decoration-thickness: 0.08em;
+  text-underline-offset: 0.15em;
+}
+
+.marketing-budget-breakdown-layout,
+.marketing-budget-per-guest-layout {
+  align-items: start;
+}
+
+.marketing-budget-table-card {
+  overflow: hidden;
+}
+
+.marketing-budget-cost-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.marketing-budget-cost-table th,
+.marketing-budget-cost-table td {
+  padding: 16px 14px;
+  vertical-align: top;
+  text-align: left;
+  border-bottom: 1px solid rgba(87, 50, 38, 0.08);
+}
+
+.marketing-budget-cost-table thead th {
+  padding-top: 0;
+  font-size: 0.82rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--marketing-muted);
+}
+
+.marketing-budget-cost-table tbody tr:last-child td {
+  border-bottom: 0;
+  padding-bottom: 0;
+}
+
+.marketing-budget-cost-table td strong {
+  display: block;
+  margin-bottom: 6px;
+  color: var(--marketing-ink);
+}
+
+.marketing-budget-cost-table td span {
+  display: block;
+  color: var(--marketing-muted);
+  line-height: 1.55;
+}
+
+.marketing-budget-chart-card-tall {
+  height: 100%;
+}
+
+.marketing-budget-donut-chart {
+  width: min(250px, 100%);
+  margin: 0 auto;
+}
+
+.marketing-budget-segment-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.marketing-budget-segment-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  border-radius: 999px;
+  background: rgba(255, 250, 244, 0.94);
+  color: var(--marketing-muted-strong);
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+.marketing-budget-segment-pill strong {
+  color: var(--marketing-ink);
+  font-weight: 700;
+}
+
+.marketing-budget-inline-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 12px;
+}
+
+.marketing-budget-inline-list li {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 14px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid rgba(87, 50, 38, 0.08);
+}
+
+.marketing-budget-priority-list {
+  gap: 12px;
+}
+
+.marketing-budget-resource-card {
+  display: grid;
+  gap: 8px;
+  padding: 18px 20px;
+  border-radius: 22px;
+  border: 1px solid rgba(87, 50, 38, 0.08);
+  background: rgba(255, 255, 255, 0.9);
+  text-decoration: none;
+}
+
+.marketing-budget-resource-card strong {
+  color: var(--marketing-ink);
+}
+
+.marketing-budget-resource-card span {
+  color: var(--marketing-muted-strong);
+  line-height: 1.55;
+}
+
+.marketing-budget-step-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.marketing-budget-step-number {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 44px;
+  height: 44px;
+  padding: 0 12px;
+  border-radius: 999px;
+  background: rgba(125, 37, 18, 0.08);
+  color: var(--marketing-accent-deep);
+  font-size: 0.86rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+}
+
+.marketing-budget-bullet-list {
+  margin: 0;
+  padding-left: 20px;
+  display: grid;
+  gap: 12px;
+  color: var(--marketing-muted-strong);
+}
+
+.marketing-budget-bullet-list li {
+  line-height: 1.65;
+}
+
+.marketing-budget-checklist-item {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 12px;
+  align-items: start;
+  padding: 18px 20px;
+  border-radius: 22px;
+}
+
+.marketing-budget-checklist-item span {
+  width: 12px;
+  height: 12px;
+  margin-top: 6px;
+  border-radius: 999px;
+  background: var(--marketing-accent-soft);
+}
+
+.marketing-budget-checklist-item p {
+  margin: 0;
+  line-height: 1.6;
+}
+
+.marketing-budget-faq-item {
+  border-radius: 24px;
+  padding: 0 24px;
+}
+
+.marketing-budget-faq-item summary {
+  cursor: pointer;
+  list-style: none;
+  padding: 20px 0;
+  font-size: 1.08rem;
+  font-weight: 700;
+  color: var(--marketing-ink);
+}
+
+.marketing-budget-faq-item summary::-webkit-details-marker {
+  display: none;
+}
+
+.marketing-budget-faq-item p {
+  margin: 0;
+  padding: 0 0 20px;
+  line-height: 1.7;
+  color: var(--marketing-muted-strong);
+}
+
+.marketing-budget-final-cta {
+  margin-top: 96px;
+  padding: 56px 48px;
+  border-radius: 36px;
+  background: linear-gradient(135deg, rgba(125, 37, 18, 0.96) 0%, rgba(189, 84, 44, 0.95) 100%);
+  text-align: center;
+}
+
+.marketing-budget-final-cta-copy h2,
+.marketing-budget-final-cta-copy p {
+  color: var(--marketing-on-dark);
+}
+
+.marketing-budget-final-cta-copy p {
+  max-width: 38rem;
+  margin: 0 auto;
+}
+
+.marketing-budget-cta-actions {
+  justify-content: center;
+  margin-top: 28px;
+}
+
+.marketing-budget-final-cta .marketing-secondary-action {
+  color: var(--marketing-on-dark);
+  border-color: rgba(255, 248, 240, 0.4);
+  background: rgba(255, 248, 240, 0.08);
+}
+
 .marketing-section-band {
   display: grid;
   grid-template-columns: 1fr;
@@ -2252,6 +3286,25 @@ body[data-route='home'] #root {
     flex-wrap: wrap;
   }
 
+  .marketing-budget-hero,
+  .marketing-budget-stats-row,
+  .marketing-budget-overview-grid,
+  .marketing-budget-persona-row,
+  .marketing-budget-breakdown-layout,
+  .marketing-budget-chart-grid,
+  .marketing-budget-resource-row,
+  .marketing-budget-per-guest-layout,
+  .marketing-budget-copy-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .marketing-budget-feature-grid,
+  .marketing-budget-step-grid,
+  .marketing-budget-checklist-grid,
+  .marketing-budget-scenario-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .marketing-nav {
     order: 3;
     width: 100%;
@@ -2263,6 +3316,8 @@ body[data-route='home'] #root {
   .marketing-footer,
   .marketing-how-it-works-grid,
   .marketing-feature-grid,
+  .marketing-capability-bucket-grid,
+  .marketing-data-chart-grid,
   .marketing-pricing-grid,
   .marketing-coverage-grid,
   .marketing-guides-grid,
@@ -2272,6 +3327,10 @@ body[data-route='home'] #root {
   }
 
   .marketing-guide-article-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .marketing-donut-layout {
     grid-template-columns: 1fr;
   }
 
@@ -2332,8 +3391,114 @@ body[data-route='home'] #root {
     width: min(100% - 20px, 1180px);
   }
 
+  .marketing-budget-template-page .marketing-header {
+    width: min(100% - 20px, 1180px);
+    padding-top: 14px;
+    padding-bottom: 8px;
+  }
+
+  .marketing-budget-template-page .marketing-main {
+    width: min(100% - 20px, 1180px);
+  }
+
+  .marketing-budget-template-page .marketing-brand-mark {
+    width: min(100%, 140px);
+    max-height: 46px;
+  }
+
+  .marketing-budget-main {
+    padding-top: 20px;
+    padding-bottom: 56px;
+  }
+
+  .marketing-budget-hero {
+    gap: 28px;
+    padding-top: 18px;
+    padding-bottom: 28px;
+  }
+
+  .marketing-budget-hero-copy h1 {
+    font-size: clamp(2.5rem, 11vw, 3.15rem);
+  }
+
+  .marketing-budget-feature-grid,
+  .marketing-budget-persona-row,
+  .marketing-budget-resource-row,
+  .marketing-budget-step-grid,
+  .marketing-budget-copy-grid,
+  .marketing-budget-checklist-grid,
+  .marketing-budget-scenario-grid,
+  .marketing-budget-faq-list {
+    grid-template-columns: 1fr;
+  }
+
+  .marketing-budget-section {
+    padding-top: 72px;
+  }
+
+  .marketing-budget-section-soft,
+  .marketing-budget-final-cta {
+    padding: 36px 24px;
+    border-radius: 28px;
+  }
+
+  .marketing-budget-segment-pill,
+  .marketing-budget-inline-list li,
+  .marketing-budget-resource-card {
+    width: 100%;
+  }
+
+  .marketing-range-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+  }
+
+  .marketing-range-header span {
+    white-space: normal;
+  }
+
   .marketing-home-shell {
     padding-bottom: 40px;
+  }
+
+  .marketing-budget-cost-table,
+  .marketing-budget-cost-table thead,
+  .marketing-budget-cost-table tbody,
+  .marketing-budget-cost-table tr,
+  .marketing-budget-cost-table th,
+  .marketing-budget-cost-table td {
+    display: block;
+    width: 100%;
+  }
+
+  .marketing-budget-cost-table thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+  }
+
+  .marketing-budget-cost-table tbody {
+    display: grid;
+    gap: 16px;
+  }
+
+  .marketing-budget-cost-table tr {
+    padding: 16px;
+    border-radius: 20px;
+    border: 1px solid rgba(87, 50, 38, 0.08);
+    background: rgba(255, 252, 248, 0.92);
+  }
+
+  .marketing-budget-cost-table td {
+    padding: 0;
+    border-bottom: 0;
+  }
+
+  .marketing-budget-cost-table td + td {
+    margin-top: 10px;
   }
 
   .marketing-header {
@@ -2637,6 +3802,11 @@ body[data-route='home'] #root {
 @media (max-width: 560px) {
   .marketing-screen-grid {
     max-width: 100%;
+  }
+
+  .marketing-data-card,
+  .marketing-data-card-chart {
+    padding: 20px;
   }
 
   .marketing-product-shot {

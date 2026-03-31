@@ -413,7 +413,7 @@
     ],
     "relatedPageSlugs": [
       "wedding-planner-app",
-      "free-wedding-budget-template",
+      "indian-wedding-budget-template",
       "wedding-vendor-manager-app"
     ],
     "finalCtaTitle": "See your real wedding budget, not just the optimistic version.",
@@ -705,147 +705,489 @@
     "finalSecondaryHref": "/guides/vendor-coordination"
   },
   {
-    "slug": "free-wedding-budget-template",
-    "title": "Free Wedding Budget Template",
-    "seoTitle": "Free Wedding Budget Template | VivahGo for Indian Wedding Budget Planning",
-    "seoDescription": "Use this free wedding budget template to track venue, decor, catering, hospitality, vendor advances, pending balances, and ceremony-wise costs for Indian weddings.",
-    "heroKicker": "Free wedding budget template for Indian wedding planning",
-    "heroTitle": "A free wedding budget template you can start using before costs get messy.",
-    "heroSummary": "Use this practical budget template structure to track planned budget, actual spend, vendor advances, pending balances, due dates, and ceremony-wise costs.",
-    "heroBody": "This page gives you a clean starting template you can use right away. If you want the same template to become a live shared budget instead of another private spreadsheet, move it into VivahGo.",
+    "slug": "indian-wedding-budget-template",
+    "title": "Indian Wedding Budget Template",
+    "seoTitle": "Indian Wedding Budget Template (Free) + Cost Breakdown 2025",
+    "seoDescription": "Plan your Indian wedding budget with real cost data, category splits, and a free template. See how much weddings cost in India.",
+    "heroKicker": "Indian wedding budget template",
+    "heroTitle": "Free Indian Wedding Budget Template",
+    "heroSummary": "Plan your wedding spend with real benchmarks, category splits, and vendor tracking.",
+    "heroBody": "This Indian wedding budget template works as a wedding budget spreadsheet India couples, families, and planners can use to map an Indian wedding cost breakdown before vendor quotes pile up.",
     "heroPrimaryLabel": "Download free CSV",
     "heroPrimaryHref": "/templates/wedding-budget-template.csv",
     "heroPrimaryDownload": true,
     "heroSecondaryLabel": "Use it live in VivahGo",
     "heroSecondaryHref": "https://planner.vivahgo.com/",
+    "schemaDateModified": "2026-03-31",
+    "keywords": [
+      "Indian wedding budget template",
+      "wedding budget India",
+      "Indian wedding cost breakdown",
+      "wedding budget planner India",
+      "Indian wedding expenses list",
+      "wedding budget spreadsheet India",
+      "cost of Indian wedding per guest",
+      "wedding planning budget India"
+    ],
     "highlights": [
       {
-        "title": "Template structure built for Indian weddings",
-        "description": "Track category-level and ceremony-level spend instead of forcing the whole wedding into one flat total."
+        "title": "Track category-level spend",
+        "description": "See where money is moving before one big vendor decision distorts the total."
       },
       {
-        "title": "Vendor advances and pending balances",
-        "description": "Keep payment timing visible so the budget feels honest before the wedding week arrives."
+        "title": "See vendor payments clearly",
+        "description": "Keep deposits, pending balances, and due dates visible in one budget view."
       },
       {
-        "title": "Useful for couples, families, and planners",
-        "description": "Make the numbers easier to review with everyone who is approving or managing spend."
+        "title": "Built for Indian weddings",
+        "description": "Budget by function, hospitality pressure, jewellery, and multi-event complexity."
       },
       {
-        "title": "Easy to start, easy to outgrow",
-        "description": "Begin with the CSV, then move into VivahGo when the wedding needs a live budget instead of a static sheet."
+        "title": "Works for teams",
+        "description": "Useful for couples, families, and planners reviewing the same spend plan."
       },
       {
-        "title": "Made for real decision-making",
-        "description": "Use the template to review trade-offs, upcoming due dates, and event-by-event pressure points."
+        "title": "Start simple, scale later",
+        "description": "Begin with a CSV, then move into VivahGo when the wedding gets operational."
       },
       {
-        "title": "No generic finance clutter",
-        "description": "Focus on the wedding-specific columns that actually matter during booking, approvals, and payment follow-ups."
+        "title": "Make real trade-offs",
+        "description": "Compare guest count, category caps, and scope changes before they become expensive."
       }
     ],
+    "costOverviewTitle": "What does an Indian wedding cost in 2025?",
+    "costOverviewIntro": "A realistic wedding budget India plan starts with current market numbers. WeddingWire India's report updated on March 24, 2025 says the average wedding spend reached Rs. 29.6 lakh, while Bajaj Finance says many families still plan in the Rs. 5 lakh to Rs. 20 lakh range depending on city, guest count, and celebration style.",
+    "costOverviewItems": [
+      {
+        "label": "Venue + decor",
+        "value": "Rs. 2L-Rs. 10L",
+        "detail": "Bajaj Finance says venue and decorations alone often sit in this range."
+      },
+      {
+        "label": "Catering",
+        "value": "Rs. 500-Rs. 2500",
+        "detail": "Per plate, before you multiply by guest count and number of functions."
+      },
+      {
+        "label": "Photography",
+        "value": "Rs. 50K-Rs. 3L",
+        "detail": "Based on the depth of coverage, pre-wedding shoots, and package level."
+      },
+      {
+        "label": "Jewellery",
+        "value": "Rs. 2L-Rs. 10L+",
+        "detail": "Highly variable and one of the biggest reasons budgets swing dramatically."
+      }
+    ],
+    "costOverviewBridge": "This is why you need a structured Indian wedding budget template: one venue quote, a guest-list jump, or a jewellery decision can move the whole wedding planning budget India couples thought they had.",
+    "dataSectionKicker": "Indian Wedding Budget Data",
+    "dataSectionTitle": "Use benchmark data before you lock the big-budget categories.",
+    "dataSectionIntro": "These numbers give you a faster starting point for guest count, category splits, and regional cost expectations.",
+    "dataInsights": [
+      {
+        "value": "Rs. 5-20 lakh",
+        "label": "Typical budget range",
+        "detail": "Bajaj Finserv notes many Indian weddings fall in this range, while larger celebrations can go much higher."
+      },
+      {
+        "value": "Rs. 29.6 lakh",
+        "label": "Average spend",
+        "detail": "Based on responses from more than 1,500 couples who planned their weddings in 2024."
+      },
+      {
+        "value": "330 guests",
+        "label": "Avg guest count",
+        "detail": "WeddingWire India reported a stable big-fat-wedding average in its 2024-2025 newlywed report."
+      },
+      {
+        "value": "20-30%",
+        "label": "Catering share",
+        "detail": "Bajaj Finserv describes food and beverage as one of the biggest wedding cost centres."
+      }
+    ],
+    "costBreakdownTitle": "Indian Wedding Cost Breakdown by Category",
+    "costBreakdownIntro": "Use this cost breakdown table to turn a rough total into a practical Indian wedding expenses list. The chart helps visually; the table helps Google and humans scan the numbers quickly.",
+    "costBreakdownRows": [
+      {
+        "category": "Venue and decor",
+        "share": "20-25%",
+        "range": "Rs. 2L-Rs. 10L",
+        "note": "Bajaj Finance groups venue and decor in this band for many weddings."
+      },
+      {
+        "category": "Catering",
+        "share": "20-30%",
+        "range": "Rs. 500-Rs. 2500 per plate",
+        "note": "Food usually becomes the biggest guest-driven expense."
+      },
+      {
+        "category": "Attire and styling",
+        "share": "15-20%",
+        "range": "Rs. 1L-Rs. 5L+",
+        "note": "Bajaj Finance says apparel often takes 15-20% of the total budget."
+      },
+      {
+        "category": "Jewellery",
+        "share": "10-20%",
+        "range": "Rs. 2L-Rs. 10L+",
+        "note": "The widest range on the page because cultural expectations differ sharply."
+      },
+      {
+        "category": "Photography and video",
+        "share": "5-10%",
+        "range": "Rs. 50K-Rs. 3L",
+        "note": "Based on basic, pre-wedding, and comprehensive package ranges from Bajaj Finance."
+      },
+      {
+        "category": "Buffer and misc.",
+        "share": "5-10%",
+        "range": "5-10% of total budget",
+        "note": "Reserve this for last-minute scope changes, rituals, gifts, or overages."
+      }
+    ],
+    "dataCharts": [
+      {
+        "type": "donut",
+        "title": "Sample budget split",
+        "description": "Use this as a first-pass category ceiling before you tailor the budget for your city, rituals, and guest count.",
+        "centerLabel": "100%",
+        "centerNote": "sample split",
+        "segments": [
+          {
+            "label": "Venue and decor",
+            "value": 25,
+            "detail": "Venue hire, rentals, mandap, lighting, and production setup",
+            "color": "#bb4d28"
+          },
+          {
+            "label": "Catering and drinks",
+            "value": 25,
+            "detail": "Usually the biggest guest-driven expense",
+            "color": "#d06d3d"
+          },
+          {
+            "label": "Attire and styling",
+            "value": 18,
+            "detail": "Bride, groom, and close-family looks across functions",
+            "color": "#f3bf73"
+          },
+          {
+            "label": "Jewellery",
+            "value": 10,
+            "detail": "Can rise sharply in gold-heavy celebrations",
+            "color": "#7d2512"
+          },
+          {
+            "label": "Photography and video",
+            "value": 7,
+            "detail": "Coverage, reels, pre-wedding shoots, albums",
+            "color": "#a95c2b"
+          },
+          {
+            "label": "Guest stay and transport",
+            "value": 5,
+            "detail": "Hospitality, rooming, shuttles, and transfers",
+            "color": "#f0d6a2"
+          },
+          {
+            "label": "Rituals, gifts, and buffer",
+            "value": 10,
+            "detail": "Favours, puja items, last-minute overages, and safety margin",
+            "color": "#6b3a2c"
+          }
+        ],
+        "note": "This is a planning model built from Bajaj's Indian cost ranges and The Knot's category-budgeting method. It is meant to help you set ceilings, not to predict every wedding."
+      },
+      {
+        "type": "range-bars",
+        "title": "Regional budget ranges",
+        "description": "Region and wedding format can shift the starting budget conversation dramatically.",
+        "unit": "Rs. lakh",
+        "items": [
+          {
+            "label": "North India",
+            "min": 15,
+            "max": 50,
+            "detail": "Often driven by larger guest lists, lavish decor, and multi-day event expectations.",
+            "color": "#bb4d28"
+          },
+          {
+            "label": "South India",
+            "min": 5,
+            "max": 20,
+            "detail": "Traditional rituals can be elaborate, but costs often stay tighter than North and West India.",
+            "color": "#d06d3d"
+          },
+          {
+            "label": "West India",
+            "min": 10,
+            "max": 30,
+            "detail": "Destination-style celebrations and food-heavy guest experiences can raise spend quickly.",
+            "color": "#f3bf73"
+          },
+          {
+            "label": "East India",
+            "min": 5,
+            "max": 15,
+            "detail": "Local venues and simpler production setups can keep totals comparatively controlled.",
+            "color": "#7d2512"
+          }
+        ],
+        "note": "Ranges summarized from Bajaj Finserv and meant for early planning, not final vendor quotes."
+      },
+      {
+        "type": "range-bars",
+        "title": "Estimated catering spend by guest count",
+        "description": "Calculated from Bajaj's Rs. 500 to Rs. 2,500 per plate range so you can see how quickly the guest list changes the budget.",
+        "unit": "Rs. lakh",
+        "items": [
+          {
+            "label": "150 guests",
+            "min": 0.75,
+            "max": 3.75,
+            "detail": "Useful for intimate weddings or one major hosted function.",
+            "color": "#a95c2b"
+          },
+          {
+            "label": "300 guests",
+            "min": 1.5,
+            "max": 7.5,
+            "detail": "Close to WeddingWire India's reported modern guest-count average.",
+            "color": "#bb4d28"
+          },
+          {
+            "label": "500 guests",
+            "min": 2.5,
+            "max": 12.5,
+            "detail": "A large guest list can move the total budget even before decor or hospitality upgrades.",
+            "color": "#f3bf73"
+          }
+        ],
+        "note": "This is a scenario planner, not a quote. Real catering numbers depend on city, menu, service style, and number of functions."
+      },
+      {
+        "type": "bars",
+        "title": "What couples prioritised in 2024",
+        "description": "WeddingWire India's survey shows why budget planning has to balance cost control with guest experience.",
+        "unit": "%",
+        "items": [
+          {
+            "label": "Food quality",
+            "value": 55,
+            "detail": "The top planning priority in WeddingWire India's survey.",
+            "color": "#bb4d28"
+          },
+          {
+            "label": "Staying within budget",
+            "value": 53,
+            "detail": "Budget discipline sits almost level with food as a core decision driver.",
+            "color": "#d06d3d"
+          },
+          {
+            "label": "Guest experience",
+            "value": 49.6,
+            "detail": "Nearly half of surveyed couples focused on how well guests were cared for.",
+            "color": "#f3bf73"
+          },
+          {
+            "label": "Overall look and vibe",
+            "value": 38.5,
+            "detail": "Visual impact matters, but it trails food, budget, and guest comfort.",
+            "color": "#7d2512"
+          }
+        ],
+        "note": "These priorities are a useful reminder: cut the wrong category and the wedding can feel worse even if the spreadsheet total improves."
+      }
+    ],
+    "perGuestTitle": "Cost of Indian Wedding per Guest",
+    "perGuestIntro": "If you are searching for the cost of Indian wedding per guest, catering is the fastest place to model it. Bajaj Finance puts catering at Rs. 500 to Rs. 2,500 per plate, so the same guest list can create very different totals depending on menu and service style.",
+    "perGuestFormula": "Total catering cost = guest count × cost per plate × number of functions",
     "useCases": [
       {
-        "title": "Couples building their first real wedding budget",
-        "description": "Helpful when you want a clean starting structure before vendor discussions start multiplying."
+        "title": "Couples",
+        "description": "Set a real total, compare options faster, and avoid guessing what you can actually afford."
       },
       {
-        "title": "Families reviewing and approving spend together",
-        "description": "Useful when several people are paying, reviewing, or shaping the final budget."
+        "title": "Families",
+        "description": "Keep approvals, contributions, and event-level spend in one reviewable budget."
       },
       {
-        "title": "Planners who need a quick client-ready format",
-        "description": "Great as a starting template before the wedding moves into a more live operational workflow."
+        "title": "Planners",
+        "description": "Start with a client-ready sheet, then move into a live system when vendor coordination grows."
+      }
+    ],
+    "seoBudgetStepsTitle": "How to Create a Wedding Budget in India",
+    "seoBudgetStepsIntro": "This is the practical process most couples use when turning wedding budget India research into a working budget spreadsheet.",
+    "seoBudgetSteps": [
+      {
+        "title": "Set total budget",
+        "description": "Start with a realistic ceiling based on savings, family contributions, and the style of wedding you want."
       },
       {
-        "title": "Weddings with multiple ceremonies and shared costs",
-        "description": "Especially useful when venue, hospitality, and production costs stretch across several functions."
+        "title": "Estimate guest count",
+        "description": "Guest count drives catering, invitations, seating, transport, and sometimes venue size."
+      },
+      {
+        "title": "Allocate categories",
+        "description": "Split the budget across venue, catering, attire, jewellery, photography, travel, and contingency."
+      },
+      {
+        "title": "Track vendor quotes",
+        "description": "Put real quotes in the sheet immediately so your Indian wedding cost breakdown stays current."
+      },
+      {
+        "title": "Monitor payments",
+        "description": "Track deposits, due dates, and final balances every week so surprises stay small."
+      }
+    ],
+    "howItWorksSteps": [
+      {
+        "title": "Set total budget",
+        "description": "Start with one ceiling and reserve a contingency before booking decisions start."
+      },
+      {
+        "title": "Split by category",
+        "description": "Give venue, catering, attire, jewellery, travel, and buffer their own limits."
+      },
+      {
+        "title": "Add vendors",
+        "description": "Attach real vendors, quoted costs, and event names so the budget stays practical."
+      },
+      {
+        "title": "Track payments",
+        "description": "Separate committed amounts, advances paid, and pending balances."
+      },
+      {
+        "title": "Review weekly",
+        "description": "Update headcount, due dates, and scope changes before they become expensive."
+      },
+      {
+        "title": "Upgrade to VivahGo",
+        "description": "Move into a live shared budget when multiple people need one current version."
+      }
+    ],
+    "resourceLinks": [
+      {
+        "label": "Wedding budget planner app",
+        "href": "/wedding-budget-planner-app",
+        "description": "See the live app version of this template."
+      },
+      {
+        "label": "Wedding planner app",
+        "href": "/wedding-planner-app",
+        "description": "Connect budget, checklist, guests, and vendors."
+      },
+      {
+        "label": "Wedding guest list template",
+        "href": "/wedding-guest-list-template",
+        "description": "Control headcount before catering expands."
+      },
+      {
+        "label": "Guest list and RSVP guide",
+        "href": "/guides/guest-list-rsvp",
+        "description": "Learn how RSVP changes affect budget assumptions."
+      },
+      {
+        "label": "Vendor coordination guide",
+        "href": "/guides/vendor-coordination",
+        "description": "Reduce payment and handoff mistakes."
+      },
+      {
+        "label": "Wedding budget planning guide",
+        "href": "/guides/wedding-budget-planner",
+        "description": "Go deeper on budgeting decisions and trade-offs."
       }
     ],
     "sections": [
       {
-        "heading": "What to include in a free wedding budget template",
+        "heading": "How to build a realistic budget",
         "paragraphs": [
-          "A useful wedding budget template should help you see the wedding as it is actually being spent, not as one hopeful total. The right structure makes it easier to review category-level spend, ceremony-specific costs, vendor payment status, and what is still coming due.",
-          "That is why the template should be built around how weddings really operate: categories, vendors, commitments, payment timing, event ownership, and notes that explain why the number moved."
+          "Set the rules of the budget before vendor calls turn estimates into commitments."
         ],
         "bullets": [
-          "Ceremony or function",
-          "Budget category",
-          "Line item or vendor name",
-          "Planned budget",
-          "Committed amount",
-          "Advance paid",
-          "Pending balance",
-          "Due date",
-          "Owner",
-          "Status and notes"
+          "Set one overall ceiling and reserve contingency before research starts.",
+          "Estimate guest count in tiers so catering and hospitality stay realistic.",
+          "Split the total by category before shortlisting expensive vendors.",
+          "Create event-level caps for ceremonies that have separate pressure points.",
+          "Track deposits and due dates separately from total quoted cost.",
+          "Review the budget after every guest or scope change."
         ]
       },
       {
-        "heading": "Suggested budget categories for Indian weddings",
+        "heading": "Best ways to save without hurting the experience",
         "paragraphs": [
-          "Most Indian wedding budgets become easier to manage when the main categories are separated early. That gives you cleaner review conversations and makes it easier to understand which decisions are driving the total up.",
-          "You can customize categories later, but starting with a practical structure prevents the budget from becoming one large miscellaneous bucket."
+          "Cut hidden cost multipliers first, then protect the guest-facing moments people actually remember."
         ],
         "bullets": [
-          "Venue and rentals",
-          "Decor and production",
-          "Catering and hospitality",
-          "Photography and videography",
-          "Attire, jewelry, and styling",
-          "Travel, stay, and transport",
-          "Rituals, gifts, and welcome items",
-          "Contingency and buffer"
+          "Reduce the guest list before reducing food quality or comfort.",
+          "Consider weekday or off-season dates if venue pricing is the main issue.",
+          "Choose local vendors before paying travel and accommodation on multiple teams.",
+          "Reuse venues or nearby venues when it saves transport and setup cost.",
+          "Use seasonal flowers and cleaner styling instead of oversized installations.",
+          "Upgrade catering after RSVPs are clearer, not before."
         ]
       },
       {
-        "heading": "How to use this template week by week",
+        "heading": "What to include in your template",
         "paragraphs": [
-          "The value of a wedding budget template is not in filling it once. It becomes useful when you update it after vendor decisions, family changes, and hospitality adjustments. That rhythm is what turns the sheet into something you can actually trust.",
-          "Weekly reviews work best when you check new commitments, upcoming due dates, and any costs triggered by guest, venue, or production changes."
+          "The best Indian wedding expenses list is the one you can update every week without losing trust in the numbers."
         ],
         "bullets": [
-          "Update the template after every major vendor discussion.",
-          "Review pending balances once a week.",
-          "Track add-ons and scope changes immediately.",
-          "Keep buffer and contingency visible."
-        ]
-      },
-      {
-        "heading": "When to move beyond a static budget template",
-        "paragraphs": [
-          "A spreadsheet template is a good start, but it eventually gets stressed by real wedding complexity. That usually happens when too many people are using the budget, the same numbers are appearing in different versions, or payment timing becomes hard to follow across ceremonies and vendors.",
-          "That is the moment to move the template into a live shared system so the budget stays connected to guests, vendors, and the rest of the wedding plan."
-        ],
-        "bullets": [
-          "More than one person is updating the budget.",
-          "Vendor due dates are getting harder to track.",
-          "Guest or venue changes are moving the budget often.",
-          "You need a shared version everyone can trust."
+          "Ceremony or function name",
+          "Budget category and vendor name",
+          "Planned budget and quoted cost",
+          "Committed amount and advance paid",
+          "Pending balance and due date",
+          "Owner and approval status",
+          "Guest-count impact or scope change notes",
+          "Final status once the payment is closed"
         ]
       }
     ],
     "faqs": [
       {
-        "question": "Is this wedding budget template really free?",
-        "answer": "Yes. You can download the CSV template from this page and start using the structure immediately."
+        "question": "How much does an Indian wedding cost in 2025?",
+        "answer": "WeddingWire India's report updated in March 2025 says the average spend reached Rs. 29.6 lakh, while Bajaj Finance says many families still plan weddings in the Rs. 5 lakh to Rs. 20 lakh range. The final number depends on guest count, city, venue style, jewellery, and number of functions."
+      },
+      {
+        "question": "What is a realistic wedding budget in India?",
+        "answer": "A realistic wedding budget India couples can act on usually starts by choosing a total ceiling first and then splitting it by category. For many families that working range is between Rs. 5 lakh and Rs. 20 lakh, but destination or premium weddings can rise much higher."
+      },
+      {
+        "question": "How do I split my wedding budget?",
+        "answer": "Start with venue and decor, catering, attire, jewellery, photography, travel, and contingency. This page gives you a practical Indian wedding cost breakdown so you can set category caps before one quote becomes the whole plan."
+      },
+      {
+        "question": "What is the biggest wedding expense?",
+        "answer": "Venue and catering are usually the biggest wedding expenses in India. WeddingWire India says venue booking is often the highest spend category, while Bajaj Finance says catering alone can take 20-30% of the total budget."
+      },
+      {
+        "question": "How much should I spend per guest?",
+        "answer": "For food alone, Bajaj Finance puts the cost of Indian wedding per guest at roughly Rs. 500 to Rs. 2,500 per plate. Multiply that by the number of functions and you can quickly see why guest count is one of the most important budget decisions."
+      },
+      {
+        "question": "Is Rs. 10 lakh enough for a wedding?",
+        "answer": "Yes, Rs. 10 lakh can be enough for a wedding in India if you keep the guest list controlled, pick cost-efficient venues, and prioritise the categories that matter most. A structured wedding budget spreadsheet India families can share makes that target much easier to protect."
+      },
+      {
+        "question": "How do I reduce wedding costs in India?",
+        "answer": "Reduce the hidden multipliers first: guest count, repeated setups, off-city vendors, and over-designed decor. Protect food quality, clear planning, and guest comfort before cutting the parts of the wedding people remember."
+      },
+      {
+        "question": "Should I use Excel or a wedding planner app?",
+        "answer": "Use a spreadsheet when you need a fast starting point and one person is managing the wedding budget India sheet. Move into a wedding budget planner India app when the budget needs live updates, shared visibility, vendor balances, and guest-driven revisions."
       },
       {
         "question": "Will this work for Indian weddings with multiple ceremonies?",
-        "answer": "Yes. The template is designed to help you track both category-level and ceremony-level costs, which matters a lot in Indian weddings."
-      },
-      {
-        "question": "Can parents and couples review the same template together?",
-        "answer": "Yes. That is one of the main reasons this structure is useful, because it makes the budget easier to discuss and approve together."
+        "answer": "Yes. This Indian wedding budget template is built for ceremony-level planning, so you can separate haldi, mehndi, sangeet, wedding day, and reception costs instead of forcing them into one flat total."
       },
       {
         "question": "What is the difference between this template and the VivahGo budget planner?",
-        "answer": "The template gives you a free starting structure. VivahGo turns that structure into a live shared budget connected to vendors, guests, and the rest of the wedding plan."
+        "answer": "The template gives you a free wedding budget spreadsheet India couples can start today. VivahGo turns the same structure into a live shared budget with vendors, due dates, guest-count impact, and coordination linked together."
       },
       {
-        "question": "Should I use a template or go straight to an app?",
-        "answer": "If you want a fast starting point, begin with the template. If your wedding already has multiple decision-makers, vendor balances, and frequent changes, the app will usually save more time."
+        "question": "Can families and planners review the same template together?",
+        "answer": "Yes. That is one of the biggest reasons to use a structured Indian wedding expenses list in the first place. It makes approvals, contributions, and trade-offs easier to review with everyone involved."
       }
     ],
     "relatedGuideSlugs": [
@@ -855,14 +1197,15 @@
     ],
     "relatedPageSlugs": [
       "wedding-budget-planner-app",
-      "wedding-planner-app",
-      "wedding-guest-list-template"
+      "wedding-guest-list-template",
+      "wedding-vendor-manager-app"
     ],
-    "finalCtaTitle": "Turn this free template into a live wedding budget.",
-    "finalCtaBody": "Start with the CSV if you want a quick template. Move into VivahGo when you want vendor balances, due dates, and ceremony-wise costs to stay current in one shared workspace.",
-    "finalPrimaryLabel": "Start this budget in VivahGo",
-    "finalSecondaryLabel": "See the budget planner page",
-    "finalSecondaryHref": "/wedding-budget-planner-app"
+    "finalCtaTitle": "Stop guessing your wedding budget",
+    "finalCtaBody": "Start with a template. Move to a live system when things get real.",
+    "finalPrimaryLabel": "Start Budget in VivahGo",
+    "finalSecondaryLabel": "Download CSV",
+    "finalSecondaryHref": "/templates/wedding-budget-template.csv",
+    "finalSecondaryDownload": true
   },
   {
     "slug": "wedding-guest-list-template",
@@ -1012,7 +1355,7 @@
     "relatedPageSlugs": [
       "guest-list-rsvp-app",
       "wedding-planner-app",
-      "free-wedding-budget-template"
+      "indian-wedding-budget-template"
     ],
     "finalCtaTitle": "Turn this guest-list template into a live RSVP workflow.",
     "finalCtaBody": "Start with the CSV if you need a clean structure today. Move into VivahGo when you want one reliable guest list, RSVP tracking, and easier headcount updates.",

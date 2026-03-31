@@ -19,7 +19,6 @@ import { createDemoPlanner } from "../plannerDefaults";
 import { DEFAULT_SITE_URL, usePageSeo } from "../seo.js";
 import { getMarketingUrl, getPlannerUrl } from "../siteUrls.js";
 import seoKeywordLibrary from "../generated/seo-keywords.json";
-import queryPages from "../content/query-pages.json";
 
 const DEMO_PLANNER = createDemoPlanner();
 
@@ -61,70 +60,56 @@ const outcomes = [
   "Less stress during planning",
 ];
 
-const plannerAppCapabilities = [
+const plannerAppCapabilityBuckets = [
   {
-    title: "Wedding checklist app",
-    description: "Break every ceremony into trackable tasks, owners, and deadlines instead of burying decisions in chats.",
+    label: "Plan",
+    intro: "Structure the wedding early so every ceremony starts from the same playbook.",
+    items: [
+      {
+        title: "Stay on top of every ceremony",
+        description: "Use the wedding checklist app to track tasks, owners, and deadlines across every function.",
+      },
+      {
+        title: "Keep the full timeline usable",
+        description: "Map roka, mehndi, sangeet, haldi, wedding day, and reception in one connected timeline.",
+      },
+      {
+        title: "Start faster with Indian wedding templates",
+        description: "Use templates built for cultural ceremonies, stakeholders, and multi-event weddings.",
+      },
+    ],
   },
   {
-    title: "Wedding budget planner",
-    description: "See planned spend, actual spend, pending balances, and ceremony-level budget pressure in one place.",
+    label: "Track",
+    intro: "See the whole wedding in one dashboard, then go deeper where decisions are moving.",
+    items: [
+      {
+        title: "Stay in control of your budget",
+        description: "Use the wedding budget planner to compare planned vs actual spend before it becomes stress.",
+      },
+      {
+        title: "Keep guest decisions current",
+        description: "Track guests, RSVPs, family sides, and headcounts without juggling multiple sheets.",
+      },
+      {
+        title: "See payments before they turn urgent",
+        description: "Monitor vendor advances, due dates, and pending balances from one dashboard.",
+      },
+    ],
   },
   {
-    title: "Guest list and RSVP tracker",
-    description: "Keep family sides, confirmations, headcounts, and follow-ups current without juggling multiple sheets.",
-  },
-  {
-    title: "Wedding vendor manager",
-    description: "Track bookings, payment checkpoints, deliverables, and event-day coordination for all your vendors.",
-  },
-  {
-    title: "Multi-event wedding timeline",
-    description: "Organize roka, mehndi, sangeet, haldi, wedding day, and reception inside one connected timeline.",
-  },
-  {
-    title: "Family collaboration workspace",
-    description: "Give couples, parents, siblings, and planners shared visibility without creating version-control chaos.",
-  },
-  {
-    title: "Payment and due-date tracking",
-    description: "Spot upcoming vendor balances, overdue payments, and cost pressure before they become last-minute stress.",
-  },
-  {
-    title: "Wedding reminders and follow-ups",
-    description: "Keep nudges, confirmations, and planning follow-ups moving so nothing important quietly slips.",
-  },
-  {
-    title: "Ceremony-by-ceremony planning",
-    description: "Manage rituals, decor, hospitality, logistics, and ownership separately for each function while seeing the whole wedding together.",
-  },
-  {
-    title: "Shared source of truth",
-    description: "Keep the latest plan, notes, dates, and decisions in one place instead of repeating updates across chats and calls.",
-  },
-  {
-    title: "Wedding website builder",
-    description: "Create a guest-facing wedding website with event details, venue information, and a polished public experience.",
-  },
-  {
-    title: "Planner and studio workflows",
-    description: "Run multiple client weddings with better operational visibility, cleaner handoffs, and less follow-up overhead.",
-  },
-  {
-    title: "Vendor and guest coordination",
-    description: "Connect guest counts, vendor readiness, payments, and event flow so decisions stay operationally useful.",
-  },
-  {
-    title: "Indian wedding planning templates",
-    description: "Start faster with cultural wedding structures built for ceremonies, stakeholders, and real coordination work.",
-  },
-  {
-    title: "Wedding planning dashboard",
-    description: "See the state of your tasks, budgets, guests, vendors, and events from one decision-making screen.",
-  },
-  {
-    title: "Couple and planner friendly setup",
-    description: "Get started quickly whether you are self-planning your wedding or managing weddings as a professional.",
+    label: "Coordinate",
+    intro: "Keep people, vendors, and approvals aligned without repeated follow-ups.",
+    items: [
+      {
+        title: "Run vendor work with less follow-up",
+        description: "Use the wedding vendor manager to track bookings, deliverables, and event-day dependencies.",
+      },
+      {
+        title: "Keep everyone on the same page",
+        description: "Give couples, families, and planners one shared workspace instead of parallel versions.",
+      },
+    ],
   },
 ];
 
@@ -193,7 +178,6 @@ const coverageTopics = [
   ...seoKeywordLibrary.clusters.primary.slice(0, 8),
   ...seoKeywordLibrary.clusters.cultural.slice(0, 4),
 ];
-const queryCapturePages = queryPages;
 const MARKETING_HOME_URL = getMarketingUrl("/");
 const PLANNER_HOME_URL = getPlannerUrl("/");
 
@@ -1168,37 +1152,26 @@ export default function MarketingHomePage({ page = "home" }) {
           <div className="marketing-section-heading">
             <p className="marketing-section-kicker">Planner App Features</p>
             <h2 id="planner-app-capabilities-title">Everything a wedding planner app should actually help you manage.</h2>
-            <p>VivahGo is built to handle the planning work that usually gets split across WhatsApp, spreadsheets, notes, and repeated family calls.</p>
+            <p>VivahGo keeps the core planning workflows clear enough to scan and strong enough to run a real wedding from.</p>
           </div>
 
-          <div className="marketing-feature-grid">
-            {plannerAppCapabilities.map((item) => (
-              <article className="marketing-feature-card marketing-feature-card-left" key={item.title}>
-                <h3>{item.title}</h3>
-                <p>{item.description}</p>
-              </article>
-            ))}
-          </div>
-        </section>
-
-        <section className="marketing-section" aria-labelledby="query-capture-pages-title">
-          <div className="marketing-section-heading">
-            <p className="marketing-section-kicker">Planning Pages</p>
-            <h2 id="query-capture-pages-title">Explore dedicated pages for the exact planning workflow you need.</h2>
-            <p>These focused pages make it easier to jump straight into checklist planning, budgeting, guest tracking, vendor coordination, free templates, and planner-specific workflows.</p>
-          </div>
-
-          <div className="marketing-guides-grid">
-            {queryCapturePages.map((page) => (
-              <a className="marketing-guide-card marketing-guide-card-link" href={`/${page.slug}`} key={page.slug}>
-                <div className="marketing-guide-card-body">
-                  <div className="marketing-guide-card-meta">
-                    <span>Planning Page</span>
-                  </div>
-                  <h3>{page.title}</h3>
-                  <p>{page.heroSummary}</p>
+          <div className="marketing-feature-grid marketing-capability-bucket-grid">
+            {plannerAppCapabilityBuckets.map((bucket) => (
+              <article className="marketing-feature-card marketing-feature-card-left marketing-capability-bucket-card" key={bucket.label}>
+                <div className="marketing-capability-bucket-head">
+                  <p className="marketing-capability-bucket-label">{bucket.label}</p>
+                  <p className="marketing-capability-bucket-intro">{bucket.intro}</p>
                 </div>
-              </a>
+
+                <div className="marketing-capability-list">
+                  {bucket.items.map((item) => (
+                    <div className="marketing-capability-item" key={item.title}>
+                      <h3>{item.title}</h3>
+                      <p>{item.description}</p>
+                    </div>
+                  ))}
+                </div>
+              </article>
             ))}
           </div>
         </section>

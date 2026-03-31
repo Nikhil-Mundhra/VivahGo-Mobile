@@ -134,7 +134,7 @@ describe('api/page.js', function () {
     });
 
     assert.match(homeSnapshot, /The wedding planner app that keeps your entire wedding in one place/);
-    assert.match(homeSnapshot, /Wedding checklist app/);
+    assert.match(homeSnapshot, /wedding checklist app/i);
     assert.match(guideSnapshot, /Indian Wedding Budget Planning Guide/);
     assert.match(guideSnapshot, /Watch pending balances/);
     assert.match(querySnapshot, /The wedding planner app that keeps your wedding organized/);
@@ -212,7 +212,7 @@ describe('api/page.js', function () {
     assert.equal(res.statusCode, 200);
     assert.match(res.body, /Wedding Planner App for Indian Weddings/);
     assert.match(res.body, /The wedding planner app that keeps your entire wedding in one place/);
-    assert.match(res.body, /Wedding checklist app/);
+    assert.match(res.body, /wedding checklist app/i);
     assert.match(res.body, /https:\/\/vivahgo\.com\/guides\/indian-wedding-checklist/);
   });
 
@@ -264,17 +264,26 @@ describe('api/page.js', function () {
     const req = {
       method: 'GET',
       headers: { host: 'vivahgo.com', 'x-forwarded-proto': 'https' },
-      query: { route: 'query', slug: 'free-wedding-budget-template' },
+      query: { route: 'query', slug: 'indian-wedding-budget-template' },
     };
     const res = createRes();
 
     await handler(req, res);
 
     assert.equal(res.statusCode, 200);
-    assert.match(res.body, /Free Wedding Budget Template/);
+    assert.match(res.body, /Free Indian Wedding Budget Template/);
+    assert.match(res.body, /Indian Wedding Budget Template \(Free\) \+ Cost Breakdown 2025/);
     assert.match(res.body, /Download free CSV/);
     assert.match(res.body, /href="\/templates\/wedding-budget-template\.csv"/);
     assert.match(res.body, /download/);
+    assert.match(res.body, /Rs\. 29\.6 lakh/);
+    assert.match(res.body, /What does an Indian wedding cost in 2025/);
+    assert.match(res.body, /Indian Wedding Cost Breakdown by Category/);
+    assert.match(res.body, /Cost of Indian Wedding per Guest/);
+    assert.match(res.body, /How to Create a Wedding Budget in India/);
+    assert.match(res.body, /wedding guest list template/);
+    assert.match(res.body, /Stop guessing your wedding budget/);
+    assert.match(res.body, /application\/ld\+json/);
   });
 
   it('redirects missing query pages to the marketing home', async function () {
@@ -295,6 +304,29 @@ describe('api/page.js', function () {
 
     assert.equal(res.statusCode, 302);
     assert.equal(res.headers.Location, '/');
+    assert.equal(res.headers['Cache-Control'], 'no-store');
+    assert.equal(res.body, null);
+    assert.equal(res.ended, true);
+  });
+
+  it('redirects the old budget template slug to the canonical seo slug', async function () {
+    const handler = createPageHandler({
+      loadHtmlTemplate: async () => {
+        throw new Error('html template should not load for redirects');
+      },
+      plannerHandlers: {},
+    });
+    const req = {
+      method: 'GET',
+      headers: { host: 'vivahgo.com', 'x-forwarded-proto': 'https' },
+      query: { route: 'query', slug: 'free-wedding-budget-template' },
+    };
+    const res = createRes();
+
+    await handler(req, res);
+
+    assert.equal(res.statusCode, 302);
+    assert.equal(res.headers.Location, '/indian-wedding-budget-template');
     assert.equal(res.headers['Cache-Control'], 'no-store');
     assert.equal(res.body, null);
     assert.equal(res.ended, true);
