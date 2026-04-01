@@ -20,6 +20,9 @@ describe('VivahGo/src/appRoutes.js', function () {
     assert.equal(mod.getRouteInfo('/').bodyRoute, 'app');
     assert.equal(mod.getRouteInfo('/home').isMarketingHomeRoute, true);
     assert.equal(mod.getRouteInfo('/pricing').isPricingRoute, true);
+    assert.equal(mod.getRouteInfo('/terms').isTermsRoute, true);
+    assert.equal(mod.getRouteInfo('/privacy-policy').isPrivacyRoute, true);
+    assert.equal(mod.getRouteInfo('/data-deletion-instructions').isDataDeletionRoute, true);
     assert.equal(mod.getRouteInfo('/guides').isGuidesRoute, true);
     assert.equal(mod.getRouteInfo('/guides/wedding-budget-planner').guideSlug, 'wedding-budget-planner');
     assert.equal(mod.getRouteInfo('/wedding-planner-app').queryPageSlug, 'wedding-planner-app');
@@ -33,6 +36,8 @@ describe('VivahGo/src/appRoutes.js', function () {
     assert.equal(mod.getRouteInfo('/wedding').isWeddingWebsiteRoute, true);
     assert.equal(mod.getRouteInfo('/vendor').isVendorRoute, true);
     assert.equal(mod.getRouteInfo('/admin').isAdminRoute, true);
+    assert.equal(mod.getRouteInfo('/auth/sso-callback').isClerkSsoCallbackRoute, true);
+    assert.equal(mod.getRouteInfo('/auth/sso-callback').bodyRoute, 'app');
   });
 
   it('uses hostname-aware routing for main-site and planner root paths', async function () {
@@ -59,6 +64,9 @@ describe('VivahGo/src/appRoutes.js', function () {
     assert.equal(mod.getRouteInfo('/riya-arjun').publicWeddingSlug, 'riya-arjun');
     assert.equal(mod.getRouteInfo('/home').publicWeddingSlug, '');
     assert.equal(mod.getRouteInfo('/pricing').publicWeddingSlug, '');
+    assert.equal(mod.getRouteInfo('/terms').publicWeddingSlug, '');
+    assert.equal(mod.getRouteInfo('/privacy-policy').publicWeddingSlug, '');
+    assert.equal(mod.getRouteInfo('/data-deletion-instructions').publicWeddingSlug, '');
     assert.equal(mod.getRouteInfo('/guides').publicWeddingSlug, '');
     assert.equal(mod.getRouteInfo('/guides/wedding-budget-planner').publicWeddingSlug, '');
     assert.equal(mod.getRouteInfo('/wedding-planner-app').publicWeddingSlug, '');

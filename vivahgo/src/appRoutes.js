@@ -24,6 +24,9 @@ export function getRouteInfo(pathname = "/", options = {}) {
   const isMarketingHomeAliasRoute = normalizedPathname === "/home" && !isPlannerHostname(normalizedHostname);
   const isMarketingHomeRoute = isRootMarketingHomeRoute || isMarketingHomeAliasRoute;
   const isPricingRoute = normalizedPathname === "/pricing";
+  const isTermsRoute = normalizedPathname === "/terms";
+  const isPrivacyRoute = normalizedPathname === "/privacy-policy";
+  const isDataDeletionRoute = normalizedPathname === "/data-deletion-instructions";
   const isGuidesRoute = normalizedPathname === "/guides";
   const guideMatch = normalizedPathname.match(/^\/guides\/([^/]+)$/);
   const guideSlug = guideMatch ? decodeURIComponent(guideMatch[1]) : "";
@@ -37,19 +40,21 @@ export function getRouteInfo(pathname = "/", options = {}) {
   const rsvpToken = rsvpMatch ? decodeURIComponent(rsvpMatch[1]) : "";
   const isVendorRoute = normalizedPathname === "/vendor";
   const isAdminRoute = normalizedPathname === "/admin";
+  const isClerkSsoCallbackRoute = normalizedPathname === "/auth/sso-callback";
   const publicWeddingSlugMatch = normalizedPathname.match(/^\/([^/.][^/]*)$/);
   const publicWeddingSlug = publicWeddingSlugMatch
     && !queryPageSlug
-    && !["home", "planner", "pricing", "guides", "rsvp", "vendor", "wedding", "admin", "careers"].includes(publicWeddingSlugMatch[1].toLowerCase())
+    && !["home", "planner", "pricing", "terms", "privacy-policy", "data-deletion-instructions", "guides", "rsvp", "vendor", "wedding", "admin", "careers"].includes(publicWeddingSlugMatch[1].toLowerCase())
     ? decodeURIComponent(publicWeddingSlugMatch[1])
     : "";
 
-  const bodyRoute = isMarketingHomeRoute || isPricingRoute || isGuidesRoute || guideSlug || queryPageSlug ? "home"
+  const bodyRoute = isMarketingHomeRoute || isPricingRoute || isTermsRoute || isPrivacyRoute || isDataDeletionRoute || isGuidesRoute || guideSlug || queryPageSlug ? "home"
     : rsvpToken ? "rsvp"
     : isWeddingWebsiteRoute ? "wedding"
     : isCareersRoute ? "careers"
     : isVendorRoute ? "vendor"
     : isAdminRoute ? "admin"
+    : isClerkSsoCallbackRoute ? "app"
     : publicWeddingSlug ? "wedding"
     : "app";
 
@@ -60,6 +65,9 @@ export function getRouteInfo(pathname = "/", options = {}) {
     isLocalPlannerRoute,
     isMarketingHomeRoute,
     isPricingRoute,
+    isTermsRoute,
+    isPrivacyRoute,
+    isDataDeletionRoute,
     isGuidesRoute,
     guideSlug,
     queryPageSlug,
@@ -68,6 +76,7 @@ export function getRouteInfo(pathname = "/", options = {}) {
     rsvpToken,
     isVendorRoute,
     isAdminRoute,
+    isClerkSsoCallbackRoute,
     publicWeddingSlug,
     bodyRoute,
   };

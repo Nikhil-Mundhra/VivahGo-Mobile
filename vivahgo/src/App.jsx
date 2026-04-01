@@ -8,6 +8,9 @@ import queryPages from "./content/query-pages.json";
 const PlannerPage = lazy(() => import("./pages/PlannerPage.jsx"));
 const MarketingHomePage = lazy(() => import("./pages/MarketingHomePage.jsx"));
 const CareersPage = lazy(() => import("./pages/CareersPage.jsx"));
+const TermsPage = lazy(() => import("./pages/TermsPage.jsx"));
+const PrivacyPolicyPage = lazy(() => import("./pages/PrivacyPolicyPage.jsx"));
+const DataDeletionInstructionsPage = lazy(() => import("./pages/DataDeletionInstructionsPage.jsx"));
 const GuidesPage = lazy(() => import("./pages/GuidesPage.jsx"));
 const GuideArticlePage = lazy(() => import("./pages/GuideArticlePage.jsx"));
 const QueryCapturePage = lazy(() => import("./pages/QueryCapturePage.jsx"));
@@ -15,6 +18,7 @@ const GuestRsvpPage = lazy(() => import("./pages/GuestRsvpPage.jsx"));
 const WeddingWebsitePage = lazy(() => import("./pages/WeddingWebsitePage.jsx"));
 const VendorPortalPage = lazy(() => import("./pages/VendorPortalPage.jsx"));
 const AdminPortalPage = lazy(() => import("./pages/AdminPortalPage.jsx"));
+const ClerkSsoCallbackPage = lazy(() => import("./pages/ClerkSsoCallbackPage.jsx"));
 const QUERY_PAGE_BY_SLUG = Object.fromEntries(queryPages.map((page) => [page.slug, page]));
 
 function PageFallback() {
@@ -39,6 +43,24 @@ export default function App() {
         description: "Compare wedding planner app pricing for couples, families, planners, and studios managing guests, budgets, vendors, RSVPs, and wedding websites.",
         canonicalUrl: getMarketingUrl("/pricing"),
       }
+      : routeInfo.isTermsRoute
+        ? {
+          title: "VivahGo Terms and Conditions",
+          description: "Read the terms and conditions for using VivahGo.",
+          canonicalUrl: getMarketingUrl("/terms"),
+        }
+      : routeInfo.isPrivacyRoute
+        ? {
+          title: "VivahGo Privacy Policy",
+          description: "Read how VivahGo collects, uses, and protects your information.",
+          canonicalUrl: getMarketingUrl("/privacy-policy"),
+        }
+      : routeInfo.isDataDeletionRoute
+        ? {
+          title: "VivahGo Data Deletion Instructions",
+          description: "Learn how to request deletion of your VivahGo account and associated personal data.",
+          canonicalUrl: getMarketingUrl("/data-deletion-instructions"),
+        }
       : routeInfo.isGuidesRoute
         ? {
           title: "VivahGo Guides | Indian Wedding Planning Resources",
@@ -91,6 +113,13 @@ export default function App() {
                   path: "/admin",
                   noindex: true,
                 }
+                : routeInfo.isClerkSsoCallbackRoute
+                  ? {
+                    title: "VivahGo | Completing Sign In",
+                    description: "Completing your sign-in.",
+                    path: "/auth/sso-callback",
+                    noindex: true,
+                  }
                 : routeInfo.publicWeddingSlug
                   ? {
                     title: "VivahGo Wedding Website",
@@ -128,8 +157,16 @@ export default function App() {
     page = <VendorPortalPage />;
   } else if (routeInfo.isAdminRoute) {
     page = <AdminPortalPage />;
+  } else if (routeInfo.isClerkSsoCallbackRoute) {
+    page = <ClerkSsoCallbackPage />;
   } else if (routeInfo.isCareersRoute) {
     page = <CareersPage />;
+  } else if (routeInfo.isTermsRoute) {
+    page = <TermsPage />;
+  } else if (routeInfo.isPrivacyRoute) {
+    page = <PrivacyPolicyPage />;
+  } else if (routeInfo.isDataDeletionRoute) {
+    page = <DataDeletionInstructionsPage />;
   } else if (routeInfo.isGuidesRoute) {
     page = <GuidesPage />;
   } else if (routeInfo.guideSlug) {

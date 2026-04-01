@@ -1,10 +1,8 @@
-import GoogleLoginButton from '../../../components/GoogleLoginButton';
-import EmailOtpLogin from '../../../components/EmailOtpLogin';
+import AuthOptionList from '../../../components/AuthOptionList';
 import LoadingBar from '../../../components/LoadingBar';
 import NavIcon from '../../../components/NavIcon';
 
-function LoginScreen({ onGoogleLogin, onClerkLogin, onDemoLogin, onGoToHome, onLoginError, isLoggingIn, errorMessage, showOauthHelp }) {
-  const isClerkEnabled = Boolean(import.meta.env.VITE_CLERK_PUBLISHABLE_KEY);
+function LoginScreen({ authOptions, onDemoLogin, onGoToHome, isLoggingIn, errorMessage, showOauthHelp }) {
   const currentOrigin = typeof window !== 'undefined' ? window.location.origin : 'http://localhost:5173';
   const mobileBenefitItems = [
     { icon: 'events', text: 'Track your wedding events and guests' },
@@ -75,15 +73,7 @@ function LoginScreen({ onGoogleLogin, onClerkLogin, onDemoLogin, onGoToHome, onL
                 </div>
 
                 <div className="login-actions">
-                  <div className="google-login-wrap">
-                    <GoogleLoginButton onLoginSuccess={onGoogleLogin} onLoginError={onLoginError} />
-                  </div>
-                  {isClerkEnabled && (
-                    <>
-                      <div style={{ margin: '12px 0', textAlign: 'center', fontSize: '12px', color: '#999' }}>or</div>
-                      <EmailOtpLogin onLoginSuccess={onClerkLogin} onLoginError={onLoginError} />
-                    </>
-                  )}
+                  <AuthOptionList options={authOptions} />
                   <button className="login-secondary-btn" type="button" onClick={onDemoLogin} disabled={isLoggingIn}>
                     Explore Demo Planner
                   </button>

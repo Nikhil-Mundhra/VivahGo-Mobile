@@ -2554,6 +2554,74 @@ body { background: var(--color-deep-red); }
   opacity: 0.65;
 }
 
+.login-auth-options {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
+}
+
+.login-auth-option {
+  width: 100%;
+}
+
+.login-auth-divider {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin: 2px 0;
+}
+
+.login-auth-option-btn {
+  width: 100%;
+  min-height: 52px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  border-radius: 14px;
+  border: 1px solid rgba(107, 15, 15, 0.12);
+  background: #fff;
+  color: #522e21;
+  padding: 13px 16px;
+  font-size: 14px;
+  font-weight: 600;
+  font-family: 'Jost', sans-serif;
+  cursor: pointer;
+  transition: opacity 0.15s, transform 0.15s, border-color 0.15s, background-color 0.15s;
+}
+
+.login-auth-option-btn:hover:not(:disabled) {
+  border-color: rgba(107, 15, 15, 0.2);
+  background: rgba(255, 250, 246, 0.9);
+}
+
+.login-auth-option-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.65;
+}
+
+.login-auth-option-btn-badge {
+  width: 24px;
+  height: 24px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: #1877f2;
+  color: #fff;
+  font-size: 16px;
+  font-weight: 700;
+  font-family: 'Jost', sans-serif;
+  text-transform: lowercase;
+}
+
+.clerk-social-login {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
 .login-home-section {
   margin-top: 16px;
 }
@@ -2956,9 +3024,12 @@ body { background: var(--color-deep-red); }
   gap: 14px;
 }
 
+.planner-login-screen .login-auth-options,
+.planner-login-screen .login-auth-option,
 .planner-login-screen .google-login-wrap,
 .planner-login-screen .google-login-wrap > div,
 .planner-login-screen .google-button-inner-wrap,
+.planner-login-screen .login-auth-option-btn,
 .planner-login-screen .login-secondary-btn,
 .planner-login-screen .login-home-btn {
   width: 100%;

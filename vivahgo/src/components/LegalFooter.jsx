@@ -1,8 +1,10 @@
 function LegalFooter({
   hasBottomNav,
   isVisible = true,
-  onOpenTerms,
   onOpenFeedback,
+  termsHref = "/terms",
+  privacyHref = "/privacy-policy",
+  dataDeletionHref = "/data-deletion-instructions",
   aboutHref = "/",
   aboutLabel = "About",
   className = "",
@@ -13,9 +15,17 @@ function LegalFooter({
     >
       <footer className={`legal-footer${isVisible ? "" : " legal-footer-hidden"}`}>
         <div className="legal-footer-links">
-          <button type="button" className="legal-footer-link" onClick={onOpenTerms}>
+          <a href={termsHref} className="legal-footer-link">
             Terms &amp; Conditions
-          </button>
+          </a>
+          <span className="legal-footer-divider">|</span>
+          <a href={privacyHref} className="legal-footer-link">
+            Privacy Policy
+          </a>
+          <span className="legal-footer-divider">|</span>
+          <a href={dataDeletionHref} className="legal-footer-link">
+            Data Deletion Instructions
+          </a>
           <span className="legal-footer-divider">|</span>
           <a href={aboutHref} className="legal-footer-link">
             {aboutLabel}

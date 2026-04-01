@@ -94,7 +94,7 @@ function GoogleLogin({ onSuccess, onError }) {
         maxWidth: '280px',
         lineHeight: '1.4'
       }}>
-        By continuing, you agree to our Terms of Service and Privacy Policy
+        By continuing, you agree to our <a href="/terms">Terms of Service</a> and <a href="/privacy-policy">Privacy Policy</a>
       </div>
     </div>
   );

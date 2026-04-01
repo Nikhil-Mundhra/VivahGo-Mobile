@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
-import { useSignIn, useSignUp } from '@clerk/react';
+import { useClerk, useSignIn, useSignUp } from '@clerk/react';
 
 function getErrorPayload(err) {
   if (!err) {
@@ -36,7 +36,8 @@ function isAlreadySignedInClerkError(err) {
 
 function EmailOtpLogin({ onLoginSuccess, onLoginError }) {
   const clerkPublishableKey = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY;
-  const { isLoaded, signIn } = useSignIn();
+  const clerk = useClerk();
+  const { signIn } = useSignIn();
   const { signUp } = useSignUp();
   const [email, setEmail] = useState('');
   const [code, setCode] = useState('');
@@ -87,7 +88,7 @@ function EmailOtpLogin({ onLoginSuccess, onLoginError }) {
   }, []);
 
   useEffect(() => {
-    if (isLoaded) {
+    if (clerk.loaded) {
       setLoadTimedOut(false);
       return undefined;
     }
@@ -99,11 +100,11 @@ function EmailOtpLogin({ onLoginSuccess, onLoginError }) {
     return () => {
       clearTimeout(timeoutId);
     };
-  }, [isLoaded]);
+  }, [clerk.loaded]);
 
   // If Clerk already has a session (e.g. user refreshed on the login screen), complete app auth and continue.
   useEffect(() => {
-    if (!isLoaded || !signIn || !signUp) {
+    if (!clerk.loaded || !signIn || !signUp) {
       return undefined;
     }
 
@@ -130,7 +131,7 @@ function EmailOtpLogin({ onLoginSuccess, onLoginError }) {
     return () => {
       cancelled = true;
     };
-  }, [isLoaded, signIn, signUp, completeWithActiveClerkSession]);
+  }, [clerk.loaded, signIn, signUp, completeWithActiveClerkSession]);
 
   const handleGetCode = useCallback(async () => {
     if (!signIn || !signUp) {
@@ -325,7 +326,7 @@ function EmailOtpLogin({ onLoginSuccess, onLoginError }) {
     }
   }, [code, email, signIn, signUp, onLoginSuccess, onLoginError, getClerkErrorMessage, completeWithActiveClerkSession]);
 
-  const isClerkReady = Boolean(signIn && signUp);
+  const isClerkReady = Boolean(clerk.loaded && signIn && signUp);
 
   if (!clerkPublishableKey) {
     return null;

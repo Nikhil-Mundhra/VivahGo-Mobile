@@ -10,7 +10,6 @@ import GuestsScreen from "./screens/GuestsScreen";
 import VendorsScreen from "./screens/VendorsScreen";
 import TasksScreen from "./screens/TasksScreen";
 import AccountScreen from "./components/AccountScreen";
-import TermsConditionsModal from "../../components/TermsConditionsModal";
 import FeedbackModal from "../../components/FeedbackModal";
 import LegalFooter from "../../components/LegalFooter";
 import LoadingBar from "../../components/LoadingBar";
@@ -41,6 +40,7 @@ import {
 } from "../../api";
 import { DEFAULT_REMINDER_SETTINGS, DEFAULT_WEBSITE_SETTINGS, EMPTY_WEDDING, EXPECTED_GUEST_OPTIONS, buildWeddingWebsitePath, createBlankPlanner, createDemoPlanner, hasWeddingProfile, normalizePlanner, generatePlanId, createTemplatePlanCollections, normalizeCustomTemplates } from "../../plannerDefaults";
 import { useSwipeDown } from "../../hooks/useSwipeDown";
+import { buildLoginAuthOptions } from "../../loginAuthOptions.js";
 import { getMarketingUrl } from "../../siteUrls.js";
 import { getBrowserNotificationSupport, removeBrowserPushToken, requestBrowserPushToken, subscribeToForegroundMessages } from "../../firebaseMessaging.js";
 
@@ -101,7 +101,6 @@ export default function PlannerShell() {
   const [showExtraLocationForm, setShowExtraLocationForm] = useState(false);
   const [eventToEditId, setEventToEditId] = useState(null);
   const [showAccountSettings, setShowAccountSettings] = useState(false);
-  const [showTermsModal, setShowTermsModal] = useState(false);
   const [showFeedbackModal, setShowFeedbackModal] = useState(false);
   const [showDesktopFooter, setShowDesktopFooter] = useState(true);
   const [isDesktopView, setIsDesktopView] = useState(() =>
@@ -1252,14 +1251,6 @@ export default function PlannerShell() {
     setScreen("onboard");
   }
 
-  function openTermsModal() {
-    setShowTermsModal(true);
-  }
-
-  function closeTermsModal() {
-    setShowTermsModal(false);
-  }
-
   function openFeedbackModal() {
     setShowFeedbackModal(true);
   }
@@ -1326,24 +1317,30 @@ export default function PlannerShell() {
   const accountName = (user?.name || "Account").trim() || "Account";
   const accountFirstName = accountName.split(/\s+/)[0] || accountName;
   const showOauthHelp = /invalid_client|no registered origin|origin.*not.*allowed|idpiframe/i.test(loginError);
+  const authOptions = buildLoginAuthOptions(
+    {
+      onGoogleLogin: handleGoogleLoginSuccess,
+      onClerkLogin: handleClerkLoginSuccess,
+      onLoginError: handleLoginError,
+      isLoggingIn,
+    },
+    { isClerkEnabled: Boolean(import.meta.env.VITE_CLERK_PUBLISHABLE_KEY) }
+  );
 
   return (
     <div className="app-shell">
       {screen === "login" && (
         <>
           <LoginScreen
-            onGoogleLogin={handleGoogleLoginSuccess}
-            onClerkLogin={handleClerkLoginSuccess}
+            authOptions={authOptions}
             onDemoLogin={handleDemoLogin}
             onGoToHome={handleGoToHome}
-            onLoginError={handleLoginError}
             isLoggingIn={isLoggingIn}
             errorMessage={loginError}
             showOauthHelp={showOauthHelp}
           />
           <LegalFooter
             hasBottomNav={false}
-            onOpenTerms={openTermsModal}
             onOpenFeedback={openFeedbackModal}
             aboutHref={marketingHomeUrl}
             aboutLabel="Home"
@@ -1467,7 +1464,6 @@ export default function PlannerShell() {
           <LegalFooter
             hasBottomNav={true}
             isVisible={showDesktopFooter}
-            onOpenTerms={openTermsModal}
             onOpenFeedback={openFeedbackModal}
             aboutHref={marketingHomeUrl}
             aboutLabel="Home"
@@ -1494,7 +1490,6 @@ export default function PlannerShell() {
               onDeleteAccount={handleDeleteAccount}
             />
           )}
-          {showTermsModal && <TermsConditionsModal onClose={closeTermsModal} />}
           {showFeedbackModal && <FeedbackModal onClose={closeFeedbackModal} />}
 
           {showUpgradePrompt && (

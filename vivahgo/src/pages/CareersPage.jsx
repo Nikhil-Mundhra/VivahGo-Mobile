@@ -4,7 +4,6 @@ import '../styles.css';
 import '../marketing-home.css';
 import FeedbackModal from '../components/FeedbackModal';
 import LegalFooter from '../components/LegalFooter';
-import TermsConditionsModal from '../components/TermsConditionsModal';
 import MarketingSiteHeader from '../components/MarketingSiteHeader.jsx';
 import { readAuthSession } from '../authStorage';
 import { fetchCareers, submitCareerApplication } from '../api';
@@ -36,7 +35,6 @@ export default function CareersPage() {
   const [submitError, setSubmitError] = useState('');
   const [submitSuccess, setSubmitSuccess] = useState('');
   const [resumeLabel, setResumeLabel] = useState('');
-  const [showTermsModal, setShowTermsModal] = useState(false);
   const [showFeedbackModal, setShowFeedbackModal] = useState(false);
   const [session, setSession] = useState(null);
   const formRef = useRef(null);
@@ -442,10 +440,8 @@ export default function CareersPage() {
       </main>
 
       <LegalFooter
-        onOpenTerms={() => setShowTermsModal(true)}
         onOpenFeedback={() => setShowFeedbackModal(true)}
       />
-      {showTermsModal && <TermsConditionsModal onClose={() => setShowTermsModal(false)} />}
       {showFeedbackModal && <FeedbackModal onClose={() => setShowFeedbackModal(false)} />}
     </div>
   );

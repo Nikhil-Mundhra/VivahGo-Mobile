@@ -3,7 +3,6 @@ import "../styles.css";
 import "../marketing-home.css";
 import FeedbackModal from "../components/FeedbackModal";
 import LegalFooter from "../components/LegalFooter";
-import TermsConditionsModal from "../components/TermsConditionsModal";
 import MarketingSiteHeader from "../components/MarketingSiteHeader.jsx";
 import { readAuthSession } from "../authStorage";
 import { DEFAULT_SITE_URL, usePageSeo } from "../seo.js";
@@ -96,7 +95,6 @@ const guideStructuredData = [
 
 export default function GuidesPage() {
   const [session, setSession] = useState(() => readAuthSession());
-  const [showTermsModal, setShowTermsModal] = useState(false);
   const [showFeedbackModal, setShowFeedbackModal] = useState(false);
 
   usePageSeo({
@@ -208,11 +206,9 @@ export default function GuidesPage() {
       <LegalFooter
         className="marketing-legal-footer"
         hasBottomNav={false}
-        onOpenTerms={() => setShowTermsModal(true)}
         onOpenFeedback={() => setShowFeedbackModal(true)}
       />
 
-      {showTermsModal && <TermsConditionsModal onClose={() => setShowTermsModal(false)} />}
       {showFeedbackModal && <FeedbackModal onClose={() => setShowFeedbackModal(false)} />}
     </div>
   );

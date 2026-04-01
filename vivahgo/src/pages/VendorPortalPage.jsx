@@ -1,8 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import '../vendor.css';
 import '../styles.css';
-import GoogleLoginButton from '../components/GoogleLoginButton';
-import EmailOtpLogin from '../components/EmailOtpLogin';
+import AuthOptionList from '../components/AuthOptionList';
 import LoadingBar from '../components/LoadingBar';
 import VendorRegistrationForm from '../components/VendorRegistrationForm';
 import VendorPortfolioManager from '../components/VendorPortfolioManager';
@@ -12,6 +11,7 @@ import VendorPortalDashboard from '../components/VendorPortalDashboard';
 import NavIcon from '../components/NavIcon';
 import { clearAuthStorage, persistAuthSession, readAuthSession, revokeClerkSession, revokeGoogleIdTokenConsent } from '../authStorage';
 import { deleteAccount, fetchVendorProfile, loginWithGoogle, loginWithClerk, logoutSession } from '../api';
+import { buildLoginAuthOptions } from '../loginAuthOptions.js';
 import { getMarketingUrl, getPlannerUrl } from '../siteUrls.js';
 
 const MARKETING_HOME_URL = getMarketingUrl('/');
@@ -126,6 +126,16 @@ export default function VendorPortalPage() {
     }
   }
 
+  const authOptions = buildLoginAuthOptions(
+    {
+      onGoogleLogin: handleLoginSuccess,
+      onClerkLogin: handleClerkLoginSuccess,
+      onLoginError: () => {},
+      isLoggingIn: isSigningIn,
+    },
+    { isClerkEnabled }
+  );
+
   async function handleLogout() {
     try {
       await logoutSession(session?.token);
@@ -187,13 +197,7 @@ export default function VendorPortalPage() {
               List your business and showcase your portfolio to thousands of couples.
             </p>
           </div>
-          <GoogleLoginButton onLoginSuccess={handleLoginSuccess} onLoginError={() => {}} />
-          {isClerkEnabled && (
-            <>
-              <div style={{ margin: '16px 0', textAlign: 'center', fontSize: '12px', color: '#999' }}>or</div>
-              <EmailOtpLogin onLoginSuccess={handleClerkLoginSuccess} onLoginError={() => {}} />
-            </>
-          )}
+          <AuthOptionList options={authOptions} />
           {isSigningIn && (
             <div className="mt-4">
               <LoadingBar label="Signing you in..." compact />

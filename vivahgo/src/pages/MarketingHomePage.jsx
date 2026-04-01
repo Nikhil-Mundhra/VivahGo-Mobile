@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import "../styles.css";
 import "../marketing-home.css";
-import TermsConditionsModal from "../components/TermsConditionsModal";
 import FeedbackModal from "../components/FeedbackModal";
 import LegalFooter from "../components/LegalFooter";
 import MarketingSiteHeader from "../components/MarketingSiteHeader.jsx";
@@ -384,7 +383,6 @@ function SocialIcon({ name }) {
 export default function MarketingHomePage({ page = "home" }) {
   const [session, setSession] = useState(() => readAuthSession());
   const [billingCycle, setBillingCycle] = useState("monthly");
-  const [showTermsModal, setShowTermsModal] = useState(false);
   const [showFeedbackModal, setShowFeedbackModal] = useState(false);
   const [checkoutLoadingPlan, setCheckoutLoadingPlan] = useState(null);
   const [checkoutSheetPlan, setCheckoutSheetPlan] = useState(null);
@@ -797,7 +795,6 @@ export default function MarketingHomePage({ page = "home" }) {
         <LegalFooter
           className="marketing-legal-footer"
           hasBottomNav={false}
-          onOpenTerms={() => setShowTermsModal(true)}
           onOpenFeedback={() => setShowFeedbackModal(true)}
         />
 
@@ -906,7 +903,6 @@ export default function MarketingHomePage({ page = "home" }) {
           />
         )}
 
-        {showTermsModal && <TermsConditionsModal onClose={() => setShowTermsModal(false)} />}
         {showFeedbackModal && <FeedbackModal onClose={() => setShowFeedbackModal(false)} />}
       </div>
     );
@@ -1303,7 +1299,6 @@ export default function MarketingHomePage({ page = "home" }) {
       <LegalFooter
         className="marketing-legal-footer"
         hasBottomNav={false}
-        onOpenTerms={() => setShowTermsModal(true)}
         onOpenFeedback={() => setShowFeedbackModal(true)}
       />
 
@@ -1412,7 +1407,6 @@ export default function MarketingHomePage({ page = "home" }) {
         />
       )}
 
-      {showTermsModal && <TermsConditionsModal onClose={() => setShowTermsModal(false)} />}
       {showFeedbackModal && <FeedbackModal onClose={() => setShowFeedbackModal(false)} />}
     </div>
   );
