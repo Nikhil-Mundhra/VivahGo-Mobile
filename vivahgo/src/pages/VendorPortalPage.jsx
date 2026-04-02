@@ -9,6 +9,7 @@ import VendorDirectoryPreview from '../components/VendorDirectoryPreview';
 import VendorBusinessProfileEditor from '../components/VendorBusinessProfileEditor';
 import VendorPortalDashboard from '../components/VendorPortalDashboard';
 import NavIcon from '../components/NavIcon';
+import LegalFooter from '../components/LegalFooter';
 import { clearAuthStorage, persistAuthSession, readAuthSession, revokeClerkSession, revokeGoogleIdTokenConsent } from '../authStorage';
 import { deleteAccount, fetchVendorProfile, loginWithGoogle, loginWithClerk, logoutSession } from '../api';
 import { buildLoginAuthOptions } from '../loginAuthOptions.js';
@@ -410,7 +411,7 @@ export default function VendorPortalPage() {
         </div>
       </header>
 
-      <main className="max-w-4xl mx-auto px-3 py-6 sm:px-4 sm:py-8">
+      <main className="px-3 py-6 sm:px-4 sm:py-8">
         {!vendor ? (
           <VendorRegistrationForm
             token={session.token}
@@ -531,6 +532,8 @@ export default function VendorPortalPage() {
           </div>
         )}
       </main>
+
+      <LegalFooter hasBottomNav={Boolean(vendor)} />
 
       {vendor && (
         <div className="bottom-nav vendor-portal-mobile-nav">
