@@ -453,7 +453,7 @@ export default function AdminPortalPage() {
     writeAdminSectionToLocation(nextSection);
   }
 
-  async function handleVendorApproval(vendorId, isApproved) {
+  async function handleVendorApproval(vendorId, vendorGoogleId, isApproved) {
     if (!session?.token) {
       return;
     }
@@ -464,6 +464,7 @@ export default function AdminPortalPage() {
     try {
       const result = await updateAdminVendorApproval(session.token, {
         vendorId,
+        vendorGoogleId,
         isApproved,
         verificationNotes: vendorNotesDraft[vendorId] ?? undefined,
       });
@@ -479,7 +480,7 @@ export default function AdminPortalPage() {
     }
   }
 
-  async function handleVendorVerification(vendorId, verificationStatus) {
+  async function handleVendorVerification(vendorId, vendorGoogleId, verificationStatus) {
     if (!session?.token) {
       return;
     }
@@ -490,6 +491,7 @@ export default function AdminPortalPage() {
     try {
       const result = await updateAdminVendorApproval(session.token, {
         vendorId,
+        vendorGoogleId,
         verificationStatus,
         verificationNotes: vendorNotesDraft[vendorId] ?? '',
       });
@@ -505,7 +507,7 @@ export default function AdminPortalPage() {
     }
   }
 
-  async function handleVendorTier(vendorId, tier) {
+  async function handleVendorTier(vendorId, vendorGoogleId, tier) {
     if (!session?.token) {
       return;
     }
@@ -516,6 +518,7 @@ export default function AdminPortalPage() {
     try {
       const result = await updateAdminVendorApproval(session.token, {
         vendorId,
+        vendorGoogleId,
         tier,
         verificationNotes: vendorNotesDraft[vendorId] ?? undefined,
       });
@@ -951,7 +954,7 @@ export default function AdminPortalPage() {
               <div className="flex flex-wrap gap-2">
                 <select
                   value={vendor.tier || 'Free'}
-                  onChange={event => handleVendorTier(vendor.id, event.target.value)}
+                  onChange={event => handleVendorTier(vendor.id, vendor.googleId, event.target.value)}
                   className="rounded-2xl border border-stone-300 px-3 py-2 text-sm text-stone-900 outline-none focus:border-rose-400"
                   disabled={!access.canManageVendors || savingVendorId === vendor.id}
                 >
@@ -961,7 +964,7 @@ export default function AdminPortalPage() {
                 <button
                   type="button"
                   className="login-secondary-btn"
-                  onClick={() => handleVendorVerification(vendor.id, 'approved')}
+                  onClick={() => handleVendorVerification(vendor.id, vendor.googleId, 'approved')}
                   disabled={!access.canManageVendors || savingVendorId === vendor.id || !vendor.verificationDocumentCount}
                 >
                   Verify Docs
@@ -969,7 +972,7 @@ export default function AdminPortalPage() {
                 <button
                   type="button"
                   className="login-secondary-btn"
-                  onClick={() => handleVendorVerification(vendor.id, 'rejected')}
+                  onClick={() => handleVendorVerification(vendor.id, vendor.googleId, 'rejected')}
                   disabled={!access.canManageVendors || savingVendorId === vendor.id || !vendor.verificationDocumentCount}
                 >
                   Reject Docs
@@ -977,7 +980,7 @@ export default function AdminPortalPage() {
                 <button
                   type="button"
                   className="login-secondary-btn"
-                  onClick={() => handleVendorApproval(vendor.id, true)}
+                  onClick={() => handleVendorApproval(vendor.id, vendor.googleId, true)}
                   disabled={!access.canManageVendors || savingVendorId === vendor.id || vendor.isApproved}
                 >
                   {savingVendorId === vendor.id && !vendor.isApproved ? 'Saving...' : 'Approve'}
@@ -985,7 +988,7 @@ export default function AdminPortalPage() {
                 <button
                   type="button"
                   className="login-secondary-btn"
-                  onClick={() => handleVendorApproval(vendor.id, false)}
+                  onClick={() => handleVendorApproval(vendor.id, vendor.googleId, false)}
                   disabled={!access.canManageVendors || savingVendorId === vendor.id || !vendor.isApproved}
                 >
                   {savingVendorId === vendor.id && vendor.isApproved ? 'Saving...' : 'Move to Pending'}

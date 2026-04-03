@@ -1,3 +1,5 @@
+const mongoose = require('mongoose');
+
 const { getBillingReceiptModel, getCareerApplicationModel, getCareerEmailTemplateModel, getChoiceProfileModel, getVendorModel, handlePreflight, normalizeEmail, normalizeStaffRole, requireCsrfProtection, setCorsHeaders } = require('./_lib/core');
 const { requireAdminSession, sanitizeStaffUser } = require('./_lib/admin');
 const { createPresignedGetUrl, normalizeMediaList, objectKeyMatchesScope } = require('./_lib/r2');
@@ -433,13 +435,14 @@ async function handleAdminVendors(req, res) {
       }
 
       const vendorId = String(req.body?.vendorId || '').trim();
+      const vendorGoogleId = String(req.body?.vendorGoogleId || '').trim();
       const isApproved = req.body?.isApproved;
       const verificationStatus = typeof req.body?.verificationStatus === 'string' ? req.body.verificationStatus.trim() : '';
       const verificationNotes = typeof req.body?.verificationNotes === 'string' ? req.body.verificationNotes.trim().slice(0, 1000) : null;
       const tier = typeof req.body?.tier === 'string' ? normalizeVendorTier(req.body.tier) : '';
 
-      if (!vendorId) {
-        return res.status(400).json({ error: 'vendorId is required.' });
+      if (!vendorId && !vendorGoogleId) {
+        return res.status(400).json({ error: 'vendorId or vendorGoogleId is required.' });
       }
       if (typeof isApproved !== 'boolean' && !verificationStatus && verificationNotes === null && !tier) {
         return res.status(400).json({ error: 'Provide isApproved, verificationStatus, verificationNotes, or tier.' });
@@ -465,20 +468,35 @@ async function handleAdminVendors(req, res) {
       }
 
       const Vendor = getVendorModel();
-      const vendor = await Vendor.findByIdAndUpdate(
-        vendorId,
-        {
-          $set: updates,
-        },
-        { new: true }
-      );
+      const lookupFilters = [];
+      if (vendorId && mongoose.isValidObjectId(vendorId)) {
+        lookupFilters.push({ _id: vendorId });
+      }
+      if (vendorGoogleId || (vendorId && !mongoose.isValidObjectId(vendorId))) {
+        lookupFilters.push({ googleId: vendorGoogleId || vendorId });
+      }
+
+      let vendor = null;
+      for (const filter of lookupFilters) {
+        vendor = await resolveLean(Vendor.findOneAndUpdate(
+          filter,
+          {
+            $set: updates,
+          },
+          { new: true }
+        ));
+
+        if (vendor) {
+          break;
+        }
+      }
 
       if (!vendor) {
         return res.status(404).json({ error: 'Vendor not found.' });
       }
 
       return res.status(200).json({
-        vendor: await serializeAdminVendor(vendor.toObject()),
+        vendor: await serializeAdminVendor(vendor),
       });
     }
 
