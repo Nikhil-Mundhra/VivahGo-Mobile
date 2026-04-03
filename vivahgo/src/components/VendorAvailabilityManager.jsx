@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { updateVendorProfile } from '../api';
 import { buildAvailabilityState, dateKeyFromDate, getDayAvailability, getDayStatus, parseDateKey } from '../vendorAvailability';
 
@@ -156,6 +156,7 @@ export default function VendorAvailabilityManager({ token, vendor, onVendorUpdat
   const [successMessage, setSuccessMessage] = useState('');
   const successTimeoutRef = useRef(null);
   const syncTimeoutRef = useRef(null);
+  const selectedDateRef = useRef(selectedDate);
 
   const todayKey = dateKeyFromDate(new Date());
   const overrideMap = useMemo(
@@ -174,9 +175,13 @@ export default function VendorAvailabilityManager({ token, vendor, onVendorUpdat
   }, []);
 
   useEffect(() => {
+    selectedDateRef.current = selectedDate;
+  }, [selectedDate]);
+
+  useEffect(() => {
     const nextAvailability = buildAvailabilityState(vendor);
     setAvailability(nextAvailability);
-    setSelectedDayDraft(buildSelectedDayDraft(nextAvailability, selectedDate));
+    setSelectedDayDraft(buildSelectedDayDraft(nextAvailability, selectedDateRef.current));
   }, [vendor]);
 
   useEffect(() => {
@@ -218,28 +223,14 @@ export default function VendorAvailabilityManager({ token, vendor, onVendorUpdat
     }
   }
 
-  async function persistAvailability(nextAvailability, successCopy) {
+  const persistAvailability = useCallback(async (nextAvailability, successCopy) => {
     const data = await updateVendorProfile(token, { availabilitySettings: nextAvailability });
     const normalized = buildAvailabilityState(data.vendor);
     setAvailability(normalized);
-    setSelectedDayDraft(buildSelectedDayDraft(normalized, selectedDate));
+    setSelectedDayDraft(buildSelectedDayDraft(normalized, selectedDateRef.current));
     onVendorUpdated?.(data.vendor);
     queueSuccess(successCopy);
-  }
-
-  function handleUseDefaultCapacity() {
-    if (!availability.hasDefaultCapacity) {
-      return;
-    }
-
-    const clampedBookings = Math.min(sanitizeCount(selectedDayDraft.bookingsCount, 0), availability.defaultMaxCapacity);
-    setSelectedDayDraft({
-      usesDefaultCapacity: true,
-      maxCapacity: String(availability.defaultMaxCapacity),
-      bookingsCount: String(clampedBookings),
-      unavailable: false,
-    });
-  }
+  }, [onVendorUpdated, token]);
 
   function handleToggleUnavailable() {
     setSelectedDayDraft((current) => {
@@ -377,7 +368,7 @@ export default function VendorAvailabilityManager({ token, vendor, onVendorUpdat
         clearTimeout(syncTimeoutRef.current);
       }
     };
-  }, [availability, selectedDate, selectedDateLabel, selectedDayDraft]);
+  }, [availability, persistAvailability, selectedDate, selectedDateLabel, selectedDayDraft]);
 
   const effectiveDraftCapacity = selectedDayDraft.unavailable
     ? 0
@@ -466,10 +457,7 @@ export default function VendorAvailabilityManager({ token, vendor, onVendorUpdat
                 <button
                   key={day.key}
                   type="button"
-                  onClick={() => {
-                    setSelectedDate(day.key);
-                    setSelectedDayDraft(buildSelectedDayDraft(availability, day.key));
-                  }}
+                  onClick={() => jumpToDate(day.key)}
                   className={`relative min-h-[92px] rounded-none border px-2 py-2 text-left transition ${getStatusStyles(status, day.isCurrentMonth)} ${todayClasses} ${selectedClasses}`}
                 >
                   <div className="flex items-center justify-center text-center">
