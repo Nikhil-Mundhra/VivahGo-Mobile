@@ -27,10 +27,10 @@ VivahGo is a wedding planning platform built for Indian weddings. It combines a 
 - Public wedding website generation with custom slug/theme/settings.
 - Guest RSVP links and RSVP submission flow for invited guests.
 - Marketing home and pricing pages.
-- Vendor portal with business registration, profile editing, portfolio/media management, and verification document uploads.
+- Vendor portal with business registration, profile editing, portfolio/media management, and private verification document uploads.
 - Public vendor directory backed by approved vendor records.
 - Admin portal for vendor moderation, staff management, career applications, and paid subscriber visibility.
-- Careers page with application submission and resume upload to Backblaze B2.
+- Careers page with application submission and private resume upload to Backblaze B2.
 - Subscription checkout for `premium` and `studio` plans with Razorpay, coupon support, and receipt generation.
 - Feedback submission flow and legal/about modals.
 - Capacitor iOS wrapper for mobile packaging.
@@ -63,8 +63,8 @@ VivahGo is a wedding planning platform built for Indian weddings. It combines a 
 - Database: MongoDB with Mongoose
 - Authentication: Google OAuth token verification + JWT sessions
 - Payments: Razorpay
-- File storage: Cloudflare R2
-- Resume storage: Backblaze B2 (S3-compatible)
+- Public media storage: Cloudflare R2
+- Private document storage: Backblaze B2 (S3-compatible)
 - Analytics: Vercel Analytics, Vercel Speed Insights
 - Mobile shell: Capacitor iOS
 - Testing: Mocha, Supertest, c8
@@ -127,14 +127,14 @@ cp vivahgo/.env.example vivahgo/.env
   - `RAZORPAY_STUDIO_MONTHLY_AMOUNT`
   - `RAZORPAY_STUDIO_YEARLY_AMOUNT`
 - Billing email: `RESEND_API_KEY`, `BILLING_FROM_EMAIL`
-- Media storage:
+- Public media storage (vendor portfolio + Choice assets):
   - `R2_ACCESS_KEY_ID`
   - `R2_SECRET_ACCESS_KEY`
   - `R2_ENDPOINT`
   - `R2_BUCKET_NAME`
   - `R2_PUBLIC_URL`
 - Admin bootstrap: `ADMIN_OWNER_EMAIL`
-- Careers resume upload (Backblaze B2):
+- Private document storage (Backblaze B2 for resumes and vendor verification uploads):
   - `B2_ACCESS_KEY_ID`
   - `B2_SECRET_ACCESS_KEY`
   - `B2_ENDPOINT`

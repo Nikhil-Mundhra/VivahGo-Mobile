@@ -23,7 +23,9 @@ import careersAdminHelpers from '../../api/_lib/careers-admin.js';
 import r2Helpers from '../../api/_lib/r2.js';
 
 const require = createRequire(import.meta.url);
+const adminHandler = require('../../api/admin.js');
 const plannerHandler = require('../../api/planner.js');
+const vendorHandler = require('../../api/vendor.js');
 
 const port = Number(process.env.PORT || 4000);
 const mongoUri = process.env.MONGODB_URI;
@@ -111,9 +113,9 @@ const DEFAULT_SUBSCRIPTION_AMOUNT_MAP = {
 
 const COUPON_SECRET_FILE_PATH = new URL('../../config/subscription-coupons.local.json', import.meta.url);
 const CAREERS_FILE_PATH = new URL('../../config/careers.json', import.meta.url);
-const { uploadResumeToB2, createB2PresignedGetUrl, deleteB2Object } = b2Helpers;
+const { uploadResumeToB2, createB2PresignedGetUrl, createB2PresignedPutUrl, deleteB2Object } = b2Helpers;
 const { getDefaultCareerRejectionTemplate, sanitizeCareerRejectionTemplate, sendCareerRejectionEmail } = careersAdminHelpers;
-const { createPresignedGetUrl, createPresignedPutUrl, objectKeyMatchesScope } = r2Helpers;
+const { objectKeyMatchesScope } = r2Helpers;
 const MAX_CAREER_RESUME_SIZE_BYTES = 2 * 1024 * 1024;
 const MAX_VERIFICATION_FILE_SIZE_BYTES = 10 * 1024 * 1024;
 const ALLOWED_VERIFICATION_CONTENT_TYPES = new Set(['application/pdf', 'image/jpeg', 'image/png', 'image/webp']);
@@ -208,6 +210,10 @@ function sanitizeVerificationNotes(value) {
   return typeof value === 'string' ? value.trim().slice(0, 1000) : '';
 }
 
+function normalizeVendorTier(value) {
+  return String(value || '').trim().toLowerCase() === 'plus' ? 'Plus' : 'Free';
+}
+
 function normalizeVerificationStatus(value, { hasDocuments = false } = {}) {
   if (value === 'approved' || value === 'rejected' || value === 'submitted') {
     return value;
@@ -228,7 +234,7 @@ async function serializeVerificationDocuments(documents, ownerId) {
 
     if (key) {
       try {
-        accessUrl = await createPresignedGetUrl(key);
+        accessUrl = await createB2PresignedGetUrl(key);
       } catch {
         accessUrl = '';
       }
@@ -262,6 +268,75 @@ async function serializeVendorWithVerification(vendor) {
     verificationReviewedAt: plain?.verificationReviewedAt || null,
     verificationReviewedBy: plain?.verificationReviewedBy || '',
     verificationDocuments,
+  };
+}
+
+async function serializeAdminVendorRecord(vendor) {
+  const plain = typeof vendor?.toObject === 'function' ? vendor.toObject() : vendor;
+  const serialized = await serializeVendorWithVerification(plain);
+  const media = Array.isArray(serialized?.media) ? serialized.media : [];
+  const verificationDocuments = Array.isArray(serialized?.verificationDocuments) ? serialized.verificationDocuments : [];
+
+  return {
+    id: String(serialized?._id || ''),
+    googleId: serialized?.googleId || '',
+    businessName: serialized?.businessName || '',
+    type: serialized?.type || '',
+    subType: serialized?.subType || '',
+    description: serialized?.description || '',
+    country: serialized?.country || '',
+    state: serialized?.state || '',
+    city: serialized?.city || '',
+    phone: serialized?.phone || '',
+    website: serialized?.website || '',
+    googleMapsLink: serialized?.googleMapsLink || '',
+    bundledServices: Array.isArray(serialized?.bundledServices) ? serialized.bundledServices : [],
+    coverageAreas: Array.isArray(serialized?.coverageAreas) ? serialized.coverageAreas : [],
+    budgetRange: serialized?.budgetRange || null,
+    isApproved: Boolean(serialized?.isApproved),
+    tier: normalizeVendorTier(serialized?.tier),
+    verificationStatus: serialized?.verificationStatus || (verificationDocuments.length > 0 ? 'submitted' : 'not_submitted'),
+    verificationNotes: serialized?.verificationNotes || '',
+    verificationReviewedAt: serialized?.verificationReviewedAt || null,
+    verificationReviewedBy: serialized?.verificationReviewedBy || '',
+    verificationDocuments,
+    verificationDocumentCount: verificationDocuments.length,
+    mediaCount: media.length,
+    media,
+    createdAt: serialized?.createdAt || null,
+    updatedAt: serialized?.updatedAt || null,
+  };
+}
+
+function buildFallbackAdminVendorRecord(vendor = {}) {
+  return {
+    id: String(vendor?._id || ''),
+    googleId: vendor?.googleId || '',
+    businessName: vendor?.businessName || '',
+    type: vendor?.type || '',
+    subType: vendor?.subType || '',
+    description: vendor?.description || '',
+    country: vendor?.country || '',
+    state: vendor?.state || '',
+    city: vendor?.city || '',
+    phone: vendor?.phone || '',
+    website: vendor?.website || '',
+    googleMapsLink: vendor?.googleMapsLink || '',
+    bundledServices: Array.isArray(vendor?.bundledServices) ? vendor.bundledServices : [],
+    coverageAreas: Array.isArray(vendor?.coverageAreas) ? vendor.coverageAreas : [],
+    budgetRange: vendor?.budgetRange || null,
+    isApproved: Boolean(vendor?.isApproved),
+    tier: normalizeVendorTier(vendor?.tier),
+    verificationStatus: vendor?.verificationStatus || 'not_submitted',
+    verificationNotes: vendor?.verificationNotes || '',
+    verificationReviewedAt: vendor?.verificationReviewedAt || null,
+    verificationReviewedBy: vendor?.verificationReviewedBy || '',
+    verificationDocuments: [],
+    verificationDocumentCount: 0,
+    mediaCount: 0,
+    media: [],
+    createdAt: vendor?.createdAt || null,
+    updatedAt: vendor?.updatedAt || null,
   };
 }
 
@@ -1247,6 +1322,8 @@ async function resolveAdminSession(UserModel, auth, minimumRole = 'viewer') {
   }
 
   return {
+    auth,
+    User: UserModel,
     user: {
       ...user,
       staffRole,
@@ -2219,7 +2296,7 @@ export function createApp(options = {}) {
       const rawExt = filename.includes('.') ? filename.split('.').pop() : '';
       const ext = rawExt.toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 10);
       const key = `vendor-verification/${req.auth.sub}/${crypto.randomUUID()}${ext ? `.${ext}` : ''}`;
-      const uploadUrl = await createPresignedPutUrl(key, contentType, {
+      const uploadUrl = await createB2PresignedPutUrl(key, contentType, {
         contentLength,
       });
 
@@ -2287,6 +2364,7 @@ export function createApp(options = {}) {
         return res.status(404).json({ error: 'Verification document not found.' });
       }
 
+      const targetKey = typeof target?.key === 'string' ? target.key.replace(/^\/+/, '') : '';
       target.deleteOne();
       if (vendor.verificationDocuments.length === 0) {
         vendor.verificationStatus = 'not_submitted';
@@ -2298,6 +2376,13 @@ export function createApp(options = {}) {
       }
 
       await vendor.save();
+      if (targetKey) {
+        try {
+          await deleteB2Object(targetKey);
+        } catch (error) {
+          console.error('Vendor verification document delete failed:', error);
+        }
+      }
       return res.json({ vendor: await serializeVendorWithVerification(vendor) });
     } catch (error) {
       console.error('Vendor verification delete failed:', error);
@@ -2305,44 +2390,8 @@ export function createApp(options = {}) {
     }
   });
 
-  app.get('/api/vendors', async (_req, res) => {
-    try {
-      const raw = await VendorModel.find({ isApproved: true }).select('-__v').lean();
-      const vendors = raw.map(vendor => ({
-        id: `db_${vendor._id}`,
-        name: vendor.businessName,
-        type: normalizeVendorType(vendor.type),
-        subType: vendor.subType || '',
-        bundledServices: Array.isArray(vendor.bundledServices) ? vendor.bundledServices.map(normalizeVendorType) : [],
-        description: vendor.description || '',
-        country: vendor.country || '',
-        state: vendor.state || '',
-        city: vendor.city || '',
-        googleMapsLink: vendor.googleMapsLink || '',
-        phone: vendor.phone || '',
-        website: vendor.website || '',
-        availabilitySettings: normalizeAvailabilitySettings(vendor.availabilitySettings),
-        emoji: '🏷️',
-        rating: 0,
-        priceLevel: null,
-        booked: false,
-        locations: [
-          [vendor.city, vendor.state, vendor.country].filter(Boolean).join(', '),
-          ...(Array.isArray(vendor.coverageAreas)
-            ? vendor.coverageAreas.map(item => [item.city, item.state, item.country].filter(Boolean).join(', '))
-            : []),
-        ].filter(Boolean),
-        media: Array.isArray(vendor.media) ? vendor.media : [],
-        coverImageUrl: Array.isArray(vendor.media)
-          ? (vendor.media.find(item => item?.type === 'IMAGE')?.url || '')
-          : '',
-      }));
-
-      return res.json({ vendors });
-    } catch (error) {
-      console.error('Approved vendors fetch failed:', error);
-      return res.status(500).json({ error: 'Could not fetch vendors.' });
-    }
+  app.get('/api/vendors', async (req, res) => {
+    return vendorHandler.handleVendorList(req, res);
   });
 
   app.get('/api/admin/me', (req, res, next) => authMiddleware(req, res, next, injectedJwtSecret), async (req, res) => {
@@ -2374,43 +2423,22 @@ export function createApp(options = {}) {
         .sort({ isApproved: 1, updatedAt: -1, createdAt: -1 })
         .lean();
 
-      return res.json({
-        vendors: await Promise.all(vendors.map(async vendor => {
-          const verificationDocuments = await serializeVerificationDocuments(vendor.verificationDocuments, vendor.googleId);
-          return ({
-          id: String(vendor._id || ''),
-          googleId: vendor.googleId || '',
-          businessName: vendor.businessName || '',
-          type: normalizeVendorType(vendor.type) || '',
-          subType: vendor.subType || '',
-          description: vendor.description || '',
-          country: vendor.country || '',
-          state: vendor.state || '',
-          city: vendor.city || '',
-          phone: vendor.phone || '',
-          website: vendor.website || '',
-          googleMapsLink: vendor.googleMapsLink || '',
-          coverageAreas: Array.isArray(vendor.coverageAreas) ? vendor.coverageAreas : [],
-          bundledServices: Array.isArray(vendor.bundledServices) ? vendor.bundledServices.map(normalizeVendorType) : [],
-          budgetRange: vendor.budgetRange || null,
-          isApproved: Boolean(vendor.isApproved),
-          verificationStatus: normalizeVerificationStatus(vendor.verificationStatus, {
-            hasDocuments: verificationDocuments.length > 0,
-          }),
-          verificationNotes: sanitizeVerificationNotes(vendor.verificationNotes),
-          verificationReviewedAt: vendor.verificationReviewedAt || null,
-          verificationReviewedBy: vendor.verificationReviewedBy || '',
-          verificationDocuments,
-          verificationDocumentCount: verificationDocuments.length,
-          media: Array.isArray(vendor.media) ? vendor.media : [],
-          mediaCount: Array.isArray(vendor.media) ? vendor.media.length : 0,
-          createdAt: vendor.createdAt || null,
-          updatedAt: vendor.updatedAt || null,
-        });
-        })),
-      });
+      const serializedVendors = await Promise.all(vendors.map(async vendor => {
+        try {
+          return await serializeAdminVendorRecord(vendor);
+        } catch (error) {
+          console.error('Admin vendor serialization failed:', {
+            vendorId: String(vendor?._id || ''),
+            vendorGoogleId: vendor?.googleId || '',
+            error,
+          });
+          return buildFallbackAdminVendorRecord(vendor);
+        }
+      }));
+
+      return res.json({ vendors: serializedVendors });
     } catch (error) {
-      console.error('Admin vendors fetch failed:', error);
+      console.error('Admin vendor management failed:', error);
       return res.status(500).json({ error: 'Could not manage vendors.' });
     }
   });
@@ -2423,15 +2451,17 @@ export function createApp(options = {}) {
       }
 
       const vendorId = String(req.body?.vendorId || '').trim();
+      const vendorGoogleId = String(req.body?.vendorGoogleId || '').trim();
       const isApproved = req.body?.isApproved;
       const verificationStatus = typeof req.body?.verificationStatus === 'string' ? req.body.verificationStatus.trim() : '';
-      const verificationNotes = typeof req.body?.verificationNotes === 'string' ? sanitizeVerificationNotes(req.body.verificationNotes) : null;
+      const verificationNotes = typeof req.body?.verificationNotes === 'string' ? req.body.verificationNotes.trim().slice(0, 1000) : null;
+      const tier = typeof req.body?.tier === 'string' ? normalizeVendorTier(req.body.tier) : '';
 
-      if (!vendorId) {
-        return res.status(400).json({ error: 'vendorId is required.' });
+      if (!vendorId && !vendorGoogleId) {
+        return res.status(400).json({ error: 'vendorId or vendorGoogleId is required.' });
       }
-      if (typeof isApproved !== 'boolean' && !verificationStatus && verificationNotes === null) {
-        return res.status(400).json({ error: 'Provide isApproved, verificationStatus, or verificationNotes.' });
+      if (typeof isApproved !== 'boolean' && !verificationStatus && verificationNotes === null && !tier) {
+        return res.status(400).json({ error: 'Provide isApproved, verificationStatus, verificationNotes, or tier.' });
       }
       if (verificationStatus && !['not_submitted', 'submitted', 'approved', 'rejected'].includes(verificationStatus)) {
         return res.status(400).json({ error: 'verificationStatus is invalid.' });
@@ -2444,44 +2474,59 @@ export function createApp(options = {}) {
       if (verificationStatus) {
         updates.verificationStatus = verificationStatus;
         updates.verificationReviewedAt = new Date();
-        updates.verificationReviewedBy = session.user.email || session.user.googleId || '';
+        updates.verificationReviewedBy = session.user.email || req.auth.email || req.auth.sub || '';
       }
       if (verificationNotes !== null) {
         updates.verificationNotes = verificationNotes;
       }
+      if (tier) {
+        updates.tier = tier;
+      }
 
-      const vendor = await VendorModel.findByIdAndUpdate(
-        vendorId,
-        { $set: updates },
-        { new: true }
-      );
+      const lookupFilters = [];
+      if (vendorId && mongoose.isValidObjectId(vendorId)) {
+        lookupFilters.push({ _id: vendorId });
+      }
+      if (vendorGoogleId || (vendorId && !mongoose.isValidObjectId(vendorId))) {
+        lookupFilters.push({ googleId: vendorGoogleId || vendorId });
+      }
+
+      let vendor = null;
+      for (const filter of lookupFilters) {
+        vendor = await VendorModel.findOneAndUpdate(
+          filter,
+          { $set: updates },
+          { new: true }
+        ).lean();
+
+        if (vendor) {
+          break;
+        }
+      }
 
       if (!vendor) {
         return res.status(404).json({ error: 'Vendor not found.' });
       }
 
-      const verificationDocuments = await serializeVerificationDocuments(vendor.verificationDocuments, vendor.googleId);
-
       return res.json({
-        vendor: {
-          id: String(vendor._id || ''),
-          businessName: vendor.businessName || '',
-          type: normalizeVendorType(vendor.type) || '',
-          isApproved: Boolean(vendor.isApproved),
-          verificationStatus: normalizeVerificationStatus(vendor.verificationStatus, {
-            hasDocuments: verificationDocuments.length > 0,
-          }),
-          verificationNotes: sanitizeVerificationNotes(vendor.verificationNotes),
-          verificationReviewedAt: vendor.verificationReviewedAt || null,
-          verificationReviewedBy: vendor.verificationReviewedBy || '',
-          verificationDocuments,
-          verificationDocumentCount: verificationDocuments.length,
-        },
+        vendor: await serializeAdminVendorRecord(vendor),
       });
     } catch (error) {
-      console.error('Admin vendor update failed:', error);
+      console.error('Admin vendor management failed:', error);
       return res.status(500).json({ error: 'Could not manage vendors.' });
     }
+  });
+
+  app.get('/api/admin/choice', (req, res, next) => authMiddleware(req, res, next, injectedJwtSecret), async (req, res) => {
+    return adminHandler.handleAdminChoice(req, res);
+  });
+
+  app.post('/api/admin/choice-media-upload', (req, res, next) => authMiddleware(req, res, next, injectedJwtSecret), async (req, res) => {
+    return adminHandler.handleAdminChoiceMediaUpload(req, res);
+  });
+
+  app.patch('/api/admin/choice', (req, res, next) => authMiddleware(req, res, next, injectedJwtSecret), async (req, res) => {
+    return adminHandler.handleAdminChoice(req, res);
   });
 
   app.get('/api/admin/staff', (req, res, next) => authMiddleware(req, res, next, injectedJwtSecret), async (req, res) => {

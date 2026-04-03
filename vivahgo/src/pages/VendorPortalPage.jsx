@@ -15,9 +15,10 @@ import LegalFooter from '../components/LegalFooter';
 import { clearAuthStorage, persistAuthSession, readAuthSession, revokeClerkSession, revokeGoogleIdTokenConsent } from '../authStorage';
 import { deleteAccount, fetchVendorProfile, loginWithGoogle, loginWithClerk, logoutSession } from '../api';
 import { buildLoginAuthOptions } from '../loginAuthOptions.js';
-import { getMarketingUrl } from '../siteUrls.js';
+import { getMarketingUrl, getPlannerUrl } from '../siteUrls.js';
 
 const MARKETING_HOME_URL = getMarketingUrl('/');
+const PLANNER_HOME_URL = getPlannerUrl('/');
 
 const VENDOR_PORTAL_SECTIONS = [
   { id: 'dashboard', label: 'Dashboard', icon: 'home' },

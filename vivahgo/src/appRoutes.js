@@ -39,7 +39,7 @@ export function getRouteInfo(pathname = "/", options = {}) {
   const rsvpMatch = normalizedPathname.match(/^\/rsvp\/([^/]+)$/);
   const rsvpToken = rsvpMatch ? decodeURIComponent(rsvpMatch[1]) : "";
   const isVendorRoute = normalizedPathname === "/vendor";
-  const isAdminRoute = normalizedPathname === "/admin";
+  const isAdminRoute = normalizedPathname === "/admin" || normalizedPathname.startsWith("/admin/");
   const isClerkSsoCallbackRoute = normalizedPathname === "/auth/sso-callback";
   const publicWeddingSlugMatch = normalizedPathname.match(/^\/([^/.][^/]*)$/);
   const publicWeddingSlug = publicWeddingSlugMatch

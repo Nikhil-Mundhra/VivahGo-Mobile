@@ -1,5 +1,8 @@
-const { connectDb, getUserModel, getVendorModel, handlePreflight, requireCsrfProtection, setCorsHeaders, verifySession } = require('./_lib/core');
-const { createPresignedGetUrl, createPublicObjectUrl, extractObjectKeyFromUrl, normalizeMediaList, objectKeyMatchesScope } = require('./_lib/r2');
+const { connectDb, getChoiceProfileModel, getUserModel, getVendorModel, handlePreflight, requireCsrfProtection, setCorsHeaders, verifySession } = require('./_lib/core');
+const { createPublicObjectUrl, extractObjectKeyFromUrl, normalizeMediaList, objectKeyMatchesScope } = require('./_lib/r2');
+const { createB2PresignedGetUrl, deleteB2Object } = require('./_lib/b2');
+const { buildAggregatedBudgetRange, buildAggregatedServices, buildChoiceProfileName, normalizeVendorTier, normalizeWhatsappNumber, sortChoiceMedia } = require('./_lib/vendor-choice');
+const { DEFAULT_VCA_TYPES, buildChoiceProfileId, buildDefaultChoiceProfileSeed } = require('./_lib/vca');
 
 const VENDOR_TYPES = ['Venue', 'Photography', 'Catering', 'Wedding Invitations', 'Wedding Gifts', 'Music', 'Wedding Transportation', 'Tent House', 'Wedding Entertainment', 'Florists', 'Wedding Planners', 'Wedding Videography', 'Honeymoon', 'Wedding Decorators', 'Wedding Cakes', 'Wedding DJ', 'Pandit', 'Photobooth', 'Astrologers', 'Party Places', 'Choreographer', 'Bridal & Pre-Bridal', 'Groom Services'];
 const BUNDLED_SERVICE_OPTIONS = VENDOR_TYPES.filter(type => type !== 'Honeymoon');
@@ -43,7 +46,26 @@ const MAX_VENDOR_CAPACITY = 99;
  ******************************************************************************/
 
 function resolveVendorRoute(req) {
-  return String(req.query?.route || '').trim().toLowerCase();
+  const queryRoute = String(req.query?.route || '').trim().toLowerCase();
+  if (queryRoute) {
+    return queryRoute;
+  }
+
+  const path = String(req.path || req.url || '').split('?')[0].trim().toLowerCase();
+  if (path.endsWith('/vendors')) {
+    return 'list';
+  }
+  if (path.endsWith('/vendor/me')) {
+    return 'me';
+  }
+  if (path.endsWith('/vendor/media')) {
+    return 'media';
+  }
+  if (path.endsWith('/vendor/verification')) {
+    return 'verification';
+  }
+
+  return '';
 }
 
 function normalizeVendorType(type) {
@@ -117,6 +139,20 @@ function normalizeBudgetRange(value) {
   return { min: safeMin, max: safeMax };
 }
 
+function normalizeAvailabilityCount(value, { min = 0, fieldName = 'availability capacity' } = {}) {
+  const number = Number(value);
+
+  if (!Number.isInteger(number)) {
+    throw new Error(`${fieldName} must be an integer.`);
+  }
+
+  if (number < min || number > MAX_VENDOR_CAPACITY) {
+    throw new Error(`${fieldName} must be between ${min} and ${MAX_VENDOR_CAPACITY}.`);
+  }
+
+  return number;
+}
+
 function isValidDateKey(value) {
   if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)) {
     return false;
@@ -131,20 +167,6 @@ function isValidDateKey(value) {
   );
 }
 
-function normalizeCapacityNumber(value, { min = 0, fieldName = 'capacity' } = {}) {
-  const number = Number(value);
-
-  if (!Number.isInteger(number)) {
-    throw new Error(`${fieldName} must be an integer.`);
-  }
-
-  if (number < min || number > MAX_VENDOR_CAPACITY) {
-    throw new Error(`${fieldName} must be between ${min} and ${MAX_VENDOR_CAPACITY}.`);
-  }
-
-  return number;
-}
-
 function normalizeAvailabilitySettings(value) {
   if (!value || typeof value !== 'object') {
     return {
@@ -156,7 +178,7 @@ function normalizeAvailabilitySettings(value) {
 
   const hasDefaultCapacity = value.hasDefaultCapacity !== false;
   const defaultMaxCapacity = hasDefaultCapacity
-    ? normalizeCapacityNumber(
+    ? normalizeAvailabilityCount(
       value.defaultMaxCapacity ?? 1,
       { min: 1, fieldName: 'availabilitySettings.defaultMaxCapacity' }
     )
@@ -184,7 +206,7 @@ function normalizeAvailabilitySettings(value) {
 
       return {
         date,
-        maxCapacity: normalizeCapacityNumber(
+        maxCapacity: normalizeAvailabilityCount(
           item.maxCapacity,
           { min: 0, fieldName: 'availabilitySettings.dateOverrides[].maxCapacity' }
         ),
@@ -192,7 +214,7 @@ function normalizeAvailabilitySettings(value) {
       };
     })
     .map((item) => {
-      const bookingsCount = normalizeCapacityNumber(
+      const bookingsCount = normalizeAvailabilityCount(
         item && typeof item === 'object' ? item.rawBookingsCount ?? 0 : 0,
         { min: 0, fieldName: 'availabilitySettings.dateOverrides[].bookingsCount' }
       );
@@ -207,6 +229,78 @@ function normalizeAvailabilitySettings(value) {
 
   return {
     hasDefaultCapacity,
+    defaultMaxCapacity,
+    dateOverrides,
+  };
+}
+
+function getAvailabilityDayForDate(availability, dateKey) {
+  const override = Array.isArray(availability?.dateOverrides)
+    ? availability.dateOverrides.find(item => item?.date === dateKey)
+    : null;
+
+  if (override) {
+    return {
+      maxCapacity: override.maxCapacity,
+      bookingsCount: override.bookingsCount,
+      hasOverride: true,
+    };
+  }
+
+  return {
+    maxCapacity: availability?.hasDefaultCapacity ? Number(availability?.defaultMaxCapacity || 0) : 0,
+    bookingsCount: 0,
+    hasOverride: false,
+  };
+}
+
+function buildAggregatedAvailabilitySettings(vendors) {
+  const normalizedVendors = Array.isArray(vendors) ? vendors : [];
+  if (normalizedVendors.length === 0) {
+    return {
+      hasDefaultCapacity: false,
+      defaultMaxCapacity: 0,
+      dateOverrides: [],
+    };
+  }
+
+  const vendorStates = normalizedVendors.map(vendor => normalizeAvailabilitySettings(vendor?.availabilitySettings));
+  const defaultMaxCapacity = Math.min(
+    MAX_VENDOR_CAPACITY,
+    vendorStates.reduce((sum, availability) => (
+      sum + (availability.hasDefaultCapacity ? Number(availability.defaultMaxCapacity || 0) : 0)
+    ), 0)
+  );
+  const dateKeys = Array.from(new Set(
+    vendorStates.flatMap(availability => (
+      Array.isArray(availability.dateOverrides) ? availability.dateOverrides.map(item => item.date) : []
+    ))
+  )).sort((a, b) => a.localeCompare(b));
+
+  const dateOverrides = dateKeys.map((date) => {
+    const totals = vendorStates.reduce((accumulator, availability) => {
+      const day = getAvailabilityDayForDate(availability, date);
+      return {
+        maxCapacity: Math.min(MAX_VENDOR_CAPACITY, accumulator.maxCapacity + Number(day.maxCapacity || 0)),
+        bookingsCount: Math.min(MAX_VENDOR_CAPACITY, accumulator.bookingsCount + Number(day.bookingsCount || 0)),
+        hasOverride: accumulator.hasOverride || day.hasOverride,
+      };
+    }, { maxCapacity: 0, bookingsCount: 0, hasOverride: false });
+
+    const bookingsCount = Math.min(totals.bookingsCount, totals.maxCapacity);
+    if (!totals.hasOverride && totals.maxCapacity === defaultMaxCapacity && bookingsCount === 0) {
+      return null;
+    }
+
+    return {
+      date,
+      maxCapacity: totals.maxCapacity,
+      bookingsCount,
+    };
+  }).filter(Boolean);
+
+  return {
+    hasDefaultCapacity: defaultMaxCapacity > 0,
     defaultMaxCapacity,
     dateOverrides,
   };
@@ -272,6 +366,23 @@ function normalizeMediaForResponse(vendor) {
   };
 }
 
+function collectVendorMedia(vendor, { includeHidden = false } = {}) {
+  const ownerId = typeof vendor?.googleId === 'string' ? vendor.googleId : '';
+  return normalizeMediaList(vendor?.media)
+    .filter(item => isVendorMediaKeyForOwner(item?.key, ownerId))
+    .filter(item => includeHidden || item?.isVisible !== false)
+    .sort((a, b) => (a?.sortOrder ?? 0) - (b?.sortOrder ?? 0));
+}
+
+function buildDirectoryLocations(entity) {
+  return [
+    [entity?.city, entity?.state, entity?.country].filter(Boolean).join(', '),
+    ...(Array.isArray(entity?.coverageAreas)
+      ? entity.coverageAreas.map(item => [item?.city, item?.state, item?.country].filter(Boolean).join(', '))
+      : []),
+  ].filter(Boolean);
+}
+
 async function serializeVerificationDocuments(documents, ownerId) {
   if (!Array.isArray(documents) || documents.length === 0) {
     return [];
@@ -285,7 +396,7 @@ async function serializeVerificationDocuments(documents, ownerId) {
 
     if (key) {
       try {
-        accessUrl = await createPresignedGetUrl(key);
+        accessUrl = await createB2PresignedGetUrl(key);
       } catch {
         accessUrl = '';
       }
@@ -312,6 +423,7 @@ async function serializeVendor(vendor) {
   return {
     ...normalizedVendor,
     type: normalizeVendorType(normalizedVendor?.type),
+    tier: normalizeVendorTier(normalizedVendor?.tier),
     bundledServices: Array.isArray(normalizedVendor?.bundledServices) ? normalizedVendor.bundledServices.map(normalizeVendorType) : [],
     availabilitySettings: normalizeAvailabilitySettings(normalizedVendor?.availabilitySettings),
     verificationStatus: normalizeVerificationStatus(normalizedVendor?.verificationStatus, {
@@ -321,6 +433,267 @@ async function serializeVendor(vendor) {
     verificationReviewedAt: normalizedVendor?.verificationReviewedAt || null,
     verificationReviewedBy: normalizedVendor?.verificationReviewedBy || '',
     verificationDocuments,
+  };
+}
+
+function buildPublicVendorDirectoryEntry(vendor) {
+  const media = collectVendorMedia(vendor);
+  const coverMedia = media.find(item => item?.isCover) || media[0] || null;
+
+  return {
+    id: `db_${vendor._id}`,
+    name: vendor.businessName,
+    type: normalizeVendorType(vendor.type),
+    subType: vendor.subType || '',
+    bundledServices: Array.isArray(vendor.bundledServices) ? vendor.bundledServices.map(normalizeVendorType) : [],
+    description: vendor.description || '',
+    country: vendor.country || '',
+    state: vendor.state || '',
+    city: vendor.city || '',
+    googleMapsLink: vendor.googleMapsLink || '',
+    phone: vendor.phone || '',
+    website: vendor.website || '',
+    whatsappNumber: normalizeWhatsappNumber(vendor.phone),
+    availabilitySettings: normalizeAvailabilitySettings(vendor.availabilitySettings),
+    emoji: '🏷️',
+    rating: 0,
+    reviewCount: 0,
+    priceLevel: null,
+    booked: false,
+    budgetRange: vendor.budgetRange || null,
+    locations: buildDirectoryLocations(vendor),
+    media,
+    coverImageUrl: coverMedia?.type === 'IMAGE' ? coverMedia.url : '',
+    tier: normalizeVendorTier(vendor.tier),
+    isChoiceProfile: false,
+  };
+}
+
+function resolveChoiceSourceVendors(choiceProfile, vendorsForType) {
+  const normalizedVendors = Array.isArray(vendorsForType) ? vendorsForType : [];
+  const approvedVendors = normalizedVendors.filter(vendor => Boolean(vendor?.isApproved));
+  const sourceVendorIds = Array.isArray(choiceProfile?.sourceVendorIds)
+    ? choiceProfile.sourceVendorIds.map(id => String(id || '').trim()).filter(Boolean)
+    : [];
+
+  if (sourceVendorIds.length > 0) {
+    const sourceIdSet = new Set(sourceVendorIds);
+    return approvedVendors.filter(vendor => sourceIdSet.has(String(vendor._id || '')));
+  }
+
+  return approvedVendors.filter(vendor => normalizeVendorTier(vendor.tier) === 'Free');
+}
+
+function buildDefaultSelectedVendorMedia(sourceVendors) {
+  return sourceVendors.flatMap(vendor => collectVendorMedia(vendor).map((item) => ({
+    vendorId: String(vendor._id || ''),
+    vendorName: vendor.businessName || '',
+    sourceMediaId: String(item?._id || ''),
+    r2Url: item?.url || '',
+    mediaType: item?.type || 'IMAGE',
+    sortOrder: 0,
+    filename: item?.filename || '',
+    size: typeof item?.size === 'number' ? item.size : 0,
+    caption: item?.caption || '',
+    altText: item?.altText || '',
+    isCover: Boolean(item?.isCover),
+    isVisible: item?.isVisible !== false,
+  })));
+}
+
+function resolveChoiceMedia(choiceProfile, vendorsForType) {
+  const sourceVendorMap = new Map((Array.isArray(vendorsForType) ? vendorsForType : []).map(vendor => [String(vendor?._id || ''), vendor]));
+  const storedVendorMedia = Array.isArray(choiceProfile?.selectedVendorMedia)
+    ? sortChoiceMedia(choiceProfile.selectedVendorMedia)
+    : [];
+  const storedOwnedMedia = Array.isArray(choiceProfile?.media)
+    ? sortChoiceMedia(choiceProfile.media)
+    : [];
+  const effectiveVendorMedia = storedVendorMedia.length > 0
+    ? storedVendorMedia
+    : buildDefaultSelectedVendorMedia(resolveChoiceSourceVendors(choiceProfile, vendorsForType));
+
+  const vendorMedia = effectiveVendorMedia.map((item) => {
+    const vendor = sourceVendorMap.get(String(item?.vendorId || ''));
+    const vendorMediaItem = collectVendorMedia(vendor, { includeHidden: true }).find(mediaItem => String(mediaItem?._id || '') === String(item?.sourceMediaId || ''));
+    if (!vendor || !vendorMediaItem) {
+      return null;
+    }
+
+    return {
+      sourceType: 'vendor',
+      vendorId: String(vendor._id || ''),
+      vendorName: vendor.businessName || '',
+      sourceMediaId: String(vendorMediaItem?._id || ''),
+      key: vendorMediaItem?.key || '',
+      url: vendorMediaItem?.url || item?.r2Url || '',
+      r2Url: vendorMediaItem?.url || item?.r2Url || '',
+      type: vendorMediaItem?.type || item?.mediaType || 'IMAGE',
+      mediaType: vendorMediaItem?.type || item?.mediaType || 'IMAGE',
+      sortOrder: Number.isFinite(Number(item?.sortOrder)) ? Math.trunc(Number(item.sortOrder)) : 0,
+      filename: vendorMediaItem?.filename || item?.filename || '',
+      size: typeof vendorMediaItem?.size === 'number' ? vendorMediaItem.size : (typeof item?.size === 'number' ? item.size : 0),
+      caption: vendorMediaItem?.caption || item?.caption || '',
+      altText: vendorMediaItem?.altText || item?.altText || '',
+      isCover: Boolean(item?.isCover),
+      isVisible: item?.isVisible !== false && vendorMediaItem?.isVisible !== false,
+    };
+  }).filter(Boolean);
+
+  const ownedMedia = storedOwnedMedia.map((item) => {
+    if (!item?.url || !ALLOWED_MEDIA_TYPES.includes(item?.type)) {
+      return null;
+    }
+
+    return {
+      sourceType: 'admin',
+      vendorId: '',
+      vendorName: '',
+      sourceMediaId: '',
+      key: item?.key || '',
+      url: item.url,
+      r2Url: '',
+      type: item.type,
+      mediaType: item.type,
+      sortOrder: Number.isFinite(Number(item?.sortOrder)) ? Math.trunc(Number(item.sortOrder)) : 0,
+      filename: item?.filename || '',
+      size: typeof item?.size === 'number' ? item.size : 0,
+      caption: item?.caption || '',
+      altText: item?.altText || '',
+      isCover: Boolean(item?.isCover),
+      isVisible: item?.isVisible !== false,
+    };
+  }).filter(Boolean);
+
+  return sortChoiceMedia([...vendorMedia, ...ownedMedia]).map((item, index) => ({
+    ...item,
+    sortOrder: index,
+    isCover: index === 0 ? true : Boolean(item.isCover),
+  }));
+}
+
+async function bootstrapChoiceProfiles(ChoiceProfile) {
+  let existingProfiles = [];
+  if (typeof ChoiceProfile.find === 'function') {
+    const query = ChoiceProfile.find({ type: { $in: DEFAULT_VCA_TYPES } });
+    if (query && typeof query.select === 'function') {
+      existingProfiles = await (typeof query.lean === 'function'
+        ? query.select('-__v').lean()
+        : query.select('-__v'));
+    } else {
+      existingProfiles = await query;
+    }
+  }
+
+  const existingByType = new Map((Array.isArray(existingProfiles) ? existingProfiles : []).map(profile => [String(profile?.type || '').trim(), profile]));
+  const bootstrapped = [];
+
+  for (const type of DEFAULT_VCA_TYPES) {
+    const seedProfile = buildDefaultChoiceProfileSeed(type);
+    const existingProfile = existingByType.get(type) || null;
+    if (typeof ChoiceProfile.findOneAndUpdate === 'function') {
+      const upserted = await ChoiceProfile.findOneAndUpdate(
+        { _id: buildChoiceProfileId(type) },
+        {
+          $setOnInsert: seedProfile,
+          $set: {
+            type,
+            businessName: existingProfile?.businessName || existingProfile?.name || seedProfile.businessName,
+            name: existingProfile?.name || existingProfile?.businessName || seedProfile.name,
+            isApproved: true,
+            tier: 'Plus',
+            isActive: existingProfile?.isActive !== false,
+          },
+        },
+        { new: true, upsert: true, setDefaultsOnInsert: true }
+      );
+      bootstrapped.push(upserted);
+    } else {
+      bootstrapped.push({ ...seedProfile, ...(existingProfile || {}) });
+    }
+  }
+
+  return bootstrapped;
+}
+
+function resolveChoiceProfile(choiceProfile, vendorsForType) {
+  const sourceVendors = resolveChoiceSourceVendors(choiceProfile, vendorsForType);
+  const media = resolveChoiceMedia(choiceProfile, vendorsForType);
+  const derivedBudgetRange = buildAggregatedBudgetRange(sourceVendors);
+  const derivedServices = buildAggregatedServices(sourceVendors);
+  const derivedAvailabilitySettings = buildAggregatedAvailabilitySettings(sourceVendors);
+  const normalizedServices = Array.isArray(choiceProfile?.services)
+    ? choiceProfile.services.filter(item => typeof item === 'string').map(item => item.trim()).filter(Boolean)
+    : [];
+
+  return {
+    id: String(choiceProfile?._id || buildChoiceProfileId(choiceProfile?.type)),
+    type: normalizeVendorType(choiceProfile?.type),
+    name: choiceProfile?.name || choiceProfile?.businessName || buildChoiceProfileName(choiceProfile?.type),
+    subType: choiceProfile?.subType || '',
+    description: choiceProfile?.description || (sourceVendors.length > 0
+      ? `Curated by VivahGo from approved ${String(choiceProfile?.type || 'vendor').toLowerCase()} partners.`
+      : ''),
+    services: normalizedServices.length > 0 ? normalizedServices : derivedServices,
+    bundledServices: Array.isArray(choiceProfile?.bundledServices) && choiceProfile.bundledServices.length > 0
+      ? choiceProfile.bundledServices.map(normalizeVendorType)
+      : derivedServices.map(normalizeVendorType),
+    country: choiceProfile?.country || '',
+    state: choiceProfile?.state || '',
+    city: choiceProfile?.city || '',
+    googleMapsLink: choiceProfile?.googleMapsLink || '',
+    phone: choiceProfile?.phone || '',
+    website: choiceProfile?.website || '',
+    whatsappNumber: normalizeWhatsappNumber(choiceProfile?.phone),
+    budgetRange: choiceProfile?.budgetRange?.min && choiceProfile?.budgetRange?.max ? choiceProfile.budgetRange : derivedBudgetRange,
+    availabilitySettings: normalizeAvailabilitySettings(choiceProfile?.availabilitySettings || derivedAvailabilitySettings),
+    coverageAreas: Array.isArray(choiceProfile?.coverageAreas) ? choiceProfile.coverageAreas : [],
+    sourceVendorIds: sourceVendors.map(vendor => String(vendor._id || '')),
+    sourceVendorCount: sourceVendors.length,
+    selectedVendorMedia: media.filter(item => item.sourceType === 'vendor'),
+    ownedMedia: media.filter(item => item.sourceType !== 'vendor'),
+    media,
+  };
+}
+
+function buildPublicChoiceDirectoryEntry(choiceProfile, vendorsForType) {
+  const resolved = resolveChoiceProfile(choiceProfile, vendorsForType);
+  const visibleMedia = sortChoiceMedia(resolved.media).filter(item => item?.isVisible !== false);
+  const coverMedia = visibleMedia.find(item => item?.isCover) || visibleMedia[0] || null;
+
+  if (!resolved.type || (resolved.sourceVendorCount === 0 && visibleMedia.length === 0 && !resolved.phone && !resolved.description)) {
+    return null;
+  }
+
+  return {
+    id: resolved.id,
+    name: resolved.name,
+    type: resolved.type,
+    subType: resolved.subType,
+    bundledServices: resolved.bundledServices,
+    services: resolved.services,
+    description: resolved.description,
+    country: resolved.country,
+    state: resolved.state,
+    city: resolved.city,
+    googleMapsLink: resolved.googleMapsLink,
+    phone: resolved.phone,
+    website: resolved.website,
+    whatsappNumber: resolved.whatsappNumber,
+    availabilitySettings: resolved.availabilitySettings,
+    emoji: '⭐',
+    rating: 0,
+    reviewCount: 0,
+    priceLevel: null,
+    booked: false,
+    budgetRange: resolved.budgetRange,
+    locations: buildDirectoryLocations(resolved),
+    media: visibleMedia,
+    coverImageUrl: coverMedia?.type === 'IMAGE' ? coverMedia.url : '',
+    tier: 'Choice',
+    featuredLabel: "VivahGo's Choice",
+    serviceMode: 'Curated from approved vendors',
+    isChoiceProfile: true,
   };
 }
 
@@ -340,48 +713,39 @@ async function handleVendorList(req, res) {
   try {
     await connectDb();
     const Vendor = getVendorModel();
+    const ChoiceProfile = getChoiceProfileModel();
 
     const raw = await Vendor.find({ isApproved: true })
       .select('-__v')
       .lean();
+    const choiceProfiles = await bootstrapChoiceProfiles(ChoiceProfile);
 
-    const vendors = raw.map(v => {
-      const media = normalizeMediaList(v.media)
-        .filter(item => isVendorMediaKeyForOwner(item?.key, v.googleId))
-        .filter(item => item?.isVisible !== false)
-        .sort((a, b) => (a?.sortOrder ?? 0) - (b?.sortOrder ?? 0));
-      const coverMedia = media.find(item => item?.isCover) || media[0] || null;
+    const plusVendors = raw
+      .filter(vendor => normalizeVendorTier(vendor?.tier) === 'Plus')
+      .map(buildPublicVendorDirectoryEntry);
+    const freeVendorsByType = raw.reduce((map, vendor) => {
+      const type = normalizeVendorType(vendor?.type);
+      if (!type) {
+        return map;
+      }
+      if (!map.has(type)) {
+        map.set(type, []);
+      }
+      map.get(type).push(vendor);
+      return map;
+    }, new Map());
+    const choiceProfilesByType = new Map(choiceProfiles.map(profile => [normalizeVendorType(profile?.type), profile]));
+    const resolvedChoiceProfiles = DEFAULT_VCA_TYPES
+      .map((type) => {
+        const savedProfile = choiceProfilesByType.get(type);
+        return buildPublicChoiceDirectoryEntry(
+          savedProfile || buildDefaultChoiceProfileSeed(type),
+          freeVendorsByType.get(type) || []
+        );
+      })
+      .filter(Boolean);
 
-      return {
-        id: `db_${v._id}`,
-        name: v.businessName,
-        type: normalizeVendorType(v.type),
-        subType: v.subType || '',
-        bundledServices: Array.isArray(v.bundledServices) ? v.bundledServices.map(normalizeVendorType) : [],
-        description: v.description || '',
-        country: v.country || '',
-        state: v.state || '',
-        city: v.city || '',
-        googleMapsLink: v.googleMapsLink || '',
-        phone: v.phone || '',
-        website: v.website || '',
-        availabilitySettings: normalizeAvailabilitySettings(v.availabilitySettings),
-        emoji: '🏷️',
-        rating: 0,
-        priceLevel: null,
-        booked: false,
-        locations: [
-          [v.city, v.state, v.country].filter(Boolean).join(', '),
-          ...(Array.isArray(v.coverageAreas)
-            ? v.coverageAreas.map(item => [item.city, item.state, item.country].filter(Boolean).join(', '))
-            : []),
-        ].filter(Boolean),
-        media,
-        coverImageUrl: coverMedia?.type === 'IMAGE' ? coverMedia.url : '',
-      };
-    });
-
-    return res.status(200).json({ vendors });
+    return res.status(200).json({ vendors: [...resolvedChoiceProfiles, ...plusVendors] });
   } catch (error) {
     console.error('Approved vendors fetch failed:', error);
     return res.status(500).json({ error: 'Could not fetch vendors.' });
@@ -823,6 +1187,7 @@ async function handleVendorVerification(req, res) {
         return res.status(404).json({ error: 'Verification document not found.' });
       }
 
+      const targetKey = typeof target?.key === 'string' ? target.key.replace(/^\/+/, '') : '';
       target.deleteOne();
       if (vendor.verificationDocuments.length === 0) {
         vendor.verificationStatus = 'not_submitted';
@@ -834,6 +1199,13 @@ async function handleVendorVerification(req, res) {
       }
 
       await vendor.save();
+      if (targetKey) {
+        try {
+          await deleteB2Object(targetKey);
+        } catch (error) {
+          console.error('Vendor verification document delete failed:', error);
+        }
+      }
       return res.status(200).json({ vendor: await serializeVendor(vendor) });
     }
   } catch (error) {

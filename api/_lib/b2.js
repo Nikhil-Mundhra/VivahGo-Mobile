@@ -81,12 +81,62 @@ async function createB2PresignedGetUrl(key, expiresIn = 3600, options = {}) {
   const contentType = typeof options.contentType === 'string' ? options.contentType.trim() : '';
   const command = new GetObjectCommand({
     Bucket: bucket,
-    Key: key,
+    Key: normalizeB2ObjectKey(key),
     ...(contentDisposition ? { ResponseContentDisposition: contentDisposition } : {}),
     ...(contentType ? { ResponseContentType: contentType } : {}),
   });
 
   return getSignedUrl(client, command, { expiresIn });
+}
+
+function normalizeB2ObjectKey(key) {
+  if (!key || typeof key !== 'string') {
+    throw new Error('A B2 object key is required.');
+  }
+
+  return key.trim().replace(/^\/+/, '');
+}
+
+function getB2PublicBaseUrl() {
+  const publicBase = String(process.env.B2_PUBLIC_URL || '').trim();
+  if (!publicBase) {
+    throw new Error('B2_PUBLIC_URL is not configured.');
+  }
+
+  try {
+    return new URL(publicBase.endsWith('/') ? publicBase : `${publicBase}/`);
+  } catch {
+    throw new Error('B2_PUBLIC_URL must be a valid absolute URL.');
+  }
+}
+
+async function createB2PresignedPutUrl(key, contentType, options = {}) {
+  const bucket = process.env.B2_BUCKET_NAME;
+  if (!bucket) {
+    throw new Error('B2_BUCKET_NAME is not configured.');
+  }
+
+  const normalizedKey = normalizeB2ObjectKey(key);
+  const contentLength = Number(options?.contentLength);
+  const expiresIn = Number.isFinite(Number(options?.expiresIn))
+    ? Math.max(1, Math.trunc(Number(options.expiresIn)))
+    : 3600;
+
+  const client = createB2Client();
+  const command = new PutObjectCommand({
+    Bucket: bucket,
+    Key: normalizedKey,
+    ContentType: contentType,
+    ...(Number.isFinite(contentLength) && contentLength >= 0
+      ? { ContentLength: Math.trunc(contentLength) }
+      : {}),
+  });
+
+  return getSignedUrl(client, command, { expiresIn });
+}
+
+function createB2PublicObjectUrl(key) {
+  return new URL(normalizeB2ObjectKey(key), getB2PublicBaseUrl()).toString();
 }
 
 async function deleteB2Object(key) {
@@ -95,15 +145,10 @@ async function deleteB2Object(key) {
     throw new Error('B2_BUCKET_NAME is not configured.');
   }
 
-  const normalizedKey = typeof key === 'string' ? key.trim().replace(/^\/+/, '') : '';
-  if (!normalizedKey) {
-    throw new Error('A B2 object key is required.');
-  }
-
   const client = createB2Client();
   const command = new DeleteObjectCommand({
     Bucket: bucket,
-    Key: normalizedKey,
+    Key: normalizeB2ObjectKey(key),
   });
 
   await client.send(command);
@@ -113,5 +158,7 @@ async function deleteB2Object(key) {
 module.exports = {
   uploadResumeToB2,
   createB2PresignedGetUrl,
+  createB2PresignedPutUrl,
+  createB2PublicObjectUrl,
   deleteB2Object,
 };

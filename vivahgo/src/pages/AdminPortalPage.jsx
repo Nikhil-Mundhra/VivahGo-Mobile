@@ -4,6 +4,7 @@ import '../styles.css';
 import GoogleLoginButton from '../components/GoogleLoginButton';
 import LoadingBar from '../components/LoadingBar';
 import NavIcon from '../components/NavIcon';
+import AdminChoiceProfilesPanel from '../components/AdminChoiceProfilesPanel';
 import { clearAuthStorage, persistAuthSession, readAuthSession } from '../authStorage';
 import {
   addAdminStaff,
@@ -24,6 +25,13 @@ import {
 import { getMarketingUrl } from '../siteUrls.js';
 
 const MARKETING_HOME_URL = getMarketingUrl('/');
+const ADMIN_SECTION_PATHS = {
+  vendors: '/admin/vendors',
+  choice: '/admin/vendors/choice',
+  subscribers: '/admin/subscribers',
+  applications: '/admin/applications',
+  staff: '/admin/staff',
+};
 
 const ADMIN_PORTAL_SECTIONS = [
   {
@@ -32,6 +40,13 @@ const ADMIN_PORTAL_SECTIONS = [
     mobileLabel: 'Vendors',
     icon: 'vendors',
     description: 'Review verification documents, approval state, and internal notes for vendor listings.',
+  },
+  {
+    id: 'choice',
+    label: 'Choice',
+    mobileLabel: 'Choice',
+    icon: 'vendors',
+    description: "Curate VivahGo's Choice profiles from approved vendor assets, aggregated values, and lead details.",
   },
   {
     id: 'subscribers',
@@ -61,7 +76,34 @@ function getAllowedAdminSections(canManageStaff = false) {
   return ADMIN_PORTAL_SECTIONS.filter(section => !section.requiresOwner || canManageStaff);
 }
 
+function readAdminSectionFromPathname(pathname = '') {
+  const normalizedPathname = String(pathname || '').replace(/\/+$/, '').toLowerCase();
+
+  if (normalizedPathname === '/admin/vendors/choice' || normalizedPathname === '/admin/choice') {
+    return 'choice';
+  }
+  if (normalizedPathname === '/admin/vendors') {
+    return 'vendors';
+  }
+  if (normalizedPathname === '/admin/subscribers') {
+    return 'subscribers';
+  }
+  if (normalizedPathname === '/admin/applications') {
+    return 'applications';
+  }
+  if (normalizedPathname === '/admin/staff') {
+    return 'staff';
+  }
+
+  return '';
+}
+
 function readAdminSectionFromLocation(win = typeof window !== 'undefined' ? window : undefined) {
+  const sectionFromPath = readAdminSectionFromPathname(win?.location?.pathname || '');
+  if (sectionFromPath) {
+    return sectionFromPath;
+  }
+
   return String(win?.location?.hash || '').replace(/^#/, '').trim().toLowerCase();
 }
 
@@ -79,9 +121,16 @@ function writeAdminSectionToLocation(sectionId, options = {}) {
     return;
   }
 
-  const nextHash = `#${sectionId}`;
+  const nextPath = ADMIN_SECTION_PATHS[sectionId] || '/admin';
+  const nextUrl = `${nextPath}${win.location.search}`;
+
   if (replace && typeof win.history?.replaceState === 'function') {
-    win.history.replaceState(null, '', `${win.location.pathname}${win.location.search}${nextHash}`);
+    win.history.replaceState(null, '', nextUrl);
+    return;
+  }
+
+  if (typeof win.history?.pushState === 'function') {
+    win.history.pushState(null, '', nextUrl);
     return;
   }
 
@@ -121,6 +170,7 @@ function formatFileSize(value) {
 function createEmptySectionErrors() {
   return {
     vendors: '',
+    choice: '',
     applications: '',
     subscribers: '',
     staff: '',
@@ -211,8 +261,10 @@ export default function AdminPortalPage() {
 
     syncActiveSectionFromLocation();
     window.addEventListener('hashchange', syncActiveSectionFromLocation);
+    window.addEventListener('popstate', syncActiveSectionFromLocation);
     return () => {
       window.removeEventListener('hashchange', syncActiveSectionFromLocation);
+      window.removeEventListener('popstate', syncActiveSectionFromLocation);
     };
   }, [access?.canManageStaff]);
 
@@ -367,7 +419,6 @@ export default function AdminPortalPage() {
     pending: vendors.filter(vendor => !vendor.isApproved).length,
     approved: vendors.filter(vendor => vendor.isApproved).length,
   }), [vendors]);
-
   const applicationCounts = useMemo(() => ({
     total: applications.length,
     new: applications.filter(item => item.status === 'new').length,
@@ -434,7 +485,7 @@ export default function AdminPortalPage() {
     writeAdminSectionToLocation(nextSection);
   }
 
-  async function handleVendorApproval(vendorId, isApproved) {
+  async function handleVendorApproval(vendorId, vendorGoogleId, isApproved) {
     if (!session?.token) {
       return;
     }
@@ -445,6 +496,7 @@ export default function AdminPortalPage() {
     try {
       const result = await updateAdminVendorApproval(session.token, {
         vendorId,
+        vendorGoogleId,
         isApproved,
         verificationNotes: vendorNotesDraft[vendorId] ?? undefined,
       });
@@ -460,7 +512,7 @@ export default function AdminPortalPage() {
     }
   }
 
-  async function handleVendorVerification(vendorId, verificationStatus) {
+  async function handleVendorVerification(vendorId, vendorGoogleId, verificationStatus) {
     if (!session?.token) {
       return;
     }
@@ -471,6 +523,7 @@ export default function AdminPortalPage() {
     try {
       const result = await updateAdminVendorApproval(session.token, {
         vendorId,
+        vendorGoogleId,
         verificationStatus,
         verificationNotes: vendorNotesDraft[vendorId] ?? '',
       });
@@ -481,6 +534,33 @@ export default function AdminPortalPage() {
       )));
     } catch (nextError) {
       setError(nextError.message || 'Could not update vendor verification.');
+    } finally {
+      setSavingVendorId('');
+    }
+  }
+
+  async function handleVendorTier(vendorId, vendorGoogleId, tier) {
+    if (!session?.token) {
+      return;
+    }
+
+    setSavingVendorId(vendorId);
+    setError('');
+
+    try {
+      const result = await updateAdminVendorApproval(session.token, {
+        vendorId,
+        vendorGoogleId,
+        tier,
+        verificationNotes: vendorNotesDraft[vendorId] ?? undefined,
+      });
+      setVendors(current => current.map(vendor => (
+        vendor.id === vendorId
+          ? { ...vendor, ...(result.vendor || {}), tier: result.vendor?.tier || tier }
+          : vendor
+      )));
+    } catch (nextError) {
+      setError(nextError.message || 'Could not update vendor tier.');
     } finally {
       setSavingVendorId('');
     }
@@ -702,6 +782,8 @@ export default function AdminPortalPage() {
         valueClass: 'text-3xl font-bold text-emerald-900',
       },
     ]
+    : activeSectionId === 'choice'
+      ? []
     : activeSectionId === 'subscribers'
       ? [
         {
@@ -839,6 +921,9 @@ export default function AdminPortalPage() {
                   }`}>
                     Verification: {vendor.verificationStatus || 'not_submitted'}
                   </span>
+                  <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ${vendor.tier === 'Plus' ? 'bg-sky-100 text-sky-700' : 'bg-stone-100 text-stone-700'}`}>
+                    Tier: {vendor.tier || 'Free'}
+                  </span>
                   {Array.isArray(vendor.verificationDocuments) && vendor.verificationDocuments.map(document => (
                     <span key={document._id || document.key} className="inline-flex items-center rounded-full bg-stone-100 px-2.5 py-1 text-xs font-medium text-stone-700">
                       {document.documentType || 'OTHER'}
@@ -874,10 +959,19 @@ export default function AdminPortalPage() {
                 </div>
               </div>
               <div className="flex flex-wrap gap-2">
+                <select
+                  value={vendor.tier || 'Free'}
+                  onChange={event => handleVendorTier(vendor.id, vendor.googleId, event.target.value)}
+                  className="rounded-2xl border border-stone-300 px-3 py-2 text-sm text-stone-900 outline-none focus:border-rose-400"
+                  disabled={!access.canManageVendors || savingVendorId === vendor.id}
+                >
+                  <option value="Free">Free</option>
+                  <option value="Plus">Plus</option>
+                </select>
                 <button
                   type="button"
                   className="login-secondary-btn"
-                  onClick={() => handleVendorVerification(vendor.id, 'approved')}
+                  onClick={() => handleVendorVerification(vendor.id, vendor.googleId, 'approved')}
                   disabled={!access.canManageVendors || savingVendorId === vendor.id || !vendor.verificationDocumentCount}
                 >
                   Verify Docs
@@ -885,7 +979,7 @@ export default function AdminPortalPage() {
                 <button
                   type="button"
                   className="login-secondary-btn"
-                  onClick={() => handleVendorVerification(vendor.id, 'rejected')}
+                  onClick={() => handleVendorVerification(vendor.id, vendor.googleId, 'rejected')}
                   disabled={!access.canManageVendors || savingVendorId === vendor.id || !vendor.verificationDocumentCount}
                 >
                   Reject Docs
@@ -893,7 +987,7 @@ export default function AdminPortalPage() {
                 <button
                   type="button"
                   className="login-secondary-btn"
-                  onClick={() => handleVendorApproval(vendor.id, true)}
+                  onClick={() => handleVendorApproval(vendor.id, vendor.googleId, true)}
                   disabled={!access.canManageVendors || savingVendorId === vendor.id || vendor.isApproved}
                 >
                   {savingVendorId === vendor.id && !vendor.isApproved ? 'Saving...' : 'Approve'}
@@ -901,7 +995,7 @@ export default function AdminPortalPage() {
                 <button
                   type="button"
                   className="login-secondary-btn"
-                  onClick={() => handleVendorApproval(vendor.id, false)}
+                  onClick={() => handleVendorApproval(vendor.id, vendor.googleId, false)}
                   disabled={!access.canManageVendors || savingVendorId === vendor.id || !vendor.isApproved}
                 >
                   {savingVendorId === vendor.id && vendor.isApproved ? 'Saving...' : 'Move to Pending'}
@@ -912,6 +1006,10 @@ export default function AdminPortalPage() {
         </div>
       </section>
     )
+    : activeSectionId === 'choice'
+      ? (
+        <AdminChoiceProfilesPanel token={session?.token} access={access} vendors={vendors} />
+      )
     : activeSectionId === 'subscribers'
       ? (
         <section className="bg-white rounded-3xl border border-stone-200 shadow-sm overflow-hidden">
@@ -1379,14 +1477,16 @@ export default function AdminPortalPage() {
               </div>
             </section>
 
-            <section className="grid gap-4 md:grid-cols-3">
-              {sectionStatCards.map(card => (
-                <div key={card.key} className={`bg-white rounded-3xl border p-5 shadow-sm ${card.cardClass}`}>
-                  <p className={`text-sm ${card.labelClass}`}>{card.label}</p>
-                  <p className={`mt-2 ${card.valueClass}`}>{card.value}</p>
-                </div>
-              ))}
-            </section>
+            {sectionStatCards.length > 0 && (
+              <section className="grid gap-4 md:grid-cols-3">
+                {sectionStatCards.map(card => (
+                  <div key={card.key} className={`bg-white rounded-3xl border p-5 shadow-sm ${card.cardClass}`}>
+                    <p className={`text-sm ${card.labelClass}`}>{card.label}</p>
+                    <p className={`mt-2 ${card.valueClass}`}>{card.value}</p>
+                  </div>
+                ))}
+              </section>
+            )}
 
             {currentSectionPanel}
           </div>

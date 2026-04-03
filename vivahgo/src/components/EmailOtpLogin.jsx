@@ -34,6 +34,15 @@ function isAlreadySignedInClerkError(err) {
   return false;
 }
 
+function isAlreadyVerifiedClerkError(err) {
+  const text = `${getErrorPayload(err) || ''} ${err?.message || ''}`.toLowerCase();
+  if (text.includes('already been verified') || text.includes('already verified')) {
+    return true;
+  }
+  const code = err?.errors?.[0]?.code;
+  return typeof code === 'string' && /already_verified|verification_already_verified/i.test(code);
+}
+
 function EmailOtpLogin({ onLoginSuccess, onLoginError }) {
   const clerkPublishableKey = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY;
   const clerk = useClerk();
@@ -86,6 +95,39 @@ function EmailOtpLogin({ onLoginSuccess, onLoginError }) {
       return false;
     }
   }, []);
+
+  const finalizeClerkFlow = useCallback(async (resource, flowType) => {
+    if (!resource) {
+      return completeWithActiveClerkSession();
+    }
+
+    const status = typeof resource.status === 'string' ? resource.status : '';
+    if (status === 'complete' || status === 'completed') {
+      if (await completeWithActiveClerkSession()) {
+        return true;
+      }
+    }
+
+    const finalizeFn = typeof resource.finalize === 'function'
+      ? resource.finalize.bind(resource)
+      : flowType === 'sign-up' && typeof signUp?.finalize === 'function'
+        ? signUp.finalize.bind(signUp)
+        : flowType === 'sign-in' && typeof signIn?.finalize === 'function'
+          ? signIn.finalize.bind(signIn)
+          : null;
+
+    if (!finalizeFn) {
+      return completeWithActiveClerkSession();
+    }
+
+    const finalized = await finalizeFn();
+    const finalErr = getResultError(finalized);
+    if (finalErr) {
+      throw finalErr;
+    }
+
+    return completeWithActiveClerkSession();
+  }, [completeWithActiveClerkSession, signIn, signUp]);
 
   useEffect(() => {
     if (clerk.loaded) {
@@ -255,14 +297,10 @@ function EmailOtpLogin({ onLoginSuccess, onLoginError }) {
           return;
         }
 
-        if (signUp.status === 'complete') {
-          const fin = await signUp.finalize();
-          const finErr = getResultError(fin);
-          if (finErr) {
-            setError(getClerkErrorMessage(finErr, 'Could not complete sign-up.'));
-            onLoginError?.(finErr);
-            return;
-          }
+        const completed = await finalizeClerkFlow(verifyUp, 'sign-up');
+        if (!completed) {
+          setError('Could not complete sign-up.');
+          return;
         }
 
         const activeToken = await window.Clerk?.session?.getToken?.();
@@ -289,14 +327,10 @@ function EmailOtpLogin({ onLoginSuccess, onLoginError }) {
         return;
       }
 
-      if (signIn.status === 'complete') {
-        const fin = await signIn.finalize();
-        const finErr = getResultError(fin);
-        if (finErr) {
-          setError(getClerkErrorMessage(finErr, 'Could not complete sign-in.'));
-          onLoginError?.(finErr);
-          return;
-        }
+      const completed = await finalizeClerkFlow(verifyIn, 'sign-in');
+      if (!completed) {
+        setError('Could not complete sign-in.');
+        return;
       }
 
       const activeToken = await window.Clerk?.session?.getToken?.();
@@ -313,7 +347,7 @@ function EmailOtpLogin({ onLoginSuccess, onLoginError }) {
         family_name: '',
       }, activeToken || '');
     } catch (err) {
-      if (isAlreadySignedInClerkError(err)) {
+      if (isAlreadySignedInClerkError(err) || isAlreadyVerifiedClerkError(err)) {
         setError('');
         if (await completeWithActiveClerkSession()) {
           return;
@@ -324,7 +358,7 @@ function EmailOtpLogin({ onLoginSuccess, onLoginError }) {
     } finally {
       setLoading(false);
     }
-  }, [code, email, signIn, signUp, onLoginSuccess, onLoginError, getClerkErrorMessage, completeWithActiveClerkSession]);
+  }, [code, email, signIn, signUp, onLoginSuccess, onLoginError, getClerkErrorMessage, completeWithActiveClerkSession, finalizeClerkFlow]);
 
   const isClerkReady = Boolean(clerk.loaded && signIn && signUp);
 

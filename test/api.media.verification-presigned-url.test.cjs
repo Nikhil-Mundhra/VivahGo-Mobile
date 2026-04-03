@@ -4,7 +4,7 @@ const jwt = require('jsonwebtoken');
 const { createRes } = require('./helpers/testUtils.cjs');
 
 const corePath = require.resolve('../api/_lib/core');
-const r2Path = require.resolve('../api/_lib/r2');
+const b2Path = require.resolve('../api/_lib/b2');
 const handlerPath = require.resolve('../api/media/verification-presigned-url');
 
 function makeToken(payload = {}) {
@@ -17,11 +17,11 @@ function makeToken(payload = {}) {
 
 describe('api/media/verification-presigned-url.js', function () {
   const originalCore = require(corePath);
-  const originalR2 = require(r2Path);
+  const originalB2 = require(b2Path);
 
   afterEach(function () {
     require.cache[corePath].exports = originalCore;
-    require.cache[r2Path].exports = originalR2;
+    require.cache[b2Path].exports = originalB2;
     delete require.cache[handlerPath];
   });
 
@@ -31,9 +31,9 @@ describe('api/media/verification-presigned-url.js', function () {
       ...originalCore,
       connectDb: async () => {},
     };
-    require.cache[r2Path].exports = {
-      ...originalR2,
-      createPresignedPutUrl: async (...args) => {
+    require.cache[b2Path].exports = {
+      ...originalB2,
+      createB2PresignedPutUrl: async (...args) => {
         presignedCall = args;
         return 'https://upload.example.com/put';
       },

@@ -2,11 +2,10 @@ import { useEffect, useState } from 'react';
 import { updateVendorProfile } from '../api';
 import { BUNDLED_SERVICE_OPTIONS, VENDOR_SUBTYPE_OPTIONS, VENDOR_TYPES } from '../constants';
 import { formatCoverageLocation, getLocationCities, getLocationCountries, getLocationStates } from '../locationOptions';
+import VendorPricingStructureFields from './VendorPricingStructureFields';
+import { normalizeVendorBudgetRange } from '../vendorPricing';
 
 const REGISTRATION_VENDOR_TYPES = VENDOR_TYPES.filter(type => type !== 'All');
-const MIN_BUDGET_LIMIT = 10000;
-const MAX_BUDGET_LIMIT = 5000000;
-const BUDGET_STEP = 10000;
 const LEGACY_VENDOR_TYPE_ALIASES = {
   Bride: 'Bridal & Pre-Bridal',
   Groom: 'Groom Services',
@@ -14,23 +13,6 @@ const LEGACY_VENDOR_TYPE_ALIASES = {
 
 function normalizeVendorType(type) {
   return LEGACY_VENDOR_TYPE_ALIASES[type] || type;
-}
-
-function normalizeBudgetRange(range) {
-  const min = Number(range?.min);
-  const max = Number(range?.max);
-
-  if (!Number.isFinite(min) || !Number.isFinite(max)) {
-    return { min: MIN_BUDGET_LIMIT, max: 300000 };
-  }
-
-  const safeMin = Math.max(MIN_BUDGET_LIMIT, Math.min(Math.round(min / BUDGET_STEP) * BUDGET_STEP, MAX_BUDGET_LIMIT));
-  const safeMax = Math.max(safeMin, Math.min(Math.round(max / BUDGET_STEP) * BUDGET_STEP, MAX_BUDGET_LIMIT));
-  return { min: safeMin, max: safeMax };
-}
-
-function formatInr(value) {
-  return `₹${Number(value || 0).toLocaleString('en-IN')}`;
 }
 
 function normalizeUrlValue(value) {
@@ -61,7 +43,7 @@ function isValidUrl(value) {
 }
 
 function buildInitialForm(vendor) {
-  const budgetRange = normalizeBudgetRange(vendor?.budgetRange);
+  const budgetRange = normalizeVendorBudgetRange(vendor?.budgetRange);
   const hasDefaultCapacity = vendor?.availabilitySettings?.hasDefaultCapacity !== false;
   const defaultMaxCapacity = Number(vendor?.availabilitySettings?.defaultMaxCapacity);
 
@@ -206,37 +188,6 @@ export default function VendorBusinessProfileEditor({ token, vendor, onVendorUpd
     }));
   }
 
-  function updateBudgetRange(field, rawValue) {
-    const value = Number(rawValue);
-    if (!Number.isFinite(value)) {
-      return;
-    }
-
-    setForm(current => {
-      const currentRange = normalizeBudgetRange(current.budgetRange);
-
-      if (field === 'min') {
-        const nextMin = Math.min(value, currentRange.max);
-        return {
-          ...current,
-          budgetRange: {
-            min: nextMin,
-            max: Math.max(currentRange.max, nextMin),
-          },
-        };
-      }
-
-      const nextMax = Math.max(value, currentRange.min);
-      return {
-        ...current,
-        budgetRange: {
-          min: Math.min(currentRange.min, nextMax),
-          max: nextMax,
-        },
-      };
-    });
-  }
-
   function updateDefaultMaxCapacity(rawValue) {
     const value = Number(rawValue);
     if (!Number.isInteger(value)) {
@@ -358,46 +309,11 @@ export default function VendorBusinessProfileEditor({ token, vendor, onVendorUpd
         />
       </div>
 
-      <div className="vendor-registration-location-block">
-        <div className="vendor-registration-section-title">Pricing Structure</div>
-        <p className="text-xs text-gray-500">Set your price range so couples can filter and compare your services accurately.</p>
-        <div className="mt-3 grid gap-3 sm:grid-cols-2">
-          <div className="rounded-xl border border-gray-200 bg-white px-3 py-2">
-            <div className="text-[11px] uppercase tracking-[0.15em] text-gray-500">Minimum Price</div>
-            <div className="mt-1 text-sm font-semibold text-gray-900">{formatInr(form.budgetRange.min)}</div>
-          </div>
-          <div className="rounded-xl border border-gray-200 bg-white px-3 py-2">
-            <div className="text-[11px] uppercase tracking-[0.15em] text-gray-500">Maximum Price</div>
-            <div className="mt-1 text-sm font-semibold text-gray-900">{formatInr(form.budgetRange.max)}</div>
-          </div>
-        </div>
-        <div className="mt-4 space-y-3">
-          <label className="block">
-            <span className="mb-1 block text-xs font-medium text-gray-600">Minimum Price</span>
-            <input
-              type="range"
-              min={MIN_BUDGET_LIMIT}
-              max={MAX_BUDGET_LIMIT}
-              step={BUDGET_STEP}
-              value={form.budgetRange.min}
-              onChange={event => updateBudgetRange('min', event.target.value)}
-              className="w-full"
-            />
-          </label>
-          <label className="block">
-            <span className="mb-1 block text-xs font-medium text-gray-600">Maximum Price</span>
-            <input
-              type="range"
-              min={MIN_BUDGET_LIMIT}
-              max={MAX_BUDGET_LIMIT}
-              step={BUDGET_STEP}
-              value={form.budgetRange.max}
-              onChange={event => updateBudgetRange('max', event.target.value)}
-              className="w-full"
-            />
-          </label>
-        </div>
-      </div>
+      <VendorPricingStructureFields
+        idPrefix="vendor-business-profile"
+        budgetRange={form.budgetRange}
+        onChange={budgetRange => setForm(current => ({ ...current, budgetRange }))}
+      />
 
       <div className="vendor-registration-location-block">
         <div className="vendor-registration-section-title">Your Default Capacity / Day</div>
