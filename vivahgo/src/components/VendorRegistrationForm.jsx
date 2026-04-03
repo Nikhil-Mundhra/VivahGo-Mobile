@@ -2,27 +2,12 @@ import { useEffect, useState } from 'react';
 import { registerVendor } from '../api';
 import { BUNDLED_SERVICE_OPTIONS, VENDOR_SUBTYPE_OPTIONS, VENDOR_TYPES } from '../constants';
 import { formatCoverageLocation, getLocationCities, getLocationCountries, getLocationStates } from '../locationOptions';
+import VendorPricingStructureFields from './VendorPricingStructureFields';
+import { DEFAULT_VENDOR_BUDGET_RANGE, normalizeVendorBudgetRange } from '../vendorPricing';
 
 const REGISTRATION_VENDOR_TYPES = VENDOR_TYPES.filter(type => type !== 'All');
 const VENDOR_SUPPORT_WHATSAPP_NUMBER = '918383874103';
 const VENDOR_REGISTRATION_DRAFT_KEY = 'vivahgo.vendorRegistrationDraft';
-const MIN_BUDGET_LIMIT = 10000;
-const MAX_BUDGET_LIMIT = 150000001;
-const BUDGET_STEP = 10000;
-const MID_BUDGET_THRESHOLD = 200000;
-const MID_BUDGET_STEP = 20000;
-const HIGH_BUDGET_THRESHOLD = 500000;
-const HIGH_BUDGET_STEP = 50000;
-const LARGE_BUDGET_THRESHOLD = 1500000;
-const LARGE_BUDGET_STEP = 100000;
-const XL_BUDGET_THRESHOLD = 5000000;
-const XL_BUDGET_STEP = 500000;
-const XXL_BUDGET_THRESHOLD = 10000000;
-const XXL_BUDGET_STEP = 1000000;
-const ULTRA_BUDGET_THRESHOLD = 20000000;
-const ULTRA_BUDGET_STEP = 5000000;
-const MEGA_BUDGET_THRESHOLD = 60000000;
-const MEGA_BUDGET_STEP = 10000000;
 const INITIAL_FORM = {
   businessName: '',
   type: REGISTRATION_VENDOR_TYPES[0],
@@ -36,72 +21,8 @@ const INITIAL_FORM = {
   coverageAreas: [],
   phone: '',
   website: '',
-  budgetRange: {
-    min: 100000,
-    max: 300000,
-  },
+  budgetRange: { ...DEFAULT_VENDOR_BUDGET_RANGE },
 };
-
-function formatInr(value) {
-  return `₹${Number(value || 0).toLocaleString('en-IN')}`;
-}
-
-function clampBudgetValue(rawValue) {
-  const numericValue = Number(rawValue);
-  if (!Number.isFinite(numericValue)) {
-    return null;
-  }
-
-  return Math.min(MAX_BUDGET_LIMIT, Math.max(MIN_BUDGET_LIMIT, Math.round(numericValue)));
-}
-
-function buildBudgetSliderPoints() {
-  const values = [];
-
-  for (let value = MIN_BUDGET_LIMIT; value <= MID_BUDGET_THRESHOLD; value += BUDGET_STEP) {
-    values.push(value);
-  }
-  for (let value = MID_BUDGET_THRESHOLD + MID_BUDGET_STEP; value <= HIGH_BUDGET_THRESHOLD; value += MID_BUDGET_STEP) {
-    values.push(value);
-  }
-  for (let value = HIGH_BUDGET_THRESHOLD + HIGH_BUDGET_STEP; value <= LARGE_BUDGET_THRESHOLD; value += HIGH_BUDGET_STEP) {
-    values.push(value);
-  }
-  for (let value = LARGE_BUDGET_THRESHOLD + LARGE_BUDGET_STEP; value <= XL_BUDGET_THRESHOLD; value += LARGE_BUDGET_STEP) {
-    values.push(value);
-  }
-  for (let value = XL_BUDGET_THRESHOLD + XL_BUDGET_STEP; value <= XXL_BUDGET_THRESHOLD; value += XL_BUDGET_STEP) {
-    values.push(value);
-  }
-  for (let value = XXL_BUDGET_THRESHOLD + XXL_BUDGET_STEP; value <= ULTRA_BUDGET_THRESHOLD; value += XXL_BUDGET_STEP) {
-    values.push(value);
-  }
-  for (let value = ULTRA_BUDGET_THRESHOLD + ULTRA_BUDGET_STEP; value <= MEGA_BUDGET_THRESHOLD; value += ULTRA_BUDGET_STEP) {
-    values.push(value);
-  }
-  for (let value = MEGA_BUDGET_THRESHOLD + MEGA_BUDGET_STEP; value <= MAX_BUDGET_LIMIT; value += MEGA_BUDGET_STEP) {
-    values.push(value);
-  }
-
-  return values;
-}
-
-function findNearestBudgetPointIndex(value, points) {
-  let nearestIndex = 0;
-  let nearestDistance = Infinity;
-
-  points.forEach((point, index) => {
-    const distance = Math.abs(point - value);
-    if (distance < nearestDistance) {
-      nearestDistance = distance;
-      nearestIndex = index;
-    }
-  });
-
-  return nearestIndex;
-}
-
-const BUDGET_SLIDER_POINTS = buildBudgetSliderPoints();
 
 function readVendorRegistrationDraft() {
   if (typeof window === 'undefined') {
@@ -120,10 +41,7 @@ function readVendorRegistrationDraft() {
       ...parsedDraft,
       bundledServices: Array.isArray(parsedDraft?.bundledServices) ? parsedDraft.bundledServices : [],
       coverageAreas: Array.isArray(parsedDraft?.coverageAreas) ? parsedDraft.coverageAreas : [],
-      budgetRange: {
-        ...INITIAL_FORM.budgetRange,
-        ...(parsedDraft?.budgetRange || {}),
-      },
+      budgetRange: normalizeVendorBudgetRange(parsedDraft?.budgetRange),
     };
   } catch {
     return INITIAL_FORM;
@@ -136,7 +54,6 @@ export default function VendorRegistrationForm({ token, onRegistered }) {
   const [showCoverageForm, setShowCoverageForm] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [maxBudgetInput, setMaxBudgetInput] = useState('300000');
 
   const primaryStates = getLocationStates(form.country);
   const primaryCities = getLocationCities(form.country, form.state);
@@ -156,12 +73,6 @@ export default function VendorRegistrationForm({ token, onRegistered }) {
     `Hi VivahGo team, \nI need help with vendor registration. \nI am on the "Register your business" step and need support completing my profile.\n${form.businessName ? `Business name: ${form.businessName}.\n` : ''}${form.type ? `Category: ${form.type}.\n` : ''}`
   );
   const vendorSupportWhatsappUrl = `https://wa.me/${VENDOR_SUPPORT_WHATSAPP_NUMBER}?text=${supportMessage}`;
-  const minBudgetSliderIndex = findNearestBudgetPointIndex(form.budgetRange.min, BUDGET_SLIDER_POINTS);
-  const maxBudgetSliderIndex = findNearestBudgetPointIndex(form.budgetRange.max, BUDGET_SLIDER_POINTS);
-
-  useEffect(() => {
-    setMaxBudgetInput(String(form.budgetRange.max));
-  }, [form.budgetRange.max]);
 
   useEffect(() => {
     if (typeof window === 'undefined') {
@@ -256,66 +167,6 @@ export default function VendorRegistrationForm({ token, onRegistered }) {
         ? prev.bundledServices.filter(item => item !== service)
         : [...prev.bundledServices, service],
     }));
-  }
-
-  function updateBudgetRange(field, rawValue) {
-    const value = clampBudgetValue(rawValue);
-    if (!Number.isFinite(value)) {
-      return;
-    }
-
-    setForm(prev => {
-      if (field === 'min') {
-        const nextMin = Math.min(value, prev.budgetRange.max);
-        return {
-          ...prev,
-          budgetRange: {
-            min: nextMin,
-            max: Math.max(prev.budgetRange.max, nextMin),
-          },
-        };
-      }
-
-      const nextMax = Math.max(value, prev.budgetRange.min);
-      return {
-        ...prev,
-        budgetRange: {
-          min: Math.min(prev.budgetRange.min, nextMax),
-          max: nextMax,
-        },
-      };
-    });
-  }
-
-  function handleBudgetSliderChange(field, rawIndex) {
-    const index = Number(rawIndex);
-    const value = BUDGET_SLIDER_POINTS[index];
-    if (!Number.isFinite(value)) {
-      return;
-    }
-    updateBudgetRange(field, value);
-  }
-
-  function handleMaxBudgetInputChange(rawValue) {
-    const sanitizedValue = rawValue.replace(/[^\d]/g, '');
-    setMaxBudgetInput(sanitizedValue);
-
-    if (!sanitizedValue) {
-      return;
-    }
-
-    updateBudgetRange('max', sanitizedValue);
-  }
-
-  function handleMaxBudgetInputBlur() {
-    const nextValue = clampBudgetValue(maxBudgetInput || form.budgetRange.max);
-    if (!Number.isFinite(nextValue)) {
-      setMaxBudgetInput(String(form.budgetRange.max));
-      return;
-    }
-
-    updateBudgetRange('max', nextValue);
-    setMaxBudgetInput(String(nextValue));
   }
 
   async function handleSubmit(e) {
@@ -475,55 +326,11 @@ export default function VendorRegistrationForm({ token, onRegistered }) {
               </p>
             </div>
 
-            <div className="vendor-registration-location-block">
-              <div className="vendor-registration-section-title">Pricing Structure</div>
-              <p className="vendor-registration-block-copy">Set a realistic range so couples can compare your services more confidently.</p>
-              <div className="vendor-registration-price-grid">
-                <div className="vendor-registration-price-card">
-                  <div className="vendor-registration-price-label">Minimum Price</div>
-                  <div className="vendor-registration-price-value">{formatInr(form.budgetRange.min)}</div>
-                </div>
-                <div className="vendor-registration-price-card">
-                  <label className="vendor-registration-price-label" htmlFor="vendor-registration-max-price-input">Maximum Price</label>
-                  <input
-                    id="vendor-registration-max-price-input"
-                    type="text"
-                    inputMode="numeric"
-                    value={maxBudgetInput ? formatInr(maxBudgetInput) : ''}
-                    onChange={event => handleMaxBudgetInputChange(event.target.value)}
-                    onBlur={handleMaxBudgetInputBlur}
-                    className="vendor-registration-price-input"
-                    aria-label="Maximum Price"
-                  />
-                </div>
-              </div>
-              <div className="vendor-registration-slider-stack">
-                <label className="vendor-registration-slider-label">
-                  <span>Minimum Price</span>
-                  <input
-                    type="range"
-                    min={0}
-                    max={BUDGET_SLIDER_POINTS.length - 1}
-                    step={1}
-                    value={minBudgetSliderIndex}
-                    onChange={event => handleBudgetSliderChange('min', event.target.value)}
-                    className="vendor-registration-range"
-                  />
-                </label>
-                <label className="vendor-registration-slider-label">
-                  <span>Maximum Price</span>
-                  <input
-                    type="range"
-                    min={0}
-                    max={BUDGET_SLIDER_POINTS.length - 1}
-                    step={1}
-                    value={maxBudgetSliderIndex}
-                    onChange={event => handleBudgetSliderChange('max', event.target.value)}
-                    className="vendor-registration-range"
-                  />
-                </label>
-              </div>
-            </div>
+            <VendorPricingStructureFields
+              idPrefix="vendor-registration"
+              budgetRange={form.budgetRange}
+              onChange={budgetRange => setForm(prev => ({ ...prev, budgetRange }))}
+            />
 
             <div className="vendor-registration-location-block">
               <div className="vendor-registration-section-title">Also Offers</div>
