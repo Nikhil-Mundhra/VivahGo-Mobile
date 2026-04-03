@@ -1,13 +1,84 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { fetchAdminChoiceProfiles, fetchPresignedUrl, updateAdminChoiceProfile } from '../api';
+import { fetchAdminChoiceMediaPresignedUrl, fetchAdminChoiceProfiles, updateAdminChoiceProfile } from '../api';
+import { DEFAULT_VENDORS } from '../data';
+import { buildAvailabilityState, dateKeyFromDate, getDayAvailability, getDayStatus, parseDateKey } from '../vendorAvailability';
 import { FallbackImage, FallbackVideo } from './MediaWithFallback';
 
 const MAX_FILE_SIZE = 50 * 1024 * 1024;
+const MAX_CAPACITY = 99;
+const DEFAULT_CHOICE_NAME_PREFIX = "VivahGo's Choice";
+const WEEKDAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+const MONTH_FORMATTER = new Intl.DateTimeFormat('en-IN', { month: 'long', year: 'numeric' });
+const DATE_FORMATTER = new Intl.DateTimeFormat('en-IN', {
+  weekday: 'short',
+  day: 'numeric',
+  month: 'short',
+  year: 'numeric',
+});
+
+function getChoiceAccountKey(profile) {
+  const id = String(profile?.id || profile?._id || '').trim();
+  if (id) {
+    return id;
+  }
+
+  const type = String(profile?.type || '').trim();
+  const name = String(profile?.name || '').trim();
+  return `${type}::${name || 'draft'}`;
+}
+
+function buildChoiceProfileName(type) {
+  const trimmedType = String(type || '').trim();
+  return trimmedType ? `${DEFAULT_CHOICE_NAME_PREFIX} ${trimmedType}` : DEFAULT_CHOICE_NAME_PREFIX;
+}
 
 function buildDraft(profile) {
+  const selectedVendorMedia = Array.isArray(profile?.selectedVendorMedia) ? profile.selectedVendorMedia : [];
+  const ownedMedia = Array.isArray(profile?.media) ? profile.media : [];
+  const mergedSelectedMedia = Array.isArray(profile?.selectedMedia)
+    ? profile.selectedMedia
+    : [
+      ...selectedVendorMedia.map(item => ({
+        sourceType: 'vendor',
+        vendorId: item.vendorId || '',
+        vendorName: item.vendorName || '',
+        sourceMediaId: item.sourceMediaId || '',
+        url: item.r2Url || item.url || '',
+        r2Url: item.r2Url || item.url || '',
+        type: item.mediaType || item.type || 'IMAGE',
+        mediaType: item.mediaType || item.type || 'IMAGE',
+        filename: item.filename || '',
+        size: typeof item.size === 'number' ? item.size : 0,
+        caption: item.caption || '',
+        altText: item.altText || '',
+        isCover: Boolean(item.isCover),
+        isVisible: item.isVisible !== false,
+        sortOrder: typeof item.sortOrder === 'number' ? item.sortOrder : 0,
+      })),
+      ...ownedMedia.map(item => ({
+        sourceType: 'admin',
+        vendorId: '',
+        vendorName: '',
+        sourceMediaId: '',
+        key: item.key || '',
+        url: item.url || '',
+        type: item.type || 'IMAGE',
+        mediaType: item.type || 'IMAGE',
+        filename: item.filename || '',
+        size: typeof item.size === 'number' ? item.size : 0,
+        caption: item.caption || '',
+        altText: item.altText || '',
+        isCover: Boolean(item.isCover),
+        isVisible: item.isVisible !== false,
+        sortOrder: typeof item.sortOrder === 'number' ? item.sortOrder : 0,
+      })),
+    ].sort((a, b) => (a?.sortOrder ?? 0) - (b?.sortOrder ?? 0));
+
   return {
+    id: profile?.id || '',
     type: profile?.type || '',
     name: profile?.name || '',
+    businessName: profile?.businessName || profile?.name || '',
     subType: profile?.subType || '',
     description: profile?.description || '',
     services: Array.isArray(profile?.services) ? profile.services : [],
@@ -19,8 +90,11 @@ function buildDraft(profile) {
     phone: profile?.phone || '',
     website: profile?.website || '',
     budgetRange: profile?.budgetRange || null,
+    availabilitySettings: buildAvailabilityState(profile),
     sourceVendorIds: Array.isArray(profile?.sourceVendorIds) ? profile.sourceVendorIds : [],
-    selectedMedia: Array.isArray(profile?.selectedMedia) ? profile.selectedMedia : [],
+    selectedVendorMedia,
+    media: ownedMedia,
+    selectedMedia: mergedSelectedMedia,
   };
 }
 
@@ -92,6 +166,218 @@ function formatBudgetRange(range) {
   return `₹${min.toLocaleString('en-IN')} - ₹${max.toLocaleString('en-IN')}`;
 }
 
+function startOfMonth(date) {
+  return new Date(date.getFullYear(), date.getMonth(), 1);
+}
+
+function addMonths(date, offset) {
+  return new Date(date.getFullYear(), date.getMonth() + offset, 1);
+}
+
+function buildCalendarDays(displayMonth) {
+  const firstDayOfMonth = startOfMonth(displayMonth);
+  const lastDayOfMonth = new Date(
+    firstDayOfMonth.getFullYear(),
+    firstDayOfMonth.getMonth() + 1,
+    0
+  );
+  const firstVisibleDay = new Date(
+    firstDayOfMonth.getFullYear(),
+    firstDayOfMonth.getMonth(),
+    1 - firstDayOfMonth.getDay()
+  );
+  const lastVisibleDay = new Date(
+    lastDayOfMonth.getFullYear(),
+    lastDayOfMonth.getMonth(),
+    lastDayOfMonth.getDate() + (6 - lastDayOfMonth.getDay())
+  );
+  const totalDays = Math.round((lastVisibleDay - firstVisibleDay) / (24 * 60 * 60 * 1000)) + 1;
+
+  return Array.from({ length: totalDays }, (_, index) => {
+    const date = new Date(
+      firstVisibleDay.getFullYear(),
+      firstVisibleDay.getMonth(),
+      firstVisibleDay.getDate() + index
+    );
+
+    return {
+      key: dateKeyFromDate(date),
+      date,
+      isCurrentMonth: date.getMonth() === firstDayOfMonth.getMonth(),
+    };
+  });
+}
+
+function sanitizeCount(rawValue, fallback = 0) {
+  const value = Number(rawValue);
+  if (!Number.isInteger(value)) {
+    return fallback;
+  }
+  return Math.max(0, Math.min(MAX_CAPACITY, value));
+}
+
+function buildSelectedDayDraft(availability, dateKey) {
+  const day = getDayAvailability(availability, dateKey);
+  return {
+    usesDefaultCapacity: availability.hasDefaultCapacity && !day.hasOverride,
+    maxCapacity: String(day.maxCapacity),
+    bookingsCount: String(day.bookingsCount),
+    unavailable: day.maxCapacity === 0,
+  };
+}
+
+function buildNextAvailabilityForDate(availability, selectedDate, selectedDayDraft) {
+  const nextOverrides = availability.dateOverrides.filter((item) => item.date !== selectedDate);
+  const resolvedCapacity = selectedDayDraft.unavailable
+    ? 0
+    : selectedDayDraft.usesDefaultCapacity && availability.hasDefaultCapacity
+      ? availability.defaultMaxCapacity
+      : sanitizeCount(selectedDayDraft.maxCapacity, 0);
+  const resolvedBookings = resolvedCapacity > 0
+    ? Math.min(sanitizeCount(selectedDayDraft.bookingsCount, 0), resolvedCapacity)
+    : 0;
+
+  if (
+    availability.hasDefaultCapacity &&
+    selectedDayDraft.usesDefaultCapacity &&
+    resolvedBookings === 0 &&
+    resolvedCapacity === availability.defaultMaxCapacity
+  ) {
+    return {
+      hasDefaultCapacity: availability.hasDefaultCapacity,
+      defaultMaxCapacity: availability.defaultMaxCapacity,
+      dateOverrides: nextOverrides.sort((a, b) => a.date.localeCompare(b.date)),
+    };
+  }
+
+  if (resolvedCapacity > 0 || resolvedBookings > 0 || selectedDayDraft.unavailable) {
+    nextOverrides.push({
+      date: selectedDate,
+      maxCapacity: resolvedCapacity,
+      bookingsCount: resolvedBookings,
+    });
+  }
+
+  return {
+    hasDefaultCapacity: availability.hasDefaultCapacity,
+    defaultMaxCapacity: availability.defaultMaxCapacity,
+    dateOverrides: nextOverrides.sort((a, b) => a.date.localeCompare(b.date)),
+  };
+}
+
+function getStatusClasses(status, isCurrentMonth) {
+  const palette = {
+    unavailable: isCurrentMonth
+      ? 'border-gray-400 bg-gray-200 text-gray-800 hover:bg-gray-300'
+      : 'border-gray-300 bg-gray-200 text-gray-600 hover:bg-gray-300',
+    open: isCurrentMonth
+      ? 'border-emerald-200 bg-emerald-50 text-emerald-950 hover:bg-emerald-100'
+      : 'border-emerald-100 bg-emerald-50 text-emerald-700 hover:bg-emerald-100',
+    partial: isCurrentMonth
+      ? 'border-amber-200 bg-amber-100 text-amber-950 hover:bg-amber-200'
+      : 'border-amber-100 bg-amber-50 text-amber-700 hover:bg-amber-100',
+    'near-full': isCurrentMonth
+      ? 'border-orange-300 bg-orange-200 text-orange-950 hover:bg-orange-300'
+      : 'border-orange-200 bg-orange-100 text-orange-800 hover:bg-orange-200',
+    full: isCurrentMonth
+      ? 'border-rose-300 bg-rose-200 text-rose-950 hover:bg-rose-300'
+      : 'border-rose-200 bg-rose-100 text-rose-800 hover:bg-rose-200',
+  };
+
+  return palette[status];
+}
+
+function buildFallbackChoiceProfile(type, vendorsForType) {
+  const normalizedVendors = Array.isArray(vendorsForType) ? vendorsForType : [];
+  const defaultSourceVendors = normalizedVendors.filter(vendor => vendor?.tier !== 'Plus');
+  const aggregatedAvailabilitySettings = buildAvailabilityState({
+    availabilitySettings: {
+      hasDefaultCapacity: defaultSourceVendors.length > 0,
+      defaultMaxCapacity: Math.min(MAX_CAPACITY, defaultSourceVendors.reduce((sum, vendor) => {
+        const availability = buildAvailabilityState(vendor);
+        return sum + (availability.hasDefaultCapacity ? availability.defaultMaxCapacity : 0);
+      }, 0)),
+      dateOverrides: Array.from(new Set(
+        defaultSourceVendors.flatMap(vendor => buildAvailabilityState(vendor).dateOverrides.map(item => item.date))
+      )).sort((a, b) => a.localeCompare(b)).map(date => {
+        const totals = defaultSourceVendors.reduce((accumulator, vendor) => {
+          const day = getDayAvailability(buildAvailabilityState(vendor), date);
+          return {
+            maxCapacity: Math.min(MAX_CAPACITY, accumulator.maxCapacity + day.maxCapacity),
+            bookingsCount: Math.min(MAX_CAPACITY, accumulator.bookingsCount + day.bookingsCount),
+          };
+        }, { maxCapacity: 0, bookingsCount: 0 });
+
+        return {
+          date,
+          maxCapacity: totals.maxCapacity,
+          bookingsCount: Math.min(totals.bookingsCount, totals.maxCapacity),
+        };
+      }),
+    },
+  });
+
+  return {
+    id: `fallback:${type}`,
+    type,
+    name: buildChoiceProfileName(type),
+    subType: '',
+    description: '',
+    services: [],
+    bundledServices: [],
+    country: '',
+    state: '',
+    city: '',
+    googleMapsLink: '',
+    phone: '',
+    website: '',
+    budgetRange: computeAggregatedBudgetRange(defaultSourceVendors),
+    aggregatedBudgetRange: computeAggregatedBudgetRange(defaultSourceVendors),
+    availabilitySettings: aggregatedAvailabilitySettings,
+    aggregatedAvailabilitySettings,
+    aggregatedServices: computeAggregatedServices(defaultSourceVendors),
+    sourceVendorIds: defaultSourceVendors.map(vendor => vendor.id).filter(Boolean),
+    sourceVendorCount: defaultSourceVendors.length,
+    selectedMedia: [],
+    mediaCount: 0,
+    isActive: true,
+    createdAt: null,
+    updatedAt: null,
+  };
+}
+
+function buildSeededChoiceProfile(seedVendor) {
+  const type = String(seedVendor?.type || '').trim();
+
+  return {
+    id: `seed:${type}`,
+    type,
+    name: String(seedVendor?.name || '').trim() || buildChoiceProfileName(type),
+    subType: String(seedVendor?.subType || '').trim(),
+    description: String(seedVendor?.description || '').trim(),
+    services: Array.isArray(seedVendor?.services) ? seedVendor.services : [],
+    bundledServices: Array.isArray(seedVendor?.bundledServices) ? seedVendor.bundledServices : [],
+    country: String(seedVendor?.country || '').trim(),
+    state: String(seedVendor?.state || '').trim(),
+    city: String(seedVendor?.city || '').trim(),
+    googleMapsLink: String(seedVendor?.googleMapsLink || '').trim(),
+    phone: String(seedVendor?.phone || '').trim(),
+    website: String(seedVendor?.website || '').trim(),
+    budgetRange: seedVendor?.budgetRange || null,
+    aggregatedBudgetRange: seedVendor?.budgetRange || null,
+    availabilitySettings: buildAvailabilityState(seedVendor),
+    aggregatedAvailabilitySettings: buildAvailabilityState(seedVendor),
+    aggregatedServices: Array.isArray(seedVendor?.services) ? seedVendor.services : [],
+    sourceVendorIds: [],
+    sourceVendorCount: 0,
+    selectedMedia: [],
+    mediaCount: 0,
+    isActive: true,
+    createdAt: null,
+    updatedAt: null,
+  };
+}
+
 function MediaTile({ item, removable = false, onRemove }) {
   return (
     <div className="rounded-2xl border border-stone-200 overflow-hidden bg-stone-50">
@@ -121,7 +407,10 @@ export default function AdminChoiceProfilesPanel({ token, access, vendors }) {
   const uploadInputRef = useRef(null);
   const [choiceProfiles, setChoiceProfiles] = useState([]);
   const [drafts, setDrafts] = useState({});
-  const [selectedType, setSelectedType] = useState('');
+  const [selectedAccountKey, setSelectedAccountKey] = useState('');
+  const [accountFilter, setAccountFilter] = useState('');
+  const [availabilityDisplayMonth, setAvailabilityDisplayMonth] = useState(() => startOfMonth(new Date()));
+  const [selectedAvailabilityDate, setSelectedAvailabilityDate] = useState(() => dateKeyFromDate(new Date()));
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
@@ -132,12 +421,49 @@ export default function AdminChoiceProfilesPanel({ token, access, vendors }) {
     () => (Array.isArray(vendors) ? vendors : []).filter(vendor => vendor?.isApproved),
     [vendors]
   );
+  const fallbackChoiceProfiles = useMemo(() => {
+    const seededProfilesByType = new Map(
+      (Array.isArray(DEFAULT_VENDORS) ? DEFAULT_VENDORS : [])
+        .map(vendor => buildSeededChoiceProfile(vendor))
+        .filter(profile => profile.type)
+        .map(profile => [profile.type, profile])
+    );
+    const vendorsByType = approvedVendors.reduce((map, vendor) => {
+      const type = String(vendor?.type || '').trim();
+      if (!type) {
+        return map;
+      }
+      if (!map.has(type)) {
+        map.set(type, []);
+      }
+      map.get(type).push(vendor);
+      return map;
+    }, new Map());
+
+    vendorsByType.forEach((vendorsForType, type) => {
+      const approvedFallback = buildFallbackChoiceProfile(type, vendorsForType);
+      const seededProfile = seededProfilesByType.get(type);
+      seededProfilesByType.set(type, seededProfile
+        ? {
+          ...seededProfile,
+          budgetRange: approvedFallback.budgetRange || seededProfile.budgetRange,
+          aggregatedBudgetRange: approvedFallback.aggregatedBudgetRange || seededProfile.aggregatedBudgetRange,
+          aggregatedServices: approvedFallback.aggregatedServices.length > 0 ? approvedFallback.aggregatedServices : seededProfile.aggregatedServices,
+          sourceVendorIds: approvedFallback.sourceVendorIds,
+          sourceVendorCount: approvedFallback.sourceVendorCount,
+        }
+        : approvedFallback);
+    });
+
+    return Array.from(seededProfilesByType.values()).sort((a, b) => a.name.localeCompare(b.name));
+  }, [approvedVendors]);
 
   useEffect(() => {
     if (!token) {
       setChoiceProfiles([]);
       setDrafts({});
-      setSelectedType('');
+      setSelectedAccountKey('');
+      setAccountFilter('');
       return;
     }
 
@@ -152,18 +478,18 @@ export default function AdminChoiceProfilesPanel({ token, access, vendors }) {
         }
         const profiles = Array.isArray(result?.choiceProfiles) ? result.choiceProfiles : [];
         setChoiceProfiles(profiles);
-        setDrafts(Object.fromEntries(profiles.map(profile => [profile.type, buildDraft(profile)])));
-        setSelectedType((current) => (
-          profiles.some(profile => profile.type === current)
+        setDrafts(Object.fromEntries(profiles.map(profile => [getChoiceAccountKey(profile), buildDraft(profile)])));
+        setSelectedAccountKey((current) => (
+          profiles.some(profile => getChoiceAccountKey(profile) === current)
             ? current
-            : (profiles[0]?.type || '')
+            : (profiles[0] ? getChoiceAccountKey(profiles[0]) : '')
         ));
       })
       .catch((nextError) => {
         if (!cancelled) {
           setChoiceProfiles([]);
           setDrafts({});
-          setSelectedType('');
+          setSelectedAccountKey('');
           setError(nextError.message || 'Could not load Choice profiles.');
         }
       })
@@ -178,14 +504,74 @@ export default function AdminChoiceProfilesPanel({ token, access, vendors }) {
     };
   }, [token]);
 
+  const effectiveChoiceProfiles = useMemo(() => {
+    const mergedByType = new Map(fallbackChoiceProfiles.map(profile => [profile.type, profile]));
+    choiceProfiles.forEach(profile => {
+      if (profile?.type) {
+        mergedByType.set(profile.type, profile);
+      }
+    });
+    return Array.from(mergedByType.values()).sort((a, b) => a.name.localeCompare(b.name));
+  }, [choiceProfiles, fallbackChoiceProfiles]);
+
+  useEffect(() => {
+    if (effectiveChoiceProfiles.length === 0) {
+      setSelectedAccountKey('');
+      return;
+    }
+
+    setSelectedAccountKey(current => (
+      effectiveChoiceProfiles.some(profile => getChoiceAccountKey(profile) === current)
+        ? current
+        : getChoiceAccountKey(effectiveChoiceProfiles[0])
+    ));
+  }, [effectiveChoiceProfiles]);
+
   const currentProfile = useMemo(
-    () => choiceProfiles.find(profile => profile.type === selectedType) || null,
-    [choiceProfiles, selectedType]
+    () => effectiveChoiceProfiles.find(profile => getChoiceAccountKey(profile) === selectedAccountKey) || null,
+    [effectiveChoiceProfiles, selectedAccountKey]
   );
-  const currentDraft = selectedType ? drafts[selectedType] || buildDraft(currentProfile) : null;
+  const currentDraft = useMemo(
+    () => (selectedAccountKey ? drafts[selectedAccountKey] || buildDraft(currentProfile) : null),
+    [currentProfile, drafts, selectedAccountKey]
+  );
+  const choiceAccounts = useMemo(
+    () => effectiveChoiceProfiles
+      .map(profile => {
+        const accountKey = getChoiceAccountKey(profile);
+        const draft = drafts[accountKey];
+        const label = String(draft?.name || profile?.name || '').trim() || profile?.type || 'Untitled VCA';
+        return {
+          key: accountKey,
+          type: profile?.type || '',
+          label,
+          searchText: `${label} ${profile?.type || ''}`.toLowerCase(),
+        };
+      })
+      .sort((a, b) => a.label.localeCompare(b.label)),
+    [effectiveChoiceProfiles, drafts]
+  );
+  const visibleChoiceAccounts = useMemo(() => {
+    const query = accountFilter.trim().toLowerCase();
+    if (!query) {
+      return choiceAccounts;
+    }
+    const filtered = choiceAccounts.filter(account => account.searchText.includes(query));
+    if (filtered.some(account => account.key === selectedAccountKey)) {
+      return filtered;
+    }
+    const selectedAccount = choiceAccounts.find(account => account.key === selectedAccountKey);
+    return selectedAccount ? [selectedAccount, ...filtered] : filtered;
+  }, [accountFilter, choiceAccounts, selectedAccountKey]);
+  const currentAccount = useMemo(
+    () => choiceAccounts.find(account => account.key === selectedAccountKey) || null,
+    [choiceAccounts, selectedAccountKey]
+  );
+  const hasActiveAccount = Boolean(currentDraft);
+  const displayDraft = currentDraft || buildDraft(null);
   const vendorsForType = useMemo(
-    () => approvedVendors.filter(vendor => vendor.type === selectedType),
-    [approvedVendors, selectedType]
+    () => approvedVendors.filter(vendor => vendor.type === currentDraft?.type),
+    [approvedVendors, currentDraft?.type]
   );
   const selectedSourceVendors = useMemo(() => {
     if (!currentDraft) {
@@ -202,18 +588,158 @@ export default function AdminChoiceProfilesPanel({ token, access, vendors }) {
     () => computeAggregatedServices(selectedSourceVendors),
     [selectedSourceVendors]
   );
+  const aggregatedAvailabilitySettings = useMemo(() => {
+    if (selectedSourceVendors.length === 0) {
+      return currentProfile?.aggregatedAvailabilitySettings || buildAvailabilityState({ availabilitySettings: { hasDefaultCapacity: false, defaultMaxCapacity: 0, dateOverrides: [] } });
+    }
+
+    const defaultMaxCapacity = Math.min(
+      MAX_CAPACITY,
+      selectedSourceVendors.reduce((sum, vendor) => {
+        const availability = buildAvailabilityState(vendor);
+        return sum + (availability.hasDefaultCapacity ? availability.defaultMaxCapacity : 0);
+      }, 0)
+    );
+    const dateKeys = Array.from(new Set(
+      selectedSourceVendors.flatMap(vendor => buildAvailabilityState(vendor).dateOverrides.map(item => item.date))
+    )).sort((a, b) => a.localeCompare(b));
+
+    return buildAvailabilityState({
+      availabilitySettings: {
+        hasDefaultCapacity: defaultMaxCapacity > 0,
+        defaultMaxCapacity,
+        dateOverrides: dateKeys.map(date => {
+          const totals = selectedSourceVendors.reduce((accumulator, vendor) => {
+            const day = getDayAvailability(buildAvailabilityState(vendor), date);
+            return {
+              maxCapacity: Math.min(MAX_CAPACITY, accumulator.maxCapacity + day.maxCapacity),
+              bookingsCount: Math.min(MAX_CAPACITY, accumulator.bookingsCount + day.bookingsCount),
+            };
+          }, { maxCapacity: 0, bookingsCount: 0 });
+
+          return {
+            date,
+            maxCapacity: totals.maxCapacity,
+            bookingsCount: Math.min(totals.bookingsCount, totals.maxCapacity),
+          };
+        }),
+      },
+    });
+  }, [currentProfile?.aggregatedAvailabilitySettings, selectedSourceVendors]);
+  const activeAvailabilitySettings = useMemo(
+    () => buildAvailabilityState({ availabilitySettings: currentDraft?.availabilitySettings || aggregatedAvailabilitySettings }),
+    [currentDraft?.availabilitySettings, aggregatedAvailabilitySettings]
+  );
+  const selectedAvailabilityDraft = useMemo(
+    () => buildSelectedDayDraft(activeAvailabilitySettings, selectedAvailabilityDate),
+    [activeAvailabilitySettings, selectedAvailabilityDate]
+  );
+  const availabilityCalendarDays = useMemo(
+    () => buildCalendarDays(availabilityDisplayMonth),
+    [availabilityDisplayMonth]
+  );
+
+  useEffect(() => {
+    const selectedDateObject = parseDateKey(selectedAvailabilityDate);
+    setAvailabilityDisplayMonth((current) => {
+      if (
+        current.getFullYear() === selectedDateObject.getFullYear()
+        && current.getMonth() === selectedDateObject.getMonth()
+      ) {
+        return current;
+      }
+      return startOfMonth(selectedDateObject);
+    });
+  }, [selectedAvailabilityDate]);
 
   function updateDraft(patch) {
-    if (!currentDraft?.type) {
+    if (!currentDraft?.type || !selectedAccountKey) {
       return;
     }
     setDrafts(current => ({
       ...current,
-      [currentDraft.type]: {
+      [selectedAccountKey]: {
         ...currentDraft,
         ...patch,
       },
     }));
+  }
+
+  function updateAvailabilityDraft(nextSelectedDayDraft) {
+    if (!currentDraft) {
+      return;
+    }
+
+    const nextAvailabilitySettings = buildNextAvailabilityForDate(
+      activeAvailabilitySettings,
+      selectedAvailabilityDate,
+      nextSelectedDayDraft
+    );
+    updateDraft({ availabilitySettings: nextAvailabilitySettings });
+  }
+
+  function handleAvailabilityCapacityInput(rawValue) {
+    if (!/^\d*$/.test(rawValue)) {
+      return;
+    }
+
+    const nextCapacity = rawValue === '' ? '' : String(Math.min(MAX_CAPACITY, Number(rawValue)));
+    const currentBookings = sanitizeCount(selectedAvailabilityDraft.bookingsCount, 0);
+    const parsedCapacity = nextCapacity === '' ? 0 : Number(nextCapacity);
+    updateAvailabilityDraft({
+      ...selectedAvailabilityDraft,
+      usesDefaultCapacity: false,
+      unavailable: false,
+      maxCapacity: nextCapacity,
+      bookingsCount: String(Math.min(currentBookings, parsedCapacity)),
+    });
+  }
+
+  function handleAvailabilityBookingsInput(rawValue) {
+    if (!/^\d*$/.test(rawValue)) {
+      return;
+    }
+
+    const nextBookings = rawValue === '' ? '' : rawValue;
+    const capacityLimit = selectedAvailabilityDraft.unavailable
+      ? 0
+      : selectedAvailabilityDraft.usesDefaultCapacity && activeAvailabilitySettings.hasDefaultCapacity
+        ? activeAvailabilitySettings.defaultMaxCapacity
+        : sanitizeCount(selectedAvailabilityDraft.maxCapacity, 0);
+    const parsedBookings = nextBookings === '' ? 0 : Number(nextBookings);
+    updateAvailabilityDraft({
+      ...selectedAvailabilityDraft,
+      bookingsCount: String(Math.min(capacityLimit, Math.min(MAX_CAPACITY, parsedBookings))),
+    });
+  }
+
+  function handleAvailabilityUseMergedCalendar() {
+    updateDraft({ availabilitySettings: aggregatedAvailabilitySettings });
+  }
+
+  function handleAvailabilityUseMergedSelectedDay() {
+    updateAvailabilityDraft(buildSelectedDayDraft(aggregatedAvailabilitySettings, selectedAvailabilityDate));
+  }
+
+  function handleAvailabilityToggleUnavailable() {
+    const nextDraft = selectedAvailabilityDraft.unavailable
+      ? {
+        ...selectedAvailabilityDraft,
+        unavailable: false,
+        maxCapacity: String(
+          selectedAvailabilityDraft.usesDefaultCapacity && activeAvailabilitySettings.hasDefaultCapacity
+            ? activeAvailabilitySettings.defaultMaxCapacity
+            : Math.max(0, sanitizeCount(selectedAvailabilityDraft.maxCapacity, 0))
+        ),
+      }
+      : {
+        ...selectedAvailabilityDraft,
+        usesDefaultCapacity: false,
+        unavailable: true,
+        maxCapacity: '0',
+        bookingsCount: '0',
+      };
+    updateAvailabilityDraft(nextDraft);
   }
 
   function toggleSourceVendor(vendorId) {
@@ -290,7 +816,9 @@ export default function AdminChoiceProfilesPanel({ token, access, vendors }) {
           throw new Error(`${file.name} exceeds the 50 MB upload limit.`);
         }
 
-        const presigned = await fetchPresignedUrl(token, {
+        const presigned = await fetchAdminChoiceMediaPresignedUrl(token, {
+          choiceProfileId: String(currentDraft.id || '').startsWith('vca-') ? currentDraft.id : '',
+          type: currentDraft.type,
           filename: file.name,
           contentType: file.type,
           size: file.size,
@@ -349,8 +877,10 @@ export default function AdminChoiceProfilesPanel({ token, access, vendors }) {
 
     try {
       const result = await updateAdminChoiceProfile(token, {
+        id: String(currentDraft.id || '').startsWith('vca-') ? currentDraft.id : '',
         type: currentDraft.type,
-        name: currentDraft.name,
+        businessName: currentDraft.businessName || currentDraft.name,
+        name: currentDraft.name || currentDraft.businessName,
         subType: currentDraft.subType,
         description: currentDraft.description,
         services: currentDraft.services,
@@ -359,30 +889,40 @@ export default function AdminChoiceProfilesPanel({ token, access, vendors }) {
         state: currentDraft.state,
         city: currentDraft.city,
         googleMapsLink: currentDraft.googleMapsLink,
+        availabilitySettings: currentDraft.availabilitySettings,
         phone: currentDraft.phone,
         website: currentDraft.website,
         budgetRange: serializeBudgetRange(currentDraft.budgetRange) || aggregatedBudgetRange,
         sourceVendorIds: currentDraft.sourceVendorIds,
-        selectedMedia: currentDraft.selectedMedia.map(item => (
-          item.sourceType === 'vendor'
-            ? {
-              sourceType: 'vendor',
-              vendorId: item.vendorId,
-              sourceMediaId: item.sourceMediaId,
-              isVisible: item.isVisible !== false,
-            }
-            : {
-              sourceType: 'admin',
-              key: item.key,
-              url: item.url,
-              type: item.type,
-              filename: item.filename,
-              size: item.size,
-              caption: item.caption,
-              altText: item.altText,
-              isVisible: item.isVisible !== false,
-            }
-        )),
+        selectedVendorMedia: currentDraft.selectedMedia
+          .filter(item => item.sourceType === 'vendor')
+          .map((item, index) => ({
+            vendorId: item.vendorId,
+            sourceMediaId: item.sourceMediaId,
+            r2Url: item.r2Url || item.url,
+            mediaType: item.mediaType || item.type,
+            filename: item.filename,
+            size: item.size,
+            caption: item.caption,
+            altText: item.altText,
+            isVisible: item.isVisible !== false,
+            isCover: index === 0,
+            sortOrder: item.sortOrder ?? index,
+          })),
+        media: currentDraft.selectedMedia
+          .filter(item => item.sourceType !== 'vendor')
+          .map((item, index) => ({
+            key: item.key,
+            url: item.url,
+            type: item.type,
+            filename: item.filename,
+            size: item.size,
+            caption: item.caption,
+            altText: item.altText,
+            isVisible: item.isVisible !== false,
+            isCover: index === 0 && !currentDraft.selectedMedia.some(mediaItem => mediaItem.sourceType === 'vendor'),
+            sortOrder: item.sortOrder ?? index,
+          })),
       });
 
       const savedProfile = result?.choiceProfile || null;
@@ -396,10 +936,16 @@ export default function AdminChoiceProfilesPanel({ token, access, vendors }) {
           : [...current, savedProfile];
         return next.sort((a, b) => a.name.localeCompare(b.name));
       });
-      setDrafts(current => ({
-        ...current,
-        [savedProfile.type]: buildDraft(savedProfile),
-      }));
+      const savedAccountKey = getChoiceAccountKey(savedProfile);
+      setDrafts(current => {
+        const next = { ...current };
+        if (savedAccountKey !== selectedAccountKey) {
+          delete next[selectedAccountKey];
+        }
+        next[savedAccountKey] = buildDraft(savedProfile);
+        return next;
+      });
+      setSelectedAccountKey(savedAccountKey);
       setMessage(`${savedProfile.name} saved.`);
     } catch (nextError) {
       setError(nextError.message || 'Could not save Choice profile.');
@@ -407,6 +953,17 @@ export default function AdminChoiceProfilesPanel({ token, access, vendors }) {
       setSavingType('');
     }
   }
+
+  const effectiveAvailabilityDraftCapacity = selectedAvailabilityDraft.unavailable
+    ? 0
+    : selectedAvailabilityDraft.usesDefaultCapacity && activeAvailabilitySettings.hasDefaultCapacity
+      ? activeAvailabilitySettings.defaultMaxCapacity
+      : sanitizeCount(selectedAvailabilityDraft.maxCapacity, 0);
+  const effectiveAvailabilityDraftBookings = effectiveAvailabilityDraftCapacity > 0
+    ? Math.min(sanitizeCount(selectedAvailabilityDraft.bookingsCount, 0), effectiveAvailabilityDraftCapacity)
+    : 0;
+  const selectedAvailabilityStatus = getDayStatus(effectiveAvailabilityDraftCapacity, effectiveAvailabilityDraftBookings);
+  const selectedAvailabilityDateLabel = DATE_FORMATTER.format(parseDateKey(selectedAvailabilityDate));
 
   if (loading) {
     return (
@@ -416,49 +973,59 @@ export default function AdminChoiceProfilesPanel({ token, access, vendors }) {
     );
   }
 
-  if (!currentDraft) {
-    return (
-      <section className="bg-white rounded-3xl border border-stone-200 shadow-sm overflow-hidden">
-        <div className="px-5 py-10 text-sm text-stone-500">No approved vendor categories are ready for Choice curation yet.</div>
-      </section>
-    );
-  }
-
   return (
     <section className="bg-white rounded-3xl border border-stone-200 shadow-sm overflow-hidden">
       <div className="px-5 py-4 border-b border-stone-200 space-y-3">
         <div>
           <h2 className="text-lg font-semibold text-stone-900">Choice profiles</h2>
-          <p className="text-sm text-stone-500">Curate one VivahGo-managed profile per category by combining approved vendor assets, services, and pricing.</p>
+          <p className="text-sm text-stone-500">Use the VCA dropdown to isolate one VivahGo&apos;s Choice account by name, then curate its vendors, media, aggregated values, and business details.</p>
         </div>
-        <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_220px_auto] md:items-end">
+        <div className="grid gap-3 xl:grid-cols-[minmax(0,180px)_minmax(0,1fr)_240px_auto] xl:items-end">
           <label className="block">
-            <span className="mb-1 block text-xs font-medium uppercase tracking-[0.18em] text-stone-400">Choice account</span>
+            <span className="mb-1 block text-xs font-medium uppercase tracking-[0.18em] text-stone-400">Filter accounts</span>
+            <input
+              type="text"
+              value={accountFilter}
+              onChange={event => setAccountFilter(event.target.value)}
+              className="w-full rounded-2xl border border-stone-200 px-4 py-3 text-sm text-stone-900 outline-none focus:border-rose-300"
+              placeholder="Search by VCA name or category"
+            />
+          </label>
+          <label className="block">
+            <span className="mb-1 block text-xs font-medium uppercase tracking-[0.18em] text-stone-400">VCA account</span>
             <select
-              value={selectedType}
+              value={selectedAccountKey}
               onChange={event => {
-                setSelectedType(event.target.value);
+                setSelectedAccountKey(event.target.value);
                 setError('');
                 setMessage('');
               }}
               className="w-full rounded-2xl border border-stone-200 px-4 py-3 text-sm text-stone-900 outline-none focus:border-rose-300"
+              disabled={visibleChoiceAccounts.length === 0}
             >
-              {choiceProfiles.map(profile => (
-                <option key={profile.type} value={profile.type}>{profile.name}</option>
+              {visibleChoiceAccounts.length === 0 && (
+                <option value="">No VCA accounts available yet</option>
+              )}
+              {visibleChoiceAccounts.map(account => (
+                <option key={account.key} value={account.key}>{account.label}</option>
               ))}
             </select>
           </label>
           <div className="rounded-2xl border border-stone-200 bg-stone-50 px-4 py-3 text-sm text-stone-600">
+            <div className="font-medium text-stone-800">{currentAccount?.label || displayDraft.name || 'Selected VCA'}</div>
+            <div>{displayDraft.type || 'Unassigned category'}</div>
+          </div>
+          <div className="rounded-2xl border border-stone-200 bg-stone-50 px-4 py-3 text-sm text-stone-600">
             <div>{vendorsForType.length} approved vendors</div>
-            <div>{currentDraft.selectedMedia.length} selected assets</div>
+            <div>{displayDraft.selectedMedia.length} selected assets</div>
           </div>
           <button
             type="button"
             className="login-secondary-btn"
             onClick={handleSave}
-            disabled={!access?.canManageVendors || savingType === currentDraft.type || uploading}
+            disabled={!access?.canManageVendors || !hasActiveAccount || savingType === displayDraft.type || uploading}
           >
-            {savingType === currentDraft.type ? 'Saving...' : 'Save Choice Profile'}
+            {savingType === displayDraft.type ? 'Saving...' : 'Save Choice Profile'}
           </button>
         </div>
       </div>
@@ -471,11 +1038,19 @@ export default function AdminChoiceProfilesPanel({ token, access, vendors }) {
       )}
 
       <div className="p-5 grid gap-6">
+        {!hasActiveAccount && (
+          <div className="rounded-3xl border border-stone-200 bg-stone-50 px-5 py-6 text-sm text-stone-500">
+            No approved vendor categories or saved VCA accounts are ready for Choice curation yet.
+          </div>
+        )}
+
+        {hasActiveAccount && (
+          <>
         <div className="rounded-3xl border border-stone-200 bg-stone-50/70 p-5 space-y-4">
           <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
             <div>
               <h3 className="text-base font-semibold text-stone-900">Part 1: Resource pool and media manager</h3>
-              <p className="text-sm text-stone-500">Choose which approved vendors shape the aggregate and which photos or videos appear on the Choice profile.</p>
+              <p className="text-sm text-stone-500">Review the selected VCA&apos;s approved Free and Plus vendors, choose which vendors feed the aggregate, pick media from each vendor, or upload VivahGo-owned assets.</p>
             </div>
             <div className="flex items-center gap-3">
               <input
@@ -713,6 +1288,183 @@ export default function AdminChoiceProfilesPanel({ token, access, vendors }) {
               Use merged range
             </button>
           </div>
+
+          <div className="rounded-3xl border border-stone-200 bg-stone-50/60 p-5 space-y-4">
+            <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+              <div>
+                <h4 className="text-sm font-semibold text-stone-900">Availability calendar</h4>
+                <p className="text-sm text-stone-500">This calendar starts from the merged vendor availability pool and can be edited for the selected VCA.</p>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  className="login-secondary-btn"
+                  onClick={handleAvailabilityUseMergedSelectedDay}
+                  disabled={!aggregatedAvailabilitySettings.hasDefaultCapacity && aggregatedAvailabilitySettings.dateOverrides.length === 0}
+                >
+                  Use merged day
+                </button>
+                <button
+                  type="button"
+                  className="login-secondary-btn"
+                  onClick={handleAvailabilityUseMergedCalendar}
+                  disabled={!aggregatedAvailabilitySettings.hasDefaultCapacity && aggregatedAvailabilitySettings.dateOverrides.length === 0}
+                >
+                  Use merged calendar
+                </button>
+              </div>
+            </div>
+
+            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+              <div className="rounded-2xl border border-stone-200 bg-white px-4 py-3">
+                <p className="text-xs uppercase tracking-[0.18em] text-stone-400">Merged default capacity</p>
+                <p className="mt-2 text-sm font-semibold text-stone-900">
+                  {aggregatedAvailabilitySettings.hasDefaultCapacity ? aggregatedAvailabilitySettings.defaultMaxCapacity : 'Unavailable by default'}
+                </p>
+              </div>
+              <div className="rounded-2xl border border-stone-200 bg-white px-4 py-3">
+                <p className="text-xs uppercase tracking-[0.18em] text-stone-400">Custom blocked or booked days</p>
+                <p className="mt-2 text-sm font-semibold text-stone-900">{activeAvailabilitySettings.dateOverrides.length}</p>
+              </div>
+              <div className="rounded-2xl border border-stone-200 bg-white px-4 py-3">
+                <p className="text-xs uppercase tracking-[0.18em] text-stone-400">Selected day</p>
+                <p className="mt-2 text-sm font-semibold text-stone-900">{selectedAvailabilityDateLabel}</p>
+              </div>
+              <div className="rounded-2xl border border-stone-200 bg-white px-4 py-3">
+                <p className="text-xs uppercase tracking-[0.18em] text-stone-400">Selected day status</p>
+                <p className="mt-2 text-sm font-semibold text-stone-900">{selectedAvailabilityStatus}</p>
+              </div>
+            </div>
+
+            <div className="grid gap-5 xl:grid-cols-[minmax(0,1.7fr)_minmax(320px,0.9fr)]">
+              <section className="rounded-2xl border border-stone-200 bg-white p-4 shadow-sm sm:p-5">
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <h4 className="text-base font-semibold text-stone-900">{MONTH_FORMATTER.format(availabilityDisplayMonth)}</h4>
+                    <p className="text-sm text-stone-500">Choose a date to edit the VCA availability inherited from your selected vendors.</p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      className="rounded-md border border-stone-200 bg-white px-3 py-2 text-sm font-medium text-stone-700 transition hover:border-rose-200 hover:bg-rose-50 hover:text-rose-700"
+                      onClick={() => setAvailabilityDisplayMonth((current) => addMonths(current, -1))}
+                    >
+                      Previous
+                    </button>
+                    <button
+                      type="button"
+                      className="rounded-md border border-stone-200 bg-white px-3 py-2 text-sm font-medium text-stone-700 transition hover:border-rose-200 hover:bg-rose-50 hover:text-rose-700"
+                      onClick={() => setAvailabilityDisplayMonth((current) => addMonths(current, 1))}
+                    >
+                      Next
+                    </button>
+                  </div>
+                </div>
+
+                <div className="mt-5 grid grid-cols-7 gap-1">
+                  {WEEKDAY_LABELS.map((label) => (
+                    <div key={label} className="pb-1 text-center text-[11px] font-semibold uppercase tracking-[0.16em] text-stone-400">
+                      {label}
+                    </div>
+                  ))}
+
+                  {availabilityCalendarDays.map((day) => {
+                    const dayAvailability = getDayAvailability(activeAvailabilitySettings, day.key);
+                    const status = getDayStatus(dayAvailability.maxCapacity, dayAvailability.bookingsCount);
+                    const isSelected = day.key === selectedAvailabilityDate;
+
+                    return (
+                      <button
+                        key={day.key}
+                        type="button"
+                        onClick={() => {
+                          setSelectedAvailabilityDate(day.key);
+                        }}
+                        className={`relative min-h-[92px] rounded-none border px-2 py-2 text-left transition ${getStatusClasses(status, day.isCurrentMonth)} ${isSelected ? 'outline outline-2 outline-slate-900 outline-offset-0 z-10' : ''}`}
+                      >
+                        <div className="flex items-center justify-center text-center">
+                          <span className="inline-flex h-7 w-7 items-center justify-center text-sm font-semibold">
+                            {day.date.getDate()}
+                          </span>
+                        </div>
+                        <div className="mt-4 flex items-baseline justify-center gap-1 text-center">
+                          <div className="text-xl font-semibold leading-none">{dayAvailability.bookingsCount}</div>
+                          <div className="hidden text-[9px] font-semibold uppercase tracking-[0.08em] opacity-70 sm:block">bookings</div>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </section>
+
+              <section className="rounded-2xl border border-stone-200 bg-white p-5 shadow-sm space-y-4">
+                <div>
+                  <h4 className="text-base font-semibold text-stone-900">Selected day</h4>
+                  <p className="mt-1 text-sm text-stone-500">{selectedAvailabilityDateLabel}</p>
+                </div>
+
+                <div className="grid gap-4">
+                  <label className="inline-flex items-center gap-2 text-sm text-stone-700">
+                    <input
+                      type="checkbox"
+                      checked={selectedAvailabilityDraft.usesDefaultCapacity && activeAvailabilitySettings.hasDefaultCapacity && !selectedAvailabilityDraft.unavailable}
+                      onChange={() => {
+                        const nextDraft = {
+                          usesDefaultCapacity: true,
+                          maxCapacity: String(activeAvailabilitySettings.defaultMaxCapacity),
+                          bookingsCount: String(Math.min(sanitizeCount(selectedAvailabilityDraft.bookingsCount, 0), activeAvailabilitySettings.defaultMaxCapacity)),
+                          unavailable: false,
+                        };
+                        updateAvailabilityDraft(nextDraft);
+                      }}
+                      disabled={!activeAvailabilitySettings.hasDefaultCapacity || selectedAvailabilityDraft.unavailable}
+                    />
+                    Use default merged capacity
+                  </label>
+
+                  <label className="inline-flex items-center gap-2 text-sm text-stone-700">
+                    <input
+                      type="checkbox"
+                      checked={selectedAvailabilityDraft.unavailable}
+                      onChange={handleAvailabilityToggleUnavailable}
+                    />
+                    Mark this day unavailable
+                  </label>
+
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <label className="block">
+                      <span className="mb-1 block text-xs font-medium uppercase tracking-[0.18em] text-stone-400">Max capacity</span>
+                      <input
+                        type="text"
+                        inputMode="numeric"
+                        value={selectedAvailabilityDraft.unavailable ? '0' : selectedAvailabilityDraft.maxCapacity}
+                        onChange={event => handleAvailabilityCapacityInput(event.target.value)}
+                        disabled={selectedAvailabilityDraft.unavailable || selectedAvailabilityDraft.usesDefaultCapacity}
+                        className="w-full rounded-2xl border border-stone-200 px-4 py-3 text-sm text-stone-900 outline-none focus:border-rose-300 disabled:bg-stone-100"
+                      />
+                    </label>
+                    <label className="block">
+                      <span className="mb-1 block text-xs font-medium uppercase tracking-[0.18em] text-stone-400">Bookings count</span>
+                      <input
+                        type="text"
+                        inputMode="numeric"
+                        value={selectedAvailabilityDraft.unavailable ? '0' : selectedAvailabilityDraft.bookingsCount}
+                        onChange={event => handleAvailabilityBookingsInput(event.target.value)}
+                        disabled={selectedAvailabilityDraft.unavailable}
+                        className="w-full rounded-2xl border border-stone-200 px-4 py-3 text-sm text-stone-900 outline-none focus:border-rose-300 disabled:bg-stone-100"
+                      />
+                    </label>
+                  </div>
+
+                  <div className="rounded-2xl border border-stone-200 bg-stone-50 px-4 py-3 text-sm text-stone-600">
+                    <div>Resolved capacity: <span className="font-semibold text-stone-900">{effectiveAvailabilityDraftCapacity}</span></div>
+                    <div>Bookings: <span className="font-semibold text-stone-900">{effectiveAvailabilityDraftBookings}</span></div>
+                    <div>Status: <span className="font-semibold text-stone-900">{selectedAvailabilityStatus}</span></div>
+                  </div>
+                </div>
+              </section>
+            </div>
+          </div>
         </div>
 
         <div className="rounded-3xl border border-stone-200 p-5 space-y-4">
@@ -782,6 +1534,8 @@ export default function AdminChoiceProfilesPanel({ token, access, vendors }) {
             </label>
           </div>
         </div>
+          </>
+        )}
       </div>
     </section>
   );

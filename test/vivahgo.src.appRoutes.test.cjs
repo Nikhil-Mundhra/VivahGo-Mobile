@@ -36,6 +36,8 @@ describe('VivahGo/src/appRoutes.js', function () {
     assert.equal(mod.getRouteInfo('/wedding').isWeddingWebsiteRoute, true);
     assert.equal(mod.getRouteInfo('/vendor').isVendorRoute, true);
     assert.equal(mod.getRouteInfo('/admin').isAdminRoute, true);
+    assert.equal(mod.getRouteInfo('/admin/vendors/choice').isAdminRoute, true);
+    assert.equal(mod.getRouteInfo('/admin/vendors/choice').bodyRoute, 'admin');
     assert.equal(mod.getRouteInfo('/auth/sso-callback').isClerkSsoCallbackRoute, true);
     assert.equal(mod.getRouteInfo('/auth/sso-callback').bodyRoute, 'app');
   });

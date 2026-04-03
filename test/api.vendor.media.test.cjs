@@ -3,6 +3,7 @@ const jwt = require('jsonwebtoken');
 
 const { createRes } = require('./helpers/testUtils.cjs');
 
+const b2Path = require.resolve('../api/_lib/b2');
 const corePath = require.resolve('../api/_lib/core');
 const handlerPath = require.resolve('../api/vendor');
 
@@ -89,10 +90,12 @@ function makeVendorDoc(items = [], verificationDocuments = []) {
 }
 
 describe('api/vendor.js -> media route', function () {
+  const originalB2 = require(b2Path);
   const originalCore = require(corePath);
 
   afterEach(function () {
     delete process.env.R2_PUBLIC_URL;
+    require.cache[b2Path].exports = originalB2;
     require.cache[corePath].exports = originalCore;
     delete require.cache[handlerPath];
   });
@@ -354,6 +357,7 @@ describe('api/vendor.js -> media route', function () {
     const vendorDoc = makeVendorDoc([], [
       { _id: 'd1', key: 'vendor-verification/vendor-123/id-old.pdf', filename: 'id-old.pdf', size: 100, contentType: 'application/pdf', documentType: 'PAN', uploadedAt: new Date('2026-01-01T00:00:00.000Z') },
     ]);
+    const deletedKeys = [];
 
     require.cache[corePath].exports = {
       ...originalCore,
@@ -361,6 +365,14 @@ describe('api/vendor.js -> media route', function () {
       getVendorModel: () => ({
         findOne: async () => vendorDoc,
       }),
+    };
+    require.cache[b2Path].exports = {
+      ...originalB2,
+      createB2PresignedGetUrl: async (key) => `https://private.example.com/${encodeURIComponent(key)}`,
+      deleteB2Object: async (key) => {
+        deletedKeys.push(key);
+        return { ok: true };
+      },
     };
 
     const { handleVendorVerification: handler } = require(handlerPath);
@@ -382,6 +394,8 @@ describe('api/vendor.js -> media route', function () {
     assert.equal(createdRes.statusCode, 201);
     assert.equal(createdRes.body.vendor.verificationDocuments.length, 2);
     assert.equal(createdRes.body.vendor.verificationStatus, 'submitted');
+    assert.equal(createdRes.body.vendor.verificationDocuments[0].accessUrl, 'https://private.example.com/vendor-verification%2Fvendor-123%2Fid-old.pdf');
+    assert.equal(createdRes.body.vendor.verificationDocuments[1].accessUrl, 'https://private.example.com/vendor-verification%2Fvendor-123%2Fid-new.pdf');
 
     const deleteReq = {
       method: 'DELETE',
@@ -396,6 +410,7 @@ describe('api/vendor.js -> media route', function () {
 
     assert.equal(deletedRes.statusCode, 200);
     assert.equal(deletedRes.body.vendor.verificationDocuments.length, 1);
+    assert.deepEqual(deletedKeys, ['vendor-verification/vendor-123/id-old.pdf']);
   });
 
   it('rejects verification document keys that do not belong to the signed-in vendor', async function () {

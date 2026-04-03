@@ -20,6 +20,7 @@ export function resolveApiBaseUrl(env = getRuntimeEnv(), win = typeof window !==
 
   if (win) {
     const host = win.location.hostname;
+    const protocol = win.location.protocol;
     const isLocalHost = isLocalHostname(host);
 
     // Browsers on deployed hosts should use same-origin API routes by default.
@@ -27,6 +28,9 @@ export function resolveApiBaseUrl(env = getRuntimeEnv(), win = typeof window !==
     if (isLocalHost) {
       if (env.VITE_USE_REMOTE_API === 'true' && configuredBaseUrl) {
         return configuredBaseUrl.replace(/\/$/, '');
+      }
+      if (protocol === 'https:') {
+        return '/api';
       }
       return `http://${host}:4000/api`;
     }
@@ -485,6 +489,14 @@ export function updateAdminVendorApproval(token, payload) {
 export function updateAdminChoiceProfile(token, payload) {
   return request('/admin/choice', {
     method: 'PATCH',
+    token,
+    body: payload,
+  });
+}
+
+export function fetchAdminChoiceMediaPresignedUrl(token, payload) {
+  return request('/admin/choice-media-upload', {
+    method: 'POST',
     token,
     body: payload,
   });

@@ -90,6 +90,12 @@ describe('api/vendor.js -> list route', function () {
             lean: async () => ([]),
           }),
         }),
+        findOneAndUpdate: async (_query, update) => ({
+          ...update.$setOnInsert,
+          ...update.$set,
+          createdAt: '2026-04-03T00:00:00.000Z',
+          updatedAt: '2026-04-03T01:00:00.000Z',
+        }),
       }),
     };
 
@@ -111,6 +117,7 @@ describe('api/vendor.js -> list route', function () {
     assert.equal(res.body.vendors.some(item => item.name === 'Open Lens'), false);
     assert.equal(plusVendor.whatsappNumber, '919876543210');
     assert.equal(choiceProfile.name, "VivahGo's Choice Photography");
+    assert.equal(choiceProfile.id, 'vca-photography');
     assert.deepEqual(choiceProfile.budgetRange, { min: 70000, max: 120000 });
     assert.equal(choiceProfile.media.length, 1);
     assert.equal(choiceProfile.media[0].url, 'https://media.vivahgo.com/portfolio/vendors/free-1/sample.jpg');

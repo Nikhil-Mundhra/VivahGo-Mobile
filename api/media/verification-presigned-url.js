@@ -1,6 +1,6 @@
 const { randomUUID } = require('crypto');
 const { applyRateLimit, connectDb, handlePreflight, requireCsrfProtection, setCorsHeaders, verifySession } = require('../_lib/core');
-const { createPresignedPutUrl } = require('../_lib/r2');
+const { createB2PresignedPutUrl } = require('../_lib/b2');
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB
 const ALLOWED_CONTENT_TYPES = new Set([
@@ -61,7 +61,7 @@ module.exports = async function handler(req, res) {
 
   try {
     await connectDb();
-    const uploadUrl = await createPresignedPutUrl(key, contentType, {
+    const uploadUrl = await createB2PresignedPutUrl(key, contentType, {
       contentLength,
     });
 

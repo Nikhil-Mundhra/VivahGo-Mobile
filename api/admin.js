@@ -1,12 +1,14 @@
+const { randomUUID } = require('crypto');
 const mongoose = require('mongoose');
 
 const { getBillingReceiptModel, getCareerApplicationModel, getCareerEmailTemplateModel, getChoiceProfileModel, getVendorModel, handlePreflight, normalizeEmail, normalizeStaffRole, requireCsrfProtection, setCorsHeaders } = require('./_lib/core');
 const { requireAdminSession, sanitizeStaffUser } = require('./_lib/admin');
-const { createPresignedGetUrl, normalizeMediaList, objectKeyMatchesScope } = require('./_lib/r2');
+const { createPresignedPutUrl, createPublicObjectUrl, normalizeMediaList, objectKeyMatchesScope } = require('./_lib/r2');
 const { createB2PresignedGetUrl, deleteB2Object } = require('./_lib/b2');
 const { getDefaultCareerRejectionTemplate, sanitizeCareerRejectionTemplate, sendCareerRejectionEmail } = require('./_lib/careers-admin');
 const { serializeApplication } = require('./careers');
 const { buildAggregatedBudgetRange, buildAggregatedServices, buildChoiceProfileName, normalizeVendorTier, sortChoiceMedia } = require('./_lib/vendor-choice');
+const { DEFAULT_VCA_TYPES, buildChoiceProfileId, buildDefaultChoiceProfileSeed } = require('./_lib/vca');
 
 const CAREER_REJECTION_TEMPLATE_KEY = 'career-application-rejection';
 
@@ -15,7 +17,38 @@ const CAREER_REJECTION_TEMPLATE_KEY = 'career-application-rejection';
  ******************************************************************************/
 
 function resolveAdminRoute(req) {
-  return String(req.query?.route || '').trim().toLowerCase();
+  const queryRoute = String(req.query?.route || '').trim().toLowerCase();
+  if (queryRoute) {
+    return queryRoute;
+  }
+
+  const path = String(req.path || req.url || '').split('?')[0].trim().toLowerCase();
+  if (path.endsWith('/admin/me')) {
+    return 'me';
+  }
+  if (path.endsWith('/admin/vendors')) {
+    return 'vendors';
+  }
+  if (path.endsWith('/admin/choice')) {
+    return 'choice';
+  }
+  if (path.endsWith('/admin/choice-media-upload')) {
+    return 'choice-media-upload';
+  }
+  if (path.endsWith('/admin/staff')) {
+    return 'staff';
+  }
+  if (path.endsWith('/admin/applications')) {
+    return 'applications';
+  }
+  if (path.endsWith('/admin/resume-download')) {
+    return 'resume-download';
+  }
+  if (path.endsWith('/admin/subscribers')) {
+    return 'subscribers';
+  }
+
+  return '';
 }
 
 function normalizeResumeStorageKey(value) {
@@ -113,7 +146,7 @@ async function serializeAdminVendor(vendor = {}) {
 
     if (key) {
       try {
-        accessUrl = await createPresignedGetUrl(key);
+        accessUrl = await createB2PresignedGetUrl(key);
       } catch {
         accessUrl = '';
       }
@@ -155,6 +188,38 @@ async function serializeAdminVendor(vendor = {}) {
     media,
     createdAt: vendor.createdAt || null,
     updatedAt: vendor.updatedAt || null,
+  };
+}
+
+function buildFallbackAdminVendor(vendor = {}) {
+  return {
+    id: String(vendor?._id || ''),
+    googleId: vendor?.googleId || '',
+    businessName: vendor?.businessName || '',
+    type: vendor?.type || '',
+    subType: vendor?.subType || '',
+    description: vendor?.description || '',
+    country: vendor?.country || '',
+    state: vendor?.state || '',
+    city: vendor?.city || '',
+    phone: vendor?.phone || '',
+    website: vendor?.website || '',
+    googleMapsLink: vendor?.googleMapsLink || '',
+    bundledServices: Array.isArray(vendor?.bundledServices) ? vendor.bundledServices : [],
+    coverageAreas: Array.isArray(vendor?.coverageAreas) ? vendor.coverageAreas : [],
+    budgetRange: vendor?.budgetRange || null,
+    isApproved: Boolean(vendor?.isApproved),
+    tier: normalizeVendorTier(vendor?.tier),
+    verificationStatus: vendor?.verificationStatus || 'not_submitted',
+    verificationNotes: vendor?.verificationNotes || '',
+    verificationReviewedAt: vendor?.verificationReviewedAt || null,
+    verificationReviewedBy: vendor?.verificationReviewedBy || '',
+    verificationDocuments: [],
+    verificationDocumentCount: 0,
+    mediaCount: 0,
+    media: [],
+    createdAt: vendor?.createdAt || null,
+    updatedAt: vendor?.updatedAt || null,
   };
 }
 
@@ -203,10 +268,261 @@ function normalizeChoiceBudgetRange(value, fallback = null) {
   };
 }
 
+function isValidAvailabilityDateKey(value) {
+  if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    return false;
+  }
+
+  const [year, month, day] = value.split('-').map(Number);
+  const date = new Date(Date.UTC(year, month - 1, day));
+  return (
+    date.getUTCFullYear() === year &&
+    date.getUTCMonth() === month - 1 &&
+    date.getUTCDate() === day
+  );
+}
+
+function normalizeChoiceAvailabilityCount(value, { min = 0, fieldName = 'availability capacity' } = {}) {
+  const number = Number(value);
+
+  if (!Number.isInteger(number)) {
+    throw new Error(`${fieldName} must be an integer.`);
+  }
+
+  if (number < min || number > 99) {
+    throw new Error(`${fieldName} must be between ${min} and 99.`);
+  }
+
+  return number;
+}
+
+function normalizeChoiceAvailabilitySettings(value, fallback = null) {
+  if (!value || typeof value !== 'object') {
+    return fallback || {
+      hasDefaultCapacity: true,
+      defaultMaxCapacity: 1,
+      dateOverrides: [],
+    };
+  }
+
+  const hasDefaultCapacity = value.hasDefaultCapacity !== false;
+  const defaultMaxCapacity = hasDefaultCapacity
+    ? normalizeChoiceAvailabilityCount(
+      value.defaultMaxCapacity ?? 1,
+      { min: 1, fieldName: 'availabilitySettings.defaultMaxCapacity' }
+    )
+    : 0;
+
+  if (value.dateOverrides != null && !Array.isArray(value.dateOverrides)) {
+    throw new Error('availabilitySettings.dateOverrides must be an array.');
+  }
+
+  const seenDates = new Set();
+  const dateOverrides = (Array.isArray(value.dateOverrides) ? value.dateOverrides : [])
+    .map((item) => {
+      if (!item || typeof item !== 'object') {
+        throw new Error('availabilitySettings.dateOverrides must contain objects.');
+      }
+
+      const date = typeof item.date === 'string' ? item.date.trim() : '';
+      if (!isValidAvailabilityDateKey(date)) {
+        throw new Error('availabilitySettings.dateOverrides[].date must use YYYY-MM-DD.');
+      }
+      if (seenDates.has(date)) {
+        throw new Error('availabilitySettings.dateOverrides must not contain duplicate dates.');
+      }
+      seenDates.add(date);
+
+      return {
+        date,
+        maxCapacity: normalizeChoiceAvailabilityCount(
+          item.maxCapacity,
+          { min: 0, fieldName: 'availabilitySettings.dateOverrides[].maxCapacity' }
+        ),
+        rawBookingsCount: item.bookingsCount ?? 0,
+      };
+    })
+    .map(item => {
+      const bookingsCount = normalizeChoiceAvailabilityCount(
+        item.rawBookingsCount,
+        { min: 0, fieldName: 'availabilitySettings.dateOverrides[].bookingsCount' }
+      );
+
+      return {
+        date: item.date,
+        maxCapacity: item.maxCapacity,
+        bookingsCount: item.maxCapacity > 0 ? Math.min(bookingsCount, item.maxCapacity) : 0,
+      };
+    })
+    .sort((a, b) => a.date.localeCompare(b.date));
+
+  return {
+    hasDefaultCapacity,
+    defaultMaxCapacity,
+    dateOverrides,
+  };
+}
+
+function buildVendorAvailabilityState(vendor) {
+  return normalizeChoiceAvailabilitySettings(vendor?.availabilitySettings, {
+    hasDefaultCapacity: true,
+    defaultMaxCapacity: 1,
+    dateOverrides: [],
+  });
+}
+
+function getAvailabilityDayForDate(availability, dateKey) {
+  const override = Array.isArray(availability?.dateOverrides)
+    ? availability.dateOverrides.find(item => item?.date === dateKey)
+    : null;
+
+  if (override) {
+    return {
+      maxCapacity: override.maxCapacity,
+      bookingsCount: override.bookingsCount,
+      hasOverride: true,
+    };
+  }
+
+  return {
+    maxCapacity: availability?.hasDefaultCapacity ? Number(availability?.defaultMaxCapacity || 0) : 0,
+    bookingsCount: 0,
+    hasOverride: false,
+  };
+}
+
+function buildAggregatedAvailabilitySettings(vendors) {
+  const normalizedVendors = Array.isArray(vendors) ? vendors : [];
+  if (normalizedVendors.length === 0) {
+    return {
+      hasDefaultCapacity: false,
+      defaultMaxCapacity: 0,
+      dateOverrides: [],
+    };
+  }
+
+  const vendorStates = normalizedVendors.map(buildVendorAvailabilityState);
+  const defaultMaxCapacity = Math.min(
+    99,
+    vendorStates.reduce((sum, availability) => (
+      sum + (availability.hasDefaultCapacity ? Number(availability.defaultMaxCapacity || 0) : 0)
+    ), 0)
+  );
+  const dateKeys = Array.from(new Set(
+    vendorStates.flatMap(availability => (
+      Array.isArray(availability.dateOverrides) ? availability.dateOverrides.map(item => item.date) : []
+    ))
+  )).sort((a, b) => a.localeCompare(b));
+
+  const dateOverrides = dateKeys.map((date) => {
+    const totals = vendorStates.reduce((accumulator, availability) => {
+      const day = getAvailabilityDayForDate(availability, date);
+      return {
+        maxCapacity: Math.min(99, accumulator.maxCapacity + Number(day.maxCapacity || 0)),
+        bookingsCount: Math.min(99, accumulator.bookingsCount + Number(day.bookingsCount || 0)),
+        hasOverride: accumulator.hasOverride || day.hasOverride,
+      };
+    }, { maxCapacity: 0, bookingsCount: 0, hasOverride: false });
+
+    const bookingsCount = Math.min(totals.bookingsCount, totals.maxCapacity);
+    if (!totals.hasOverride && totals.maxCapacity === defaultMaxCapacity && bookingsCount === 0) {
+      return null;
+    }
+
+    return {
+      date,
+      maxCapacity: totals.maxCapacity,
+      bookingsCount,
+    };
+  }).filter(Boolean);
+
+  return {
+    hasDefaultCapacity: defaultMaxCapacity > 0,
+    defaultMaxCapacity,
+    dateOverrides,
+  };
+}
+
 function collectChoiceableVendorMedia(vendor, { includeHidden = true } = {}) {
   return normalizeMediaList(vendor?.media)
     .filter(item => includeHidden || item?.isVisible !== false)
     .sort((a, b) => (a?.sortOrder ?? 0) - (b?.sortOrder ?? 0));
+}
+
+function normalizeChoiceMediaType(value, fallback = 'IMAGE') {
+  return String(value || '').trim().toUpperCase() === 'VIDEO' ? 'VIDEO' : fallback;
+}
+
+function buildChoiceMediaPreviewUrl(item) {
+  if (typeof item?.url === 'string' && item.url.trim()) {
+    return item.url.trim();
+  }
+  if (typeof item?.r2Url === 'string' && item.r2Url.trim()) {
+    return item.r2Url.trim();
+  }
+  return '';
+}
+
+function normalizeChoiceOwnedMediaInput(item, index) {
+  if (!item?.url || !['IMAGE', 'VIDEO'].includes(String(item?.type || '').trim())) {
+    throw new Error('media includes an invalid VCA-owned item.');
+  }
+
+  return {
+    key: typeof item.key === 'string' ? item.key.trim() : '',
+    url: String(item.url).trim(),
+    type: String(item.type).trim(),
+    sortOrder: Number.isFinite(Number(item.sortOrder)) ? Math.trunc(Number(item.sortOrder)) : index,
+    filename: typeof item.filename === 'string' ? item.filename.trim().slice(0, 255) : '',
+    size: typeof item.size === 'number' && item.size >= 0 ? item.size : 0,
+    caption: typeof item.caption === 'string' ? item.caption.trim().slice(0, 280) : '',
+    altText: typeof item.altText === 'string' ? item.altText.trim().slice(0, 180) : '',
+    isCover: Boolean(item?.isCover),
+    isVisible: item?.isVisible !== false,
+  };
+}
+
+function normalizeChoiceSelectedVendorMediaInput(item, index, vendorsById) {
+  const vendorId = normalizeObjectId(item?.vendorId);
+  const sourceMediaId = normalizeObjectId(item?.sourceMediaId);
+  const vendor = vendorsById.get(vendorId);
+  const vendorMedia = collectChoiceableVendorMedia(vendor).find(mediaItem => String(mediaItem?._id || '') === sourceMediaId);
+
+  if (!vendor || !vendorMedia) {
+    throw new Error('selectedVendorMedia includes vendor media that is not available.');
+  }
+
+  return {
+    vendorId,
+    vendorName: vendor.businessName || '',
+    sourceMediaId,
+    r2Url: vendorMedia?.url || '',
+    mediaType: vendorMedia?.type || 'IMAGE',
+    sortOrder: Number.isFinite(Number(item?.sortOrder)) ? Math.trunc(Number(item.sortOrder)) : index,
+    filename: vendorMedia?.filename || '',
+    size: typeof vendorMedia?.size === 'number' ? vendorMedia.size : 0,
+    caption: vendorMedia?.caption || '',
+    altText: vendorMedia?.altText || '',
+    isCover: Boolean(item?.isCover),
+    isVisible: item?.isVisible !== false,
+  };
+}
+
+function buildDefaultSelectedVendorMedia(sourceVendors) {
+  return sourceVendors.flatMap(vendor => collectChoiceableVendorMedia(vendor, { includeHidden: false }).map(item => ({
+    vendorId: String(vendor._id || ''),
+    vendorName: vendor.businessName || '',
+    sourceMediaId: String(item?._id || ''),
+    r2Url: item?.url || '',
+    mediaType: item?.type || 'IMAGE',
+    sortOrder: 0,
+    filename: item?.filename || '',
+    size: typeof item?.size === 'number' ? item.size : 0,
+    caption: item?.caption || '',
+    altText: item?.altText || '',
+    isCover: Boolean(item?.isCover),
+    isVisible: item?.isVisible !== false,
+  })));
 }
 
 function resolveChoiceSourceVendors(choiceProfile, vendorsForType) {
@@ -223,61 +539,49 @@ function resolveChoiceSourceVendors(choiceProfile, vendorsForType) {
   return approvedVendors.filter(vendor => normalizeVendorTier(vendor.tier) === 'Free');
 }
 
-function buildDefaultChoiceMedia(sourceVendors) {
-  return sourceVendors.flatMap(vendor => collectChoiceableVendorMedia(vendor, { includeHidden: false }).map((item, index) => ({
-    sourceType: 'vendor',
-    vendorId: String(vendor._id || ''),
-    vendorName: vendor.businessName || '',
-    sourceMediaId: String(item?._id || ''),
-    key: item?.key || '',
-    url: item?.url || '',
-    type: item?.type || 'IMAGE',
-    sortOrder: index,
-    filename: item?.filename || '',
-    size: typeof item?.size === 'number' ? item.size : 0,
-    caption: item?.caption || '',
-    altText: item?.altText || '',
-    isCover: Boolean(item?.isCover),
-    isVisible: item?.isVisible !== false,
-  })));
-}
-
 function resolveAdminChoiceMedia(choiceProfile, vendorsForType) {
   const sourceVendorMap = new Map((Array.isArray(vendorsForType) ? vendorsForType : []).map(vendor => [String(vendor?._id || ''), vendor]));
-  const savedMedia = Array.isArray(choiceProfile?.selectedMedia) ? sortChoiceMedia(choiceProfile.selectedMedia) : [];
+  const storedVendorMedia = Array.isArray(choiceProfile?.selectedVendorMedia)
+    ? sortChoiceMedia(choiceProfile.selectedVendorMedia)
+    : [];
+  const storedOwnedMedia = Array.isArray(choiceProfile?.media)
+    ? sortChoiceMedia(choiceProfile.media)
+    : [];
+  const effectiveVendorMedia = storedVendorMedia.length > 0
+    ? storedVendorMedia
+    : buildDefaultSelectedVendorMedia(resolveChoiceSourceVendors(choiceProfile, vendorsForType));
 
-  if (savedMedia.length === 0) {
-    return buildDefaultChoiceMedia(resolveChoiceSourceVendors(choiceProfile, vendorsForType))
-      .map((item, index) => ({ ...item, sortOrder: index, isCover: index === 0 }));
-  }
-
-  const resolvedMedia = savedMedia
-    .map((item, index) => {
-      if (item?.sourceType === 'vendor') {
-        const vendor = sourceVendorMap.get(String(item?.vendorId || ''));
-        const vendorMedia = collectChoiceableVendorMedia(vendor).find(mediaItem => String(mediaItem?._id || '') === String(item?.sourceMediaId || ''));
-        if (!vendor || !vendorMedia) {
-          return null;
-        }
-
-        return {
-          sourceType: 'vendor',
-          vendorId: String(vendor._id || ''),
-          vendorName: vendor.businessName || '',
-          sourceMediaId: String(vendorMedia?._id || ''),
-          key: vendorMedia?.key || '',
-          url: vendorMedia?.url || '',
-          type: vendorMedia?.type || 'IMAGE',
-          sortOrder: index,
-          filename: vendorMedia?.filename || '',
-          size: typeof vendorMedia?.size === 'number' ? vendorMedia.size : 0,
-          caption: vendorMedia?.caption || '',
-          altText: vendorMedia?.altText || '',
-          isCover: Boolean(item?.isCover),
-          isVisible: item?.isVisible !== false,
-        };
+  const vendorMedia = effectiveVendorMedia
+    .map((item) => {
+      const vendor = sourceVendorMap.get(String(item?.vendorId || ''));
+      const vendorMediaItem = collectChoiceableVendorMedia(vendor).find(mediaItem => String(mediaItem?._id || '') === String(item?.sourceMediaId || ''));
+      if (!vendor || !vendorMediaItem) {
+        return null;
       }
 
+      return {
+        sourceType: 'vendor',
+        vendorId: String(vendor._id || ''),
+        vendorName: vendor.businessName || '',
+        sourceMediaId: String(vendorMediaItem?._id || ''),
+        key: vendorMediaItem?.key || '',
+        url: vendorMediaItem?.url || item?.r2Url || '',
+        r2Url: vendorMediaItem?.url || item?.r2Url || '',
+        type: normalizeChoiceMediaType(vendorMediaItem?.type || item?.mediaType),
+        mediaType: normalizeChoiceMediaType(vendorMediaItem?.type || item?.mediaType),
+        sortOrder: Number.isFinite(Number(item?.sortOrder)) ? Math.trunc(Number(item.sortOrder)) : 0,
+        filename: vendorMediaItem?.filename || item?.filename || '',
+        size: typeof vendorMediaItem?.size === 'number' ? vendorMediaItem.size : (typeof item?.size === 'number' ? item.size : 0),
+        caption: vendorMediaItem?.caption || item?.caption || '',
+        altText: vendorMediaItem?.altText || item?.altText || '',
+        isCover: Boolean(item?.isCover),
+        isVisible: item?.isVisible !== false && vendorMediaItem?.isVisible !== false,
+      };
+    })
+    .filter(Boolean);
+
+  const ownedMedia = storedOwnedMedia
+    .map((item) => {
       if (!item?.url || !item?.type) {
         return null;
       }
@@ -289,8 +593,10 @@ function resolveAdminChoiceMedia(choiceProfile, vendorsForType) {
         sourceMediaId: '',
         key: item?.key || '',
         url: item.url,
-        type: item.type,
-        sortOrder: index,
+        r2Url: '',
+        type: normalizeChoiceMediaType(item.type),
+        mediaType: normalizeChoiceMediaType(item.type),
+        sortOrder: Number.isFinite(Number(item?.sortOrder)) ? Math.trunc(Number(item.sortOrder)) : 0,
         filename: item?.filename || '',
         size: typeof item?.size === 'number' ? item.size : 0,
         caption: item?.caption || '',
@@ -301,25 +607,146 @@ function resolveAdminChoiceMedia(choiceProfile, vendorsForType) {
     })
     .filter(Boolean);
 
-  return resolvedMedia.map((item, index) => ({
+  return sortChoiceMedia([...vendorMedia, ...ownedMedia]).map((item, index) => ({
     ...item,
     sortOrder: index,
     isCover: index === 0,
   }));
 }
 
+function buildChoiceProfileUpdateDocument(seedProfile, existingProfile, payload) {
+  return {
+    _id: seedProfile._id,
+    type: seedProfile.type,
+    businessName: typeof payload?.businessName === 'string' && payload.businessName.trim()
+      ? payload.businessName.trim()
+      : typeof payload?.name === 'string' && payload.name.trim()
+        ? payload.name.trim()
+        : existingProfile?.businessName || existingProfile?.name || seedProfile.businessName,
+    name: typeof payload?.name === 'string' && payload.name.trim()
+      ? payload.name.trim()
+      : typeof payload?.businessName === 'string' && payload.businessName.trim()
+        ? payload.businessName.trim()
+        : existingProfile?.name || existingProfile?.businessName || seedProfile.name,
+    subType: typeof payload?.subType === 'string' ? payload.subType.trim() : (existingProfile?.subType || ''),
+    description: typeof payload?.description === 'string' ? payload.description.trim() : (existingProfile?.description || ''),
+    services: payload?.services !== undefined ? normalizeChoiceServices(payload.services) : normalizeChoiceServices(existingProfile?.services),
+    bundledServices: payload?.bundledServices !== undefined ? normalizeChoiceServices(payload.bundledServices) : normalizeChoiceServices(existingProfile?.bundledServices),
+    country: typeof payload?.country === 'string' ? payload.country.trim() : (existingProfile?.country || ''),
+    state: typeof payload?.state === 'string' ? payload.state.trim() : (existingProfile?.state || ''),
+    city: typeof payload?.city === 'string' ? payload.city.trim() : (existingProfile?.city || ''),
+    googleMapsLink: typeof payload?.googleMapsLink === 'string' ? payload.googleMapsLink.trim() : (existingProfile?.googleMapsLink || ''),
+    coverageAreas: payload?.coverageAreas !== undefined ? normalizeChoiceCoverageAreas(payload.coverageAreas) : normalizeChoiceCoverageAreas(existingProfile?.coverageAreas),
+    budgetRange: payload?.budgetRange !== undefined ? payload.budgetRange : normalizeChoiceBudgetRange(existingProfile?.budgetRange, seedProfile.budgetRange),
+    phone: typeof payload?.phone === 'string' ? payload.phone.trim() : (existingProfile?.phone || ''),
+    website: typeof payload?.website === 'string' ? payload.website.trim() : (existingProfile?.website || ''),
+    availabilitySettings: payload?.availabilitySettings,
+    sourceVendorIds: Array.isArray(payload?.sourceVendorIds) ? payload.sourceVendorIds : (Array.isArray(existingProfile?.sourceVendorIds) ? existingProfile.sourceVendorIds : seedProfile.sourceVendorIds),
+    selectedVendorMedia: Array.isArray(payload?.selectedVendorMedia) ? payload.selectedVendorMedia : (Array.isArray(existingProfile?.selectedVendorMedia) ? existingProfile.selectedVendorMedia : seedProfile.selectedVendorMedia),
+    media: Array.isArray(payload?.media) ? payload.media : (Array.isArray(existingProfile?.media) ? existingProfile.media : seedProfile.media),
+    isApproved: true,
+    tier: 'Plus',
+    isActive: payload?.isActive !== undefined ? payload.isActive !== false : existingProfile?.isActive !== false,
+  };
+}
+
+async function bootstrapChoiceProfiles(ChoiceProfile) {
+  let existingProfiles = [];
+  if (typeof ChoiceProfile.find === 'function') {
+    const query = ChoiceProfile.find({ type: { $in: DEFAULT_VCA_TYPES } });
+    if (query && typeof query.select === 'function') {
+      existingProfiles = await resolveLean(query.select('-__v'));
+    } else {
+      existingProfiles = await resolveLean(query);
+    }
+  }
+  const existingByType = new Map((Array.isArray(existingProfiles) ? existingProfiles : []).map(profile => [String(profile?.type || '').trim(), profile]));
+  const bootstrapped = [];
+
+  for (const type of DEFAULT_VCA_TYPES) {
+    const seedProfile = buildDefaultChoiceProfileSeed(type);
+    let existingProfile = existingByType.get(type) || null;
+
+    if (
+      existingProfile
+      && String(existingProfile?._id || '') !== seedProfile._id
+      && typeof ChoiceProfile.deleteOne === 'function'
+    ) {
+      await ChoiceProfile.deleteOne({ _id: existingProfile._id });
+      existingProfile = {
+        ...existingProfile,
+        _id: seedProfile._id,
+      };
+    }
+
+    const upserted = await resolveLean(ChoiceProfile.findOneAndUpdate(
+      { _id: seedProfile._id },
+      {
+        $set: buildChoiceProfileUpdateDocument(
+          seedProfile,
+          existingProfile,
+          {
+            budgetRange: normalizeChoiceBudgetRange(existingProfile?.budgetRange, seedProfile.budgetRange),
+            availabilitySettings: normalizeChoiceAvailabilitySettings(existingProfile?.availabilitySettings, seedProfile.availabilitySettings),
+          }
+        ),
+        $setOnInsert: { _id: seedProfile._id },
+      },
+      { new: true, upsert: true, setDefaultsOnInsert: true }
+    ));
+
+    bootstrapped.push(upserted || {
+      ...seedProfile,
+      ...(existingProfile || {}),
+      _id: seedProfile._id,
+      isApproved: true,
+      tier: 'Plus',
+    });
+  }
+
+  return bootstrapped;
+}
+
 function serializeAdminChoiceProfile(choiceProfile, vendorsForType = []) {
   const sourceVendors = resolveChoiceSourceVendors(choiceProfile, vendorsForType);
   const aggregatedBudgetRange = buildAggregatedBudgetRange(sourceVendors);
   const aggregatedServices = buildAggregatedServices(sourceVendors);
+  const aggregatedAvailabilitySettings = buildAggregatedAvailabilitySettings(sourceVendors);
   const selectedMedia = resolveAdminChoiceMedia(choiceProfile, vendorsForType);
+  const selectedVendorMedia = selectedMedia.filter(item => item.sourceType === 'vendor').map((item) => ({
+    vendorId: item.vendorId,
+    vendorName: item.vendorName || '',
+    sourceMediaId: item.sourceMediaId,
+    r2Url: item.r2Url || buildChoiceMediaPreviewUrl(item),
+    mediaType: normalizeChoiceMediaType(item.mediaType || item.type),
+    sortOrder: item.sortOrder,
+    filename: item.filename || '',
+    size: typeof item.size === 'number' ? item.size : 0,
+    caption: item.caption || '',
+    altText: item.altText || '',
+    isCover: Boolean(item.isCover),
+    isVisible: item.isVisible !== false,
+  }));
+  const ownedMedia = selectedMedia.filter(item => item.sourceType !== 'vendor').map((item) => ({
+    key: item.key || '',
+    url: buildChoiceMediaPreviewUrl(item),
+    type: normalizeChoiceMediaType(item.type),
+    sortOrder: item.sortOrder,
+    filename: item.filename || '',
+    size: typeof item.size === 'number' ? item.size : 0,
+    caption: item.caption || '',
+    altText: item.altText || '',
+    isCover: Boolean(item.isCover),
+    isVisible: item.isVisible !== false,
+  }));
   const normalizedServices = normalizeChoiceServices(choiceProfile?.services);
   const normalizedBundledServices = normalizeChoiceServices(choiceProfile?.bundledServices);
 
   return {
     id: String(choiceProfile?._id || ''),
+    businessName: choiceProfile?.businessName || choiceProfile?.name || buildChoiceProfileName(choiceProfile?.type),
     type: choiceProfile?.type || '',
-    name: choiceProfile?.name || buildChoiceProfileName(choiceProfile?.type),
+    name: choiceProfile?.name || choiceProfile?.businessName || buildChoiceProfileName(choiceProfile?.type),
     subType: choiceProfile?.subType || '',
     description: choiceProfile?.description || '',
     services: normalizedServices.length > 0 ? normalizedServices : aggregatedServices,
@@ -333,11 +760,17 @@ function serializeAdminChoiceProfile(choiceProfile, vendorsForType = []) {
     website: choiceProfile?.website || '',
     budgetRange: normalizeChoiceBudgetRange(choiceProfile?.budgetRange, aggregatedBudgetRange),
     aggregatedBudgetRange,
+    availabilitySettings: normalizeChoiceAvailabilitySettings(choiceProfile?.availabilitySettings, aggregatedAvailabilitySettings),
+    aggregatedAvailabilitySettings,
     aggregatedServices,
     sourceVendorIds: sourceVendors.map(vendor => String(vendor._id || '')),
     sourceVendorCount: sourceVendors.length,
+    selectedVendorMedia,
+    media: ownedMedia,
     selectedMedia,
     mediaCount: selectedMedia.length,
+    isApproved: choiceProfile?.isApproved !== false,
+    tier: normalizeVendorTier(choiceProfile?.tier || 'Plus'),
     isActive: choiceProfile?.isActive !== false,
     createdAt: choiceProfile?.createdAt || null,
     updatedAt: choiceProfile?.updatedAt || null,
@@ -422,9 +855,21 @@ async function handleAdminVendors(req, res) {
         .select('-__v')
         .sort({ isApproved: 1, updatedAt: -1, createdAt: -1 })
         .lean();
+      const serializedVendors = await Promise.all(vendors.map(async vendor => {
+        try {
+          return await serializeAdminVendor(vendor);
+        } catch (error) {
+          console.error('Admin vendor serialization failed:', {
+            vendorId: String(vendor?._id || ''),
+            vendorGoogleId: vendor?.googleId || '',
+            error,
+          });
+          return buildFallbackAdminVendor(vendor);
+        }
+      }));
 
       return res.status(200).json({
-        vendors: await Promise.all(vendors.map(serializeAdminVendor)),
+        vendors: serializedVendors,
       });
     }
 
@@ -527,10 +972,7 @@ async function handleAdminChoice(req, res) {
           .select('-__v')
           .sort({ type: 1, businessName: 1, updatedAt: -1 })
           .lean(),
-        ChoiceProfile.find({})
-          .select('-__v')
-          .sort({ name: 1, type: 1 })
-          .lean(),
+        bootstrapChoiceProfiles(ChoiceProfile),
       ]);
 
       const vendorsByType = vendors.reduce((map, vendor) => {
@@ -544,16 +986,13 @@ async function handleAdminChoice(req, res) {
         map.get(type).push(vendor);
         return map;
       }, new Map());
-      const docsByType = new Map(choiceProfileDocs.map(profile => [String(profile?.type || '').trim(), profile]));
-      const profileTypes = Array.from(new Set([
-        ...Array.from(docsByType.keys()),
-        ...Array.from(vendorsByType.keys()),
-      ])).filter(Boolean).sort((a, b) => a.localeCompare(b));
+      const docsByType = new Map((Array.isArray(choiceProfileDocs) ? choiceProfileDocs : []).map(profile => [String(profile?.type || '').trim(), profile]));
+      const profileTypes = DEFAULT_VCA_TYPES.filter(type => docsByType.has(type) || vendorsByType.has(type));
 
       return res.status(200).json({
         choiceProfiles: profileTypes.map(type => (
           serializeAdminChoiceProfile(
-            docsByType.get(type) || { type, name: buildChoiceProfileName(type), isActive: true },
+            docsByType.get(type) || buildDefaultChoiceProfileSeed(type),
             vendorsByType.get(type) || []
           )
         )),
@@ -567,12 +1006,21 @@ async function handleAdminChoice(req, res) {
       }
 
       const type = String(req.body?.type || '').trim();
-      if (!type) {
-        return res.status(400).json({ error: 'type is required.' });
+      const requestedId = String(req.body?.id || req.body?.choiceProfileId || '').trim();
+      const choiceProfileId = buildChoiceProfileId(type) || requestedId;
+
+      if (!type || !choiceProfileId) {
+        return res.status(400).json({ error: 'type and static VCA id are required.' });
       }
 
       const Vendor = getVendorModel();
       const ChoiceProfile = getChoiceProfileModel();
+      const existingProfile = await resolveLean(ChoiceProfile.findOne({ _id: choiceProfileId }));
+      const effectiveType = type || String(existingProfile?.type || '').trim();
+      if (!effectiveType) {
+        return res.status(400).json({ error: 'type is required.' });
+      }
+
       const vendorsForType = await Vendor.find({ isApproved: true, type })
         .select('-__v')
         .sort({ businessName: 1, updatedAt: -1 })
@@ -591,83 +1039,38 @@ async function handleAdminChoice(req, res) {
       }
 
       const sourceVendors = sourceVendorIds.map(id => vendorsById.get(id)).filter(Boolean);
-      const selectedMediaInput = Array.isArray(req.body?.selectedMedia) ? req.body.selectedMedia : [];
-      const selectedMedia = selectedMediaInput.map((item, index) => {
-        if (item?.sourceType === 'vendor') {
-          const vendorId = normalizeObjectId(item.vendorId);
-          const sourceMediaId = normalizeObjectId(item.sourceMediaId);
-          const vendor = vendorsById.get(vendorId);
-          const vendorMedia = collectChoiceableVendorMedia(vendor).find(mediaItem => String(mediaItem?._id || '') === sourceMediaId);
-
-          if (!vendor || !vendorMedia) {
-            throw new Error('selectedMedia includes vendor media that is not available.');
-          }
-
-          return {
-            sourceType: 'vendor',
-            vendorId,
-            vendorName: vendor.businessName || '',
-            sourceMediaId,
-            key: vendorMedia?.key || '',
-            url: vendorMedia?.url || '',
-            type: vendorMedia?.type || 'IMAGE',
-            sortOrder: index,
-            filename: vendorMedia?.filename || '',
-            size: typeof vendorMedia?.size === 'number' ? vendorMedia.size : 0,
-            caption: vendorMedia?.caption || '',
-            altText: vendorMedia?.altText || '',
-            isCover: index === 0,
-            isVisible: item?.isVisible !== false,
-          };
-        }
-
-        if (!item?.url || !['IMAGE', 'VIDEO'].includes(String(item?.type || '').trim())) {
-          throw new Error('selectedMedia includes an invalid admin media item.');
-        }
-
-        return {
-          sourceType: 'admin',
-          vendorId: '',
-          vendorName: '',
-          sourceMediaId: '',
-          key: typeof item.key === 'string' ? item.key.trim() : '',
-          url: String(item.url).trim(),
-          type: String(item.type).trim(),
-          sortOrder: index,
-          filename: typeof item.filename === 'string' ? item.filename.trim().slice(0, 255) : '',
-          size: typeof item.size === 'number' && item.size >= 0 ? item.size : 0,
-          caption: typeof item.caption === 'string' ? item.caption.trim().slice(0, 280) : '',
-          altText: typeof item.altText === 'string' ? item.altText.trim().slice(0, 180) : '',
-          isCover: index === 0,
-          isVisible: item?.isVisible !== false,
-        };
-      });
+      const selectedVendorMediaInput = Array.isArray(req.body?.selectedVendorMedia)
+        ? req.body.selectedVendorMedia
+        : Array.isArray(req.body?.selectedMedia)
+          ? req.body.selectedMedia.filter(item => item?.sourceType === 'vendor')
+          : [];
+      const ownedMediaInput = Array.isArray(req.body?.media)
+        ? req.body.media
+        : Array.isArray(req.body?.selectedMedia)
+          ? req.body.selectedMedia.filter(item => item?.sourceType !== 'vendor')
+          : [];
+      const selectedVendorMedia = selectedVendorMediaInput.map((item, index) => normalizeChoiceSelectedVendorMediaInput(item, index, vendorsById));
+      const ownedMedia = ownedMediaInput.map((item, index) => normalizeChoiceOwnedMediaInput(item, index));
 
       const aggregatedBudgetRange = buildAggregatedBudgetRange(sourceVendors);
+      const aggregatedAvailabilitySettings = buildAggregatedAvailabilitySettings(sourceVendors);
+      const seedProfile = buildDefaultChoiceProfileSeed(effectiveType);
       const updatedProfile = await resolveLean(ChoiceProfile.findOneAndUpdate(
-        { type },
+        { _id: choiceProfileId },
         {
           $set: {
-            type,
-            name: typeof req.body?.name === 'string' && req.body.name.trim()
-              ? req.body.name.trim()
-              : buildChoiceProfileName(type),
-            subType: typeof req.body?.subType === 'string' ? req.body.subType.trim() : '',
-            description: typeof req.body?.description === 'string' ? req.body.description.trim() : '',
-            services: normalizeChoiceServices(req.body?.services),
-            bundledServices: normalizeChoiceServices(req.body?.bundledServices),
-            country: typeof req.body?.country === 'string' ? req.body.country.trim() : '',
-            state: typeof req.body?.state === 'string' ? req.body.state.trim() : '',
-            city: typeof req.body?.city === 'string' ? req.body.city.trim() : '',
-            googleMapsLink: typeof req.body?.googleMapsLink === 'string' ? req.body.googleMapsLink.trim() : '',
-            coverageAreas: normalizeChoiceCoverageAreas(req.body?.coverageAreas),
-            budgetRange: normalizeChoiceBudgetRange(req.body?.budgetRange, aggregatedBudgetRange),
-            phone: typeof req.body?.phone === 'string' ? req.body.phone.trim() : '',
-            website: typeof req.body?.website === 'string' ? req.body.website.trim() : '',
+            ...buildChoiceProfileUpdateDocument(seedProfile, existingProfile, {
+              ...req.body,
+              businessName: req.body?.businessName || req.body?.name,
+              budgetRange: normalizeChoiceBudgetRange(req.body?.budgetRange, aggregatedBudgetRange),
+              availabilitySettings: normalizeChoiceAvailabilitySettings(req.body?.availabilitySettings, aggregatedAvailabilitySettings),
+              sourceVendorIds,
+              selectedVendorMedia,
+              media: ownedMedia,
+            }),
             sourceVendorIds,
-            selectedMedia,
-            isActive: req.body?.isActive !== false,
           },
+          $setOnInsert: { _id: choiceProfileId },
         },
         { new: true, upsert: true, setDefaultsOnInsert: true }
       ));
@@ -680,7 +1083,7 @@ async function handleAdminChoice(req, res) {
     res.setHeader('Allow', 'GET, PATCH, OPTIONS');
     return res.status(405).json({ error: 'Method not allowed.' });
   } catch (error) {
-    if (error?.message && /selectedMedia includes/i.test(error.message)) {
+    if (error?.message && /(selectedMedia|selectedVendorMedia|media includes)/i.test(error.message)) {
       return res.status(400).json({ error: error.message });
     }
     if (error?.name === 'ValidationError') {
@@ -688,6 +1091,56 @@ async function handleAdminChoice(req, res) {
     }
     console.error('Admin choice management failed:', error);
     return res.status(500).json({ error: 'Could not manage Choice profiles.' });
+  }
+}
+
+async function handleAdminChoiceMediaUpload(req, res) {
+  if (req.method !== 'POST') {
+    res.setHeader('Allow', 'POST, OPTIONS');
+    return res.status(405).json({ error: 'Method not allowed.' });
+  }
+
+  try {
+    const session = await requireAdminSession(req, 'editor');
+    if (session.error) {
+      return res.status(session.status).json({ error: session.error });
+    }
+
+    const filename = typeof req.body?.filename === 'string' ? req.body.filename.trim() : '';
+    const contentType = typeof req.body?.contentType === 'string' ? req.body.contentType.trim() : '';
+    const size = Number(req.body?.size);
+    const rawChoiceProfileId = String(req.body?.choiceProfileId || req.body?.id || '').trim();
+    const type = String(req.body?.type || '').trim();
+    const choiceProfileId = buildChoiceProfileId(type) || rawChoiceProfileId;
+
+    if (!choiceProfileId) {
+      return res.status(400).json({ error: 'choiceProfileId is required.' });
+    }
+    if (!filename || !contentType) {
+      return res.status(400).json({ error: 'filename and contentType are required.' });
+    }
+    if (!Number.isSafeInteger(size) || size <= 0 || size > (50 * 1024 * 1024)) {
+      return res.status(400).json({ error: 'size must be a positive number up to 50 MB.' });
+    }
+    if (!contentType.startsWith('image/') && !contentType.startsWith('video/')) {
+      return res.status(400).json({ error: 'Only image and video files are allowed.' });
+    }
+
+    const rawExt = filename.includes('.') ? filename.split('.').pop() : '';
+    const ext = rawExt.toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 10);
+    const key = `choice-media/${choiceProfileId}/${randomUUID()}${ext ? `.${ext}` : ''}`;
+    const uploadUrl = await createPresignedPutUrl(key, contentType, { contentLength: size });
+    const publicUrl = createPublicObjectUrl(key);
+
+    return res.status(200).json({
+      uploadUrl,
+      key,
+      publicUrl,
+      uploadedBy: session.user?.email || '',
+    });
+  } catch (error) {
+    console.error('Admin choice media upload URL generation failed:', error);
+    return res.status(500).json({ error: 'Could not generate VCA upload URL.' });
   }
 }
 
@@ -1025,6 +1478,7 @@ async function handler(req, res) {
 
   const shouldProtectAdminMutation = (route === 'vendors' && req.method === 'PATCH')
     || (route === 'choice' && req.method === 'PATCH')
+    || (route === 'choice-media-upload' && req.method === 'POST')
     || (route === 'staff' && ['POST', 'PUT', 'DELETE'].includes(req.method))
     || (route === 'applications' && req.method === 'PATCH');
 
@@ -1042,6 +1496,10 @@ async function handler(req, res) {
 
   if (route === 'choice') {
     return handleAdminChoice(req, res);
+  }
+
+  if (route === 'choice-media-upload') {
+    return handleAdminChoiceMediaUpload(req, res);
   }
 
   if (route === 'staff') {
@@ -1069,6 +1527,7 @@ module.exports.handleAdminMe = handleAdminMe;
 module.exports.handleAdminStaff = handleAdminStaff;
 module.exports.handleAdminVendors = handleAdminVendors;
 module.exports.handleAdminChoice = handleAdminChoice;
+module.exports.handleAdminChoiceMediaUpload = handleAdminChoiceMediaUpload;
 module.exports.handleAdminApplications = handleAdminApplications;
 module.exports.handleAdminResumeDownload = handleAdminResumeDownload;
 module.exports.handleAdminSubscribers = handleAdminSubscribers;

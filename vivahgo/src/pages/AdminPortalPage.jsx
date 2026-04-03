@@ -25,6 +25,13 @@ import {
 import { getMarketingUrl } from '../siteUrls.js';
 
 const MARKETING_HOME_URL = getMarketingUrl('/');
+const ADMIN_SECTION_PATHS = {
+  vendors: '/admin/vendors',
+  choice: '/admin/vendors/choice',
+  subscribers: '/admin/subscribers',
+  applications: '/admin/applications',
+  staff: '/admin/staff',
+};
 
 const ADMIN_PORTAL_SECTIONS = [
   {
@@ -69,7 +76,34 @@ function getAllowedAdminSections(canManageStaff = false) {
   return ADMIN_PORTAL_SECTIONS.filter(section => !section.requiresOwner || canManageStaff);
 }
 
+function readAdminSectionFromPathname(pathname = '') {
+  const normalizedPathname = String(pathname || '').replace(/\/+$/, '').toLowerCase();
+
+  if (normalizedPathname === '/admin/vendors/choice' || normalizedPathname === '/admin/choice') {
+    return 'choice';
+  }
+  if (normalizedPathname === '/admin/vendors') {
+    return 'vendors';
+  }
+  if (normalizedPathname === '/admin/subscribers') {
+    return 'subscribers';
+  }
+  if (normalizedPathname === '/admin/applications') {
+    return 'applications';
+  }
+  if (normalizedPathname === '/admin/staff') {
+    return 'staff';
+  }
+
+  return '';
+}
+
 function readAdminSectionFromLocation(win = typeof window !== 'undefined' ? window : undefined) {
+  const sectionFromPath = readAdminSectionFromPathname(win?.location?.pathname || '');
+  if (sectionFromPath) {
+    return sectionFromPath;
+  }
+
   return String(win?.location?.hash || '').replace(/^#/, '').trim().toLowerCase();
 }
 
@@ -87,9 +121,16 @@ function writeAdminSectionToLocation(sectionId, options = {}) {
     return;
   }
 
-  const nextHash = `#${sectionId}`;
+  const nextPath = ADMIN_SECTION_PATHS[sectionId] || '/admin';
+  const nextUrl = `${nextPath}${win.location.search}`;
+
   if (replace && typeof win.history?.replaceState === 'function') {
-    win.history.replaceState(null, '', `${win.location.pathname}${win.location.search}${nextHash}`);
+    win.history.replaceState(null, '', nextUrl);
+    return;
+  }
+
+  if (typeof win.history?.pushState === 'function') {
+    win.history.pushState(null, '', nextUrl);
     return;
   }
 
@@ -220,8 +261,10 @@ export default function AdminPortalPage() {
 
     syncActiveSectionFromLocation();
     window.addEventListener('hashchange', syncActiveSectionFromLocation);
+    window.addEventListener('popstate', syncActiveSectionFromLocation);
     return () => {
       window.removeEventListener('hashchange', syncActiveSectionFromLocation);
+      window.removeEventListener('popstate', syncActiveSectionFromLocation);
     };
   }, [access?.canManageStaff]);
 
@@ -376,17 +419,6 @@ export default function AdminPortalPage() {
     pending: vendors.filter(vendor => !vendor.isApproved).length,
     approved: vendors.filter(vendor => vendor.isApproved).length,
   }), [vendors]);
-  const vendorTierCounts = useMemo(() => ({
-    plus: vendors.filter(vendor => vendor.isApproved && vendor.tier === 'Plus').length,
-    free: vendors.filter(vendor => vendor.isApproved && vendor.tier !== 'Plus').length,
-    choiceCategories: new Set(
-      vendors
-        .filter(vendor => vendor.isApproved)
-        .map(vendor => vendor.type)
-        .filter(Boolean)
-    ).size,
-  }), [vendors]);
-
   const applicationCounts = useMemo(() => ({
     total: applications.length,
     new: applications.filter(item => item.status === 'new').length,
@@ -751,32 +783,7 @@ export default function AdminPortalPage() {
       },
     ]
     : activeSectionId === 'choice'
-      ? [
-        {
-          key: 'choice-categories',
-          label: 'Choice categories',
-          value: vendorTierCounts.choiceCategories,
-          cardClass: 'border-stone-200',
-          labelClass: 'text-stone-500',
-          valueClass: 'text-3xl font-bold text-stone-900',
-        },
-        {
-          key: 'free-resource-pool',
-          label: 'Approved free vendors',
-          value: vendorTierCounts.free,
-          cardClass: 'border-amber-200',
-          labelClass: 'text-amber-700',
-          valueClass: 'text-3xl font-bold text-amber-900',
-        },
-        {
-          key: 'plus-vendors',
-          label: 'Approved plus vendors',
-          value: vendorTierCounts.plus,
-          cardClass: 'border-sky-200',
-          labelClass: 'text-sky-700',
-          valueClass: 'text-3xl font-bold text-sky-900',
-        },
-      ]
+      ? []
     : activeSectionId === 'subscribers'
       ? [
         {
@@ -1470,14 +1477,16 @@ export default function AdminPortalPage() {
               </div>
             </section>
 
-            <section className="grid gap-4 md:grid-cols-3">
-              {sectionStatCards.map(card => (
-                <div key={card.key} className={`bg-white rounded-3xl border p-5 shadow-sm ${card.cardClass}`}>
-                  <p className={`text-sm ${card.labelClass}`}>{card.label}</p>
-                  <p className={`mt-2 ${card.valueClass}`}>{card.value}</p>
-                </div>
-              ))}
-            </section>
+            {sectionStatCards.length > 0 && (
+              <section className="grid gap-4 md:grid-cols-3">
+                {sectionStatCards.map(card => (
+                  <div key={card.key} className={`bg-white rounded-3xl border p-5 shadow-sm ${card.cardClass}`}>
+                    <p className={`text-sm ${card.labelClass}`}>{card.label}</p>
+                    <p className={`mt-2 ${card.valueClass}`}>{card.value}</p>
+                  </div>
+                ))}
+              </section>
+            )}
 
             {currentSectionPanel}
           </div>

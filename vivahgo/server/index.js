@@ -113,9 +113,9 @@ const DEFAULT_SUBSCRIPTION_AMOUNT_MAP = {
 
 const COUPON_SECRET_FILE_PATH = new URL('../../config/subscription-coupons.local.json', import.meta.url);
 const CAREERS_FILE_PATH = new URL('../../config/careers.json', import.meta.url);
-const { uploadResumeToB2, createB2PresignedGetUrl, deleteB2Object } = b2Helpers;
+const { uploadResumeToB2, createB2PresignedGetUrl, createB2PresignedPutUrl, deleteB2Object } = b2Helpers;
 const { getDefaultCareerRejectionTemplate, sanitizeCareerRejectionTemplate, sendCareerRejectionEmail } = careersAdminHelpers;
-const { createPresignedGetUrl, createPresignedPutUrl, objectKeyMatchesScope } = r2Helpers;
+const { createPresignedPutUrl, objectKeyMatchesScope } = r2Helpers;
 const MAX_CAREER_RESUME_SIZE_BYTES = 2 * 1024 * 1024;
 const MAX_VERIFICATION_FILE_SIZE_BYTES = 10 * 1024 * 1024;
 const ALLOWED_VERIFICATION_CONTENT_TYPES = new Set(['application/pdf', 'image/jpeg', 'image/png', 'image/webp']);
@@ -210,6 +210,10 @@ function sanitizeVerificationNotes(value) {
   return typeof value === 'string' ? value.trim().slice(0, 1000) : '';
 }
 
+function normalizeVendorTier(value) {
+  return String(value || '').trim().toLowerCase() === 'plus' ? 'Plus' : 'Free';
+}
+
 function normalizeVerificationStatus(value, { hasDocuments = false } = {}) {
   if (value === 'approved' || value === 'rejected' || value === 'submitted') {
     return value;
@@ -230,7 +234,7 @@ async function serializeVerificationDocuments(documents, ownerId) {
 
     if (key) {
       try {
-        accessUrl = await createPresignedGetUrl(key);
+        accessUrl = await createB2PresignedGetUrl(key);
       } catch {
         accessUrl = '';
       }
@@ -264,6 +268,75 @@ async function serializeVendorWithVerification(vendor) {
     verificationReviewedAt: plain?.verificationReviewedAt || null,
     verificationReviewedBy: plain?.verificationReviewedBy || '',
     verificationDocuments,
+  };
+}
+
+async function serializeAdminVendorRecord(vendor) {
+  const plain = typeof vendor?.toObject === 'function' ? vendor.toObject() : vendor;
+  const serialized = await serializeVendorWithVerification(plain);
+  const media = Array.isArray(serialized?.media) ? serialized.media : [];
+  const verificationDocuments = Array.isArray(serialized?.verificationDocuments) ? serialized.verificationDocuments : [];
+
+  return {
+    id: String(serialized?._id || ''),
+    googleId: serialized?.googleId || '',
+    businessName: serialized?.businessName || '',
+    type: serialized?.type || '',
+    subType: serialized?.subType || '',
+    description: serialized?.description || '',
+    country: serialized?.country || '',
+    state: serialized?.state || '',
+    city: serialized?.city || '',
+    phone: serialized?.phone || '',
+    website: serialized?.website || '',
+    googleMapsLink: serialized?.googleMapsLink || '',
+    bundledServices: Array.isArray(serialized?.bundledServices) ? serialized.bundledServices : [],
+    coverageAreas: Array.isArray(serialized?.coverageAreas) ? serialized.coverageAreas : [],
+    budgetRange: serialized?.budgetRange || null,
+    isApproved: Boolean(serialized?.isApproved),
+    tier: normalizeVendorTier(serialized?.tier),
+    verificationStatus: serialized?.verificationStatus || (verificationDocuments.length > 0 ? 'submitted' : 'not_submitted'),
+    verificationNotes: serialized?.verificationNotes || '',
+    verificationReviewedAt: serialized?.verificationReviewedAt || null,
+    verificationReviewedBy: serialized?.verificationReviewedBy || '',
+    verificationDocuments,
+    verificationDocumentCount: verificationDocuments.length,
+    mediaCount: media.length,
+    media,
+    createdAt: serialized?.createdAt || null,
+    updatedAt: serialized?.updatedAt || null,
+  };
+}
+
+function buildFallbackAdminVendorRecord(vendor = {}) {
+  return {
+    id: String(vendor?._id || ''),
+    googleId: vendor?.googleId || '',
+    businessName: vendor?.businessName || '',
+    type: vendor?.type || '',
+    subType: vendor?.subType || '',
+    description: vendor?.description || '',
+    country: vendor?.country || '',
+    state: vendor?.state || '',
+    city: vendor?.city || '',
+    phone: vendor?.phone || '',
+    website: vendor?.website || '',
+    googleMapsLink: vendor?.googleMapsLink || '',
+    bundledServices: Array.isArray(vendor?.bundledServices) ? vendor.bundledServices : [],
+    coverageAreas: Array.isArray(vendor?.coverageAreas) ? vendor.coverageAreas : [],
+    budgetRange: vendor?.budgetRange || null,
+    isApproved: Boolean(vendor?.isApproved),
+    tier: normalizeVendorTier(vendor?.tier),
+    verificationStatus: vendor?.verificationStatus || 'not_submitted',
+    verificationNotes: vendor?.verificationNotes || '',
+    verificationReviewedAt: vendor?.verificationReviewedAt || null,
+    verificationReviewedBy: vendor?.verificationReviewedBy || '',
+    verificationDocuments: [],
+    verificationDocumentCount: 0,
+    mediaCount: 0,
+    media: [],
+    createdAt: vendor?.createdAt || null,
+    updatedAt: vendor?.updatedAt || null,
   };
 }
 
@@ -1249,6 +1322,8 @@ async function resolveAdminSession(UserModel, auth, minimumRole = 'viewer') {
   }
 
   return {
+    auth,
+    User: UserModel,
     user: {
       ...user,
       staffRole,
@@ -2221,7 +2296,7 @@ export function createApp(options = {}) {
       const rawExt = filename.includes('.') ? filename.split('.').pop() : '';
       const ext = rawExt.toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 10);
       const key = `vendor-verification/${req.auth.sub}/${crypto.randomUUID()}${ext ? `.${ext}` : ''}`;
-      const uploadUrl = await createPresignedPutUrl(key, contentType, {
+      const uploadUrl = await createB2PresignedPutUrl(key, contentType, {
         contentLength,
       });
 
@@ -2289,6 +2364,7 @@ export function createApp(options = {}) {
         return res.status(404).json({ error: 'Verification document not found.' });
       }
 
+      const targetKey = typeof target?.key === 'string' ? target.key.replace(/^\/+/, '') : '';
       target.deleteOne();
       if (vendor.verificationDocuments.length === 0) {
         vendor.verificationStatus = 'not_submitted';
@@ -2300,6 +2376,13 @@ export function createApp(options = {}) {
       }
 
       await vendor.save();
+      if (targetKey) {
+        try {
+          await deleteB2Object(targetKey);
+        } catch (error) {
+          console.error('Vendor verification document delete failed:', error);
+        }
+      }
       return res.json({ vendor: await serializeVendorWithVerification(vendor) });
     } catch (error) {
       console.error('Vendor verification delete failed:', error);
@@ -2308,8 +2391,7 @@ export function createApp(options = {}) {
   });
 
   app.get('/api/vendors', async (req, res) => {
-    req.query = { ...(req.query || {}), route: 'list' };
-    return vendorHandler(req, res);
+    return vendorHandler.handleVendorList(req, res);
   });
 
   app.get('/api/admin/me', (req, res, next) => authMiddleware(req, res, next, injectedJwtSecret), async (req, res) => {
@@ -2330,23 +2412,121 @@ export function createApp(options = {}) {
   });
 
   app.get('/api/admin/vendors', (req, res, next) => authMiddleware(req, res, next, injectedJwtSecret), async (req, res) => {
-    req.query = { ...(req.query || {}), route: 'vendors' };
-    return adminHandler(req, res);
+    try {
+      const session = await resolveAdminSession(UserModel, req.auth, 'viewer');
+      if (session.error) {
+        return res.status(session.status).json({ error: session.error });
+      }
+
+      const vendors = await VendorModel.find({})
+        .select('-__v')
+        .sort({ isApproved: 1, updatedAt: -1, createdAt: -1 })
+        .lean();
+
+      const serializedVendors = await Promise.all(vendors.map(async vendor => {
+        try {
+          return await serializeAdminVendorRecord(vendor);
+        } catch (error) {
+          console.error('Admin vendor serialization failed:', {
+            vendorId: String(vendor?._id || ''),
+            vendorGoogleId: vendor?.googleId || '',
+            error,
+          });
+          return buildFallbackAdminVendorRecord(vendor);
+        }
+      }));
+
+      return res.json({ vendors: serializedVendors });
+    } catch (error) {
+      console.error('Admin vendor management failed:', error);
+      return res.status(500).json({ error: 'Could not manage vendors.' });
+    }
   });
 
   app.patch('/api/admin/vendors', (req, res, next) => authMiddleware(req, res, next, injectedJwtSecret), async (req, res) => {
-    req.query = { ...(req.query || {}), route: 'vendors' };
-    return adminHandler(req, res);
+    try {
+      const session = await resolveAdminSession(UserModel, req.auth, 'editor');
+      if (session.error) {
+        return res.status(session.status).json({ error: session.error });
+      }
+
+      const vendorId = String(req.body?.vendorId || '').trim();
+      const vendorGoogleId = String(req.body?.vendorGoogleId || '').trim();
+      const isApproved = req.body?.isApproved;
+      const verificationStatus = typeof req.body?.verificationStatus === 'string' ? req.body.verificationStatus.trim() : '';
+      const verificationNotes = typeof req.body?.verificationNotes === 'string' ? req.body.verificationNotes.trim().slice(0, 1000) : null;
+      const tier = typeof req.body?.tier === 'string' ? normalizeVendorTier(req.body.tier) : '';
+
+      if (!vendorId && !vendorGoogleId) {
+        return res.status(400).json({ error: 'vendorId or vendorGoogleId is required.' });
+      }
+      if (typeof isApproved !== 'boolean' && !verificationStatus && verificationNotes === null && !tier) {
+        return res.status(400).json({ error: 'Provide isApproved, verificationStatus, verificationNotes, or tier.' });
+      }
+      if (verificationStatus && !['not_submitted', 'submitted', 'approved', 'rejected'].includes(verificationStatus)) {
+        return res.status(400).json({ error: 'verificationStatus is invalid.' });
+      }
+
+      const updates = {};
+      if (typeof isApproved === 'boolean') {
+        updates.isApproved = isApproved;
+      }
+      if (verificationStatus) {
+        updates.verificationStatus = verificationStatus;
+        updates.verificationReviewedAt = new Date();
+        updates.verificationReviewedBy = session.user.email || req.auth.email || req.auth.sub || '';
+      }
+      if (verificationNotes !== null) {
+        updates.verificationNotes = verificationNotes;
+      }
+      if (tier) {
+        updates.tier = tier;
+      }
+
+      const lookupFilters = [];
+      if (vendorId && mongoose.isValidObjectId(vendorId)) {
+        lookupFilters.push({ _id: vendorId });
+      }
+      if (vendorGoogleId || (vendorId && !mongoose.isValidObjectId(vendorId))) {
+        lookupFilters.push({ googleId: vendorGoogleId || vendorId });
+      }
+
+      let vendor = null;
+      for (const filter of lookupFilters) {
+        vendor = await VendorModel.findOneAndUpdate(
+          filter,
+          { $set: updates },
+          { new: true }
+        ).lean();
+
+        if (vendor) {
+          break;
+        }
+      }
+
+      if (!vendor) {
+        return res.status(404).json({ error: 'Vendor not found.' });
+      }
+
+      return res.json({
+        vendor: await serializeAdminVendorRecord(vendor),
+      });
+    } catch (error) {
+      console.error('Admin vendor management failed:', error);
+      return res.status(500).json({ error: 'Could not manage vendors.' });
+    }
   });
 
   app.get('/api/admin/choice', (req, res, next) => authMiddleware(req, res, next, injectedJwtSecret), async (req, res) => {
-    req.query = { ...(req.query || {}), route: 'choice' };
-    return adminHandler(req, res);
+    return adminHandler.handleAdminChoice(req, res);
+  });
+
+  app.post('/api/admin/choice-media-upload', (req, res, next) => authMiddleware(req, res, next, injectedJwtSecret), async (req, res) => {
+    return adminHandler.handleAdminChoiceMediaUpload(req, res);
   });
 
   app.patch('/api/admin/choice', (req, res, next) => authMiddleware(req, res, next, injectedJwtSecret), async (req, res) => {
-    req.query = { ...(req.query || {}), route: 'choice' };
-    return adminHandler(req, res);
+    return adminHandler.handleAdminChoice(req, res);
   });
 
   app.get('/api/admin/staff', (req, res, next) => authMiddleware(req, res, next, injectedJwtSecret), async (req, res) => {

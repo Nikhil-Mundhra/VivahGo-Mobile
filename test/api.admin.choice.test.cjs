@@ -16,7 +16,7 @@ describe('api/admin.js -> choice route', function () {
     delete require.cache[handlerPath];
   });
 
-  it('returns generated Choice profiles for approved vendor categories', async function () {
+  it('returns seeded Mongo-backed VCA profiles with static ids', async function () {
     require.cache[adminLibPath].exports = {
       ...originalAdminLib,
       requireAdminSession: async () => ({
@@ -62,10 +62,14 @@ describe('api/admin.js -> choice route', function () {
       getChoiceProfileModel: () => ({
         find: () => ({
           select: () => ({
-            sort: () => ({
-              lean: async () => ([]),
-            }),
+            lean: async () => ([]),
           }),
+        }),
+        findOneAndUpdate: async (_query, update) => ({
+          ...update.$setOnInsert,
+          ...update.$set,
+          createdAt: '2026-04-03T00:00:00.000Z',
+          updatedAt: '2026-04-03T01:00:00.000Z',
         }),
       }),
     };
@@ -78,14 +82,19 @@ describe('api/admin.js -> choice route', function () {
 
     assert.equal(res.statusCode, 200);
     assert.equal(Array.isArray(res.body.choiceProfiles), true);
-    assert.equal(res.body.choiceProfiles.length, 1);
-    assert.equal(res.body.choiceProfiles[0].name, "VivahGo's Choice Photography");
-    assert.equal(res.body.choiceProfiles[0].sourceVendorCount, 1);
-    assert.deepEqual(res.body.choiceProfiles[0].aggregatedServices, ['Candid Photography', 'Wedding Videography']);
-    assert.equal(res.body.choiceProfiles[0].selectedMedia.length, 1);
+    const photography = res.body.choiceProfiles.find(item => item.type === 'Photography');
+    assert.ok(photography);
+    assert.equal(photography.id, 'vca-photography');
+    assert.equal(photography.name, "VivahGo's Choice Photography");
+    assert.equal(photography.tier, 'Plus');
+    assert.equal(photography.isApproved, true);
+    assert.equal(photography.sourceVendorCount, 1);
+    assert.deepEqual(photography.aggregatedServices, ['Candid Photography', 'Wedding Videography']);
+    assert.equal(photography.selectedVendorMedia.length, 1);
+    assert.equal(photography.media.length, 0);
   });
 
-  it('saves a Choice profile with selected vendor and admin-uploaded media', async function () {
+  it('saves a VCA profile with split vendor-selected and B2-owned media', async function () {
     let savedUpdate = null;
 
     require.cache[adminLibPath].exports = {
@@ -132,10 +141,11 @@ describe('api/admin.js -> choice route', function () {
         }),
       }),
       getChoiceProfileModel: () => ({
+        findOne: async () => null,
         findOneAndUpdate: async (_query, update) => {
           savedUpdate = update.$set;
           return {
-            _id: 'choice-1',
+            _id: 'vca-photography',
             ...savedUpdate,
             createdAt: '2026-04-03T00:00:00.000Z',
             updatedAt: '2026-04-03T01:00:00.000Z',
@@ -149,19 +159,22 @@ describe('api/admin.js -> choice route', function () {
       method: 'PATCH',
       headers: {},
       body: {
+        id: 'vca-photography',
         type: 'Photography',
+        businessName: "VivahGo's Choice Photography",
         name: "VivahGo's Choice Photography",
         description: 'Curated photographer shortlist',
         services: ['Candid Photography'],
         bundledServices: ['Wedding Videography'],
         phone: '919999999999',
         sourceVendorIds: ['vendor-1'],
-        selectedMedia: [
-          { sourceType: 'vendor', vendorId: 'vendor-1', sourceMediaId: 'vendor-media-1' },
+        selectedVendorMedia: [
+          { vendorId: 'vendor-1', sourceMediaId: 'vendor-media-1' },
+        ],
+        media: [
           {
-            sourceType: 'admin',
-            key: 'vendors/editor-1/upload.jpg',
-            url: 'https://media.vivahgo.com/portfolio/vendors/editor-1/upload.jpg',
+            key: 'choice-media/vca-photography/upload.jpg',
+            url: 'https://media.vivahgo.com/portfolio/choice-media/vca-photography/upload.jpg',
             type: 'IMAGE',
             filename: 'upload.jpg',
             size: 123,
@@ -177,11 +190,14 @@ describe('api/admin.js -> choice route', function () {
     assert.equal(res.statusCode, 200);
     assert.ok(savedUpdate);
     assert.equal(savedUpdate.type, 'Photography');
+    assert.equal(savedUpdate.isApproved, true);
+    assert.equal(savedUpdate.tier, 'Plus');
     assert.deepEqual(savedUpdate.sourceVendorIds, ['vendor-1']);
-    assert.equal(savedUpdate.selectedMedia.length, 2);
-    assert.equal(savedUpdate.selectedMedia[0].vendorName, 'Open Lens');
-    assert.equal(savedUpdate.selectedMedia[1].sourceType, 'admin');
-    assert.equal(res.body.choiceProfile.id, 'choice-1');
+    assert.equal(savedUpdate.selectedVendorMedia.length, 1);
+    assert.equal(savedUpdate.selectedVendorMedia[0].vendorName, 'Open Lens');
+    assert.equal(savedUpdate.media.length, 1);
+    assert.equal(savedUpdate.media[0].key, 'choice-media/vca-photography/upload.jpg');
+    assert.equal(res.body.choiceProfile.id, 'vca-photography');
     assert.equal(res.body.choiceProfile.mediaCount, 2);
     assert.equal(res.body.choiceProfile.sourceVendorCount, 1);
     assert.deepEqual(res.body.choiceProfile.budgetRange, { min: 70000, max: 120000 });
