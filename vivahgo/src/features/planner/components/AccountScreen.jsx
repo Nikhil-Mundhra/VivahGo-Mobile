@@ -19,6 +19,7 @@ function AccountScreen({
   onLogout,
   onDeleteAccount,
   onStartOnboarding,
+  onExitDemoToLogin,
   onEnableBrowserNotifications,
   onDisableBrowserNotifications,
   onSaveNotificationPreferences,
@@ -348,7 +349,7 @@ function AccountScreen({
         )}
 
         {isDemo && (
-          <button className="btn-primary" onClick={onStartOnboarding} style={{ marginBottom: 10 }}>
+          <button className="btn-primary" onClick={onExitDemoToLogin || onStartOnboarding} style={{ marginBottom: 10 }}>
             Login / Sign Up
           </button>
         )}

@@ -1248,6 +1248,23 @@ export default function PlannerShell() {
     setScreen("onboard");
   }
 
+  function handleExitDemoToLogin() {
+    closeAccountSettings();
+    clearStoredSession();
+    setUser(null);
+    setAuthMode(null);
+    setAuthToken("");
+    setPlannerOwnerId("");
+    setAccessibleWorkspaces([]);
+    setNotificationPreferences(DEFAULT_NOTIFICATION_PREFERENCES);
+    applyPlanner(createBlankPlanner());
+    setRequiresOnboarding(false);
+    setTab("home");
+    setSaveState("idle");
+    setLoginError("");
+    setScreen("login");
+  }
+
   function openFeedbackModal() {
     setShowFeedbackModal(true);
   }
@@ -1482,6 +1499,7 @@ export default function PlannerShell() {
               isUpdatingNotifications={isUpdatingNotifications}
               onClose={closeAccountSettings}
               onStartOnboarding={handleStartOnboardingFromDemo}
+              onExitDemoToLogin={handleExitDemoToLogin}
               onEnableBrowserNotifications={handleEnableBrowserNotifications}
               onDisableBrowserNotifications={handleDisableBrowserNotifications}
               onSaveNotificationPreferences={handleSaveNotificationPreferences}
