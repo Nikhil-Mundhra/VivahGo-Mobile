@@ -3,6 +3,7 @@ import { EVENT_COLORS } from "../../../constants";
 import { DEFAULT_EVENTS } from "../../../data";
 import { WEDDING_WEBSITE_THEMES } from "../../../plannerDefaults";
 import { fmt } from "../../../shared/lib/core.js";
+import { EventIcon } from "../../../shared/lib/eventIcons.jsx";
 import { useSwipeDown } from "../../../shared/hooks/useSwipeDown.js";
 import { useBackButtonClose } from "../../../shared/hooks/useBackButtonClose.js";
 
@@ -26,6 +27,53 @@ function parseTimeParts(str) {
 }
 function buildTimeStr(timeH, timeM, timeP) {
   return timeH && timeM ? timeH + ":" + timeM + " " + timeP : "";
+}
+
+function hexToRgb(hex) {
+  const normalized = String(hex || "").replace("#", "");
+  if (normalized.length !== 6) return null;
+  return {
+    r: parseInt(normalized.slice(0, 2), 16),
+    g: parseInt(normalized.slice(2, 4), 16),
+    b: parseInt(normalized.slice(4, 6), 16),
+  };
+}
+
+function getRelativeLuminance(hex) {
+  const rgb = hexToRgb(hex);
+  if (!rgb) return 0;
+
+  const toLinear = (value) => {
+    const channel = value / 255;
+    return channel <= 0.03928 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4;
+  };
+
+  const r = toLinear(rgb.r);
+  const g = toLinear(rgb.g);
+  const b = toLinear(rgb.b);
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+}
+
+function getEventCardTheme(colorIdx) {
+  const [startColor, endColor] = EVENT_COLORS[colorIdx % EVENT_COLORS.length];
+  const averageLuminance = (getRelativeLuminance(startColor) + getRelativeLuminance(endColor)) / 2;
+  const useCrimsonText = averageLuminance >= 0.48;
+
+  return useCrimsonText
+    ? {
+        "--event-text-color": "var(--color-crimson)",
+        "--event-secondary-text-color": "rgba(139, 26, 26, 0.78)",
+        "--event-tertiary-text-color": "rgba(139, 26, 26, 0.64)",
+        "--event-status-bg": "rgba(139, 26, 26, 0.12)",
+        "--event-status-color": "var(--color-crimson)",
+      }
+    : {
+        "--event-text-color": "#FFFFFF",
+        "--event-secondary-text-color": "rgba(255,255,255,0.75)",
+        "--event-tertiary-text-color": "rgba(255,255,255,0.65)",
+        "--event-status-bg": "rgba(255,255,255,0.2)",
+        "--event-status-color": "#FFFFFF",
+      };
 }
 
 const OTHER_VENUE_VALUE = "__other__";
@@ -206,19 +254,25 @@ function EventsScreen({ events, setEvents, expenses, setExpenses, onOpenBudget, 
         <div className="event-grid">
           {events.map(ev=>{
             const eventSpend = getEventSpend(ev.id);
+            const eventTheme = getEventCardTheme(ev.colorIdx);
             return (
             <div key={ev.id} className="event-card"
-              style={{background:`linear-gradient(150deg, ${EVENT_COLORS[ev.colorIdx % EVENT_COLORS.length][0]}, ${EVENT_COLORS[ev.colorIdx % EVENT_COLORS.length][1]})`}}
+              style={{
+                background:`linear-gradient(150deg, ${EVENT_COLORS[ev.colorIdx % EVENT_COLORS.length][0]}, ${EVENT_COLORS[ev.colorIdx % EVENT_COLORS.length][1]})`,
+                ...eventTheme,
+              }}
               onClick={()=>setEditing({isPublicWebsiteVisible:true, ...ev, ...parseTimeParts(ev.time)})}>  
+              <div className="event-icon-corner">
+                <EventIcon eventName={ev.name} emoji={ev.emoji} size={null} className="event-emoji event-emoji-image" />
+              </div>
               <div>
-                <div className="event-emoji">{ev.emoji}</div>
                 <div className="event-name">{ev.name}</div>
                 <div className="event-date">{ev.date||"Date not set"}</div>
                 <div className="event-spend">{eventSpend ? `${fmt(eventSpend)} linked` : "No linked expenses"}</div>
               </div>
               <div>
                 <div className="event-status">{ev.status}</div>
-                <div style={{fontSize:10,color:"rgba(255,255,255,0.65)",marginTop:4}}>{ev.venue||"Venue TBD"}</div>
+                <div style={{fontSize:10,color:"var(--event-tertiary-text-color)",marginTop:4}}>{ev.venue||"Venue TBD"}</div>
               </div>
             </div>
           );})}
@@ -228,7 +282,10 @@ function EventsScreen({ events, setEvents, expenses, setExpenses, onOpenBudget, 
         <div className="modal-overlay" onClick={()=>setEditing(null)}>
           <div className="modal" {...editingSwipe.modalProps} onClick={e=>e.stopPropagation()}>
             <div className="modal-handle"/>
-            <div className="modal-title">{editing.emoji} {editing.name}</div>
+            <div className="modal-title" style={{display:"flex",alignItems:"center",gap:8}}>
+              <EventIcon eventName={editing.name} emoji={editing.emoji} size={26} />
+              <span>{editing.name}</span>
+            </div>
             <div style={{marginBottom:16,padding:"10px 12px",background:"rgba(139,26,26,0.05)",borderRadius:12,color:"var(--color-mid-text)",fontSize:13}}>
               Linked ceremony spend: <strong style={{color:"var(--color-crimson)"}}>{fmt(getEventSpend(editing.id))}</strong>
             </div>

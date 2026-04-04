@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { formatCoverageLocation, getLocationCities, getLocationCountries, getLocationStates } from "../../../locationOptions";
 import { EXPECTED_GUEST_OPTIONS, MARRIAGE_TEMPLATES } from "../../../plannerDefaults.js";
+import { EventIcon } from "../../../shared/lib/eventIcons.jsx";
 
 function baseInputStyle() {
   return {
@@ -415,8 +416,9 @@ export default function NewMarriagePlanModal({
                     }}
                   >
                     <div style={{ minWidth: 0 }}>
-                      <div style={{ color: "var(--color-crimson)", fontWeight: 600, fontSize: 13 }}>
-                        {event.emoji} {event.name}
+                      <div style={{ color: "var(--color-crimson)", fontWeight: 600, fontSize: 13, display: "inline-flex", alignItems: "center", gap: 6 }}>
+                        <EventIcon eventName={event.name} emoji={event.emoji} size={16} />
+                        <span>{event.name}</span>
                       </div>
                       <div style={{ color: "var(--color-light-text)", fontSize: 11 }}>
                         Included in future plan setup

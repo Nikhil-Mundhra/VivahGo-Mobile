@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { EventIcon } from "../../../shared/lib/eventIcons.jsx";
 import { useSwipeDown } from "../../../shared/hooks/useSwipeDown.js";
 import { useBackButtonClose } from "../../../shared/hooks/useBackButtonClose.js";
 
@@ -76,7 +77,12 @@ function TasksScreen({ tasks, setTasks, events, planId }) {
                   <div className={`task-name${t.done?" done":""}`}>{t.name}</div>
                   <div className="task-due">📅 {t.due}</div>
                   <div className="task-due" style={{marginTop:2}}>
-                    {getTaskEvent(t) ? `${getTaskEvent(t).emoji} ${getTaskEvent(t).name}` : `✨ ${t.ceremony || "General"}`}
+                    {getTaskEvent(t) ? (
+                      <span style={{display:"inline-flex",alignItems:"center",gap:6}}>
+                        <EventIcon eventName={getTaskEvent(t).name} emoji={getTaskEvent(t).emoji} size={16} />
+                        <span>{getTaskEvent(t).name}</span>
+                      </span>
+                    ) : `✨ ${t.ceremony || "General"}`}
                   </div>
                 </div>
                 <div className="task-priority" style={{background:PRIORITY_COLORS[t.priority]||"#9E9E9E"}}/>

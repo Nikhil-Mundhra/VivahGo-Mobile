@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { fetchGuestRsvpDetails, submitGuestRsvp } from "../api.js";
 import { usePageSeo } from "../../../seo.js";
+import { EventIcon } from "../../../shared/lib/eventIcons.jsx";
 
 function clampAttendingGuestCount(value, invitedGuestCount, fallback = 1) {
   const parsed = parseInt(value, 10);
@@ -325,7 +326,10 @@ export default function GuestRsvpPage({ rsvpToken = "" }) {
             <div style={styles.eventList}>
               {events.map((event) => (
                 <div key={event.id || `${event.name}-${event.date}`} style={styles.eventCard}>
-                  <div style={styles.eventName}>{event.emoji ? `${event.emoji} ` : ""}{event.name || "Event"}</div>
+                  <div style={{ ...styles.eventName, display: "inline-flex", alignItems: "center", gap: 8 }}>
+                    <EventIcon eventName={event.name} emoji={event.emoji} size={18} />
+                    <span>{event.name || "Event"}</span>
+                  </div>
                   <div style={styles.eventMeta}>{[event.date, event.time].filter(Boolean).join(" · ") || "Date to be announced"}</div>
                   {event.venue ? <div style={styles.eventMeta}>{event.venue}</div> : null}
                 </div>

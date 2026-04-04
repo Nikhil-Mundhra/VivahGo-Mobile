@@ -3,6 +3,7 @@ import NavIcon from "../../../components/NavIcon";
 import { EVENT_COLORS } from "../../../constants";
 import { BUDGET_CATEGORIES } from "../../../data";
 import { daysUntil, fmt } from "../../../shared/lib/core.js";
+import { EventIcon } from "../../../shared/lib/eventIcons.jsx";
 
 const MONTH_INDEX = {
   jan: 0,
@@ -179,7 +180,9 @@ function Dashboard({ wedding, events, expenses, guests, onTabChange, onEditEvent
               onClick={() => onEditEvent?.(event.id)}
               style={{display:"flex",gap:12,padding:"12px 16px",borderBottom:i===weddingCalendar.length-1?"none":"1px solid rgba(212,175,55,0.12)",width:"100%",background:"transparent",borderLeft:"none",borderRight:"none",borderTop:"none",textAlign:"left",cursor:"pointer"}}
             >
-              <div style={{width:34,height:34,borderRadius:10,display:"flex",alignItems:"center",justifyContent:"center",fontSize:18,background:"rgba(212,175,55,0.14)",flexShrink:0}}>{event.emoji}</div>
+              <div style={{width:34,height:34,borderRadius:10,display:"flex",alignItems:"center",justifyContent:"center",fontSize:18,background:"rgba(212,175,55,0.14)",flexShrink:0}}>
+                <EventIcon eventName={event.name} emoji={event.emoji} size={22} />
+              </div>
               <div style={{flex:1,minWidth:0}}>
                 <div style={{display:"flex",justifyContent:"space-between",gap:8,alignItems:"baseline"}}>
                   <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:19,fontWeight:700,color:"var(--color-crimson)",lineHeight:1.1}}>{event.name}</div>

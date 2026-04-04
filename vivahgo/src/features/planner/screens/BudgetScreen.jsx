@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { BUDGET_CATEGORIES, EXPENSE_AREAS } from "../../../data";
 import { fmt } from "../../../shared/lib/core.js";
+import { EventIcon } from "../../../shared/lib/eventIcons.jsx";
 import { useSwipeDown } from "../../../shared/hooks/useSwipeDown.js";
 import { useBackButtonClose } from "../../../shared/hooks/useBackButtonClose.js";
 
@@ -192,7 +193,10 @@ function BudgetScreen({ expenses, setExpenses, wedding, events, planId }) {
               return (
               <div className="cat-bar-row" key={event.id}>
                 <button type="button" className="cat-bar-top cat-breakdown-toggle" onClick={() => setExpandedCeremonyId(current => current === event.id ? null : event.id)}>
-                  <div className="cat-bar-name"><span>{event.emoji}</span> {event.name}</div>
+                  <div className="cat-bar-name" style={{display:"inline-flex",alignItems:"center",gap:6}}>
+                    <EventIcon eventName={event.name} emoji={event.emoji} size={18} />
+                    <span>{event.name}</span>
+                  </div>
                   <div style={{display:"flex",gap:8,alignItems:"center"}}>
                     <span style={{fontSize:13,color:"var(--color-dark-text)",fontWeight:500}}>{fmt(event.spent)}</span>
                     <span className="cat-bar-pct">{totalSpent?Math.round(event.spent/totalSpent*100):0}%</span>
