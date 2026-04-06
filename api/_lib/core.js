@@ -13,6 +13,7 @@ const PUBLIC_CACHE_POLICIES = Object.freeze({
 const sharedPublicCacheState = globalThis.__vivahgoPublicCacheState || {
   entries: new Map(),
   tags: new Map(),
+  keyTags: new Map(),
   versions: new Map(),
 };
 globalThis.__vivahgoPublicCacheState = sharedPublicCacheState;
@@ -440,6 +441,42 @@ function getPublicCache(cacheKey) {
   return entry;
 }
 
+function removeKeyFromTag(tag, key) {
+  const normalizedTag = String(tag || '').trim();
+  const normalizedKey = String(key || '').trim();
+  if (!normalizedTag || !normalizedKey) {
+    return;
+  }
+
+  const taggedKeys = sharedPublicCacheState.tags.get(normalizedTag);
+  if (!taggedKeys) {
+    return;
+  }
+
+  taggedKeys.delete(normalizedKey);
+  if (taggedKeys.size === 0) {
+    sharedPublicCacheState.tags.delete(normalizedTag);
+  }
+}
+
+function removeKeyFromTrackedTags(cacheKey) {
+  const normalizedKey = String(cacheKey || '').trim();
+  if (!normalizedKey) {
+    return;
+  }
+
+  const trackedTags = sharedPublicCacheState.keyTags.get(normalizedKey);
+  if (!trackedTags) {
+    return;
+  }
+
+  for (const tag of trackedTags) {
+    removeKeyFromTag(tag, normalizedKey);
+  }
+
+  sharedPublicCacheState.keyTags.delete(normalizedKey);
+}
+
 function setPublicCache(cacheKey, value, options = {}) {
   const normalizedKey = String(cacheKey || '').trim();
   if (!normalizedKey) {
@@ -450,19 +487,6 @@ function setPublicCache(cacheKey, value, options = {}) {
     ? options.tags.map(tag => String(tag || '').trim()).filter(Boolean)
     : [];
 
-  const existing = sharedPublicCacheState.entries.get(normalizedKey);
-  if (existing && Array.isArray(existing.tags)) {
-    for (const oldTag of existing.tags) {
-      const tagSet = sharedPublicCacheState.tags.get(oldTag);
-      if (tagSet) {
-        tagSet.delete(normalizedKey);
-        if (tagSet.size === 0) {
-          sharedPublicCacheState.tags.delete(oldTag);
-        }
-      }
-    }
-  }
-
   const entry = {
     key: normalizedKey,
     value,
@@ -471,6 +495,7 @@ function setPublicCache(cacheKey, value, options = {}) {
     version: getPublicCacheVersion(normalizedKey),
   };
 
+  removeKeyFromTrackedTags(normalizedKey);
   sharedPublicCacheState.entries.set(normalizedKey, entry);
   for (const tag of tags) {
     if (!sharedPublicCacheState.tags.has(tag)) {
@@ -478,6 +503,7 @@ function setPublicCache(cacheKey, value, options = {}) {
     }
     sharedPublicCacheState.tags.get(tag).add(normalizedKey);
   }
+  sharedPublicCacheState.keyTags.set(normalizedKey, new Set(tags));
 
   return entry;
 }
@@ -502,18 +528,7 @@ function invalidatePublicCache(target, options = {}) {
   }
 
   for (const key of keys) {
-    const entry = sharedPublicCacheState.entries.get(key);
-    if (entry && Array.isArray(entry.tags)) {
-      for (const tag of entry.tags) {
-        const tagSet = sharedPublicCacheState.tags.get(tag);
-        if (tagSet) {
-          tagSet.delete(key);
-          if (tagSet.size === 0) {
-            sharedPublicCacheState.tags.delete(tag);
-          }
-        }
-      }
-    }
+    removeKeyFromTrackedTags(key);
     sharedPublicCacheState.entries.delete(key);
     sharedPublicCacheState.versions.set(key, getPublicCacheVersion(key) + 1);
   }
@@ -524,6 +539,7 @@ function invalidatePublicCache(target, options = {}) {
 function resetPublicCache() {
   sharedPublicCacheState.entries.clear();
   sharedPublicCacheState.tags.clear();
+  sharedPublicCacheState.keyTags.clear();
   sharedPublicCacheState.versions.clear();
 }
 

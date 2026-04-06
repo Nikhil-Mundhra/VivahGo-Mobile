@@ -288,6 +288,29 @@ describe('core helpers', function () {
       assert.equal(getPublicCache('vendors:index'), null);
     });
 
+    it('removes stale tag memberships when a key is stored with a new tag set', function () {
+      setPublicCache('planner-public:asha-rohan-1', { slug: 'asha-rohan-1' }, { tags: ['planner-public', 'wedding-site'] });
+      setPublicCache('planner-public:asha-rohan-1', { slug: 'asha-rohan-1', refreshed: true }, { tags: ['planner-public'] });
+
+      assert.deepEqual(invalidatePublicCache('wedding-site', { scope: 'tag' }), []);
+      assert.equal(getPublicCache('planner-public:asha-rohan-1')?.value?.refreshed, true);
+
+      assert.deepEqual(
+        invalidatePublicCache('planner-public', { scope: 'tag' }),
+        ['planner-public:asha-rohan-1']
+      );
+      assert.equal(getPublicCache('planner-public:asha-rohan-1'), null);
+    });
+
+    it('removes tracked tag memberships when invalidating a single key', function () {
+      setPublicCache('vendors:index', { vendors: [{ id: 'v1' }] }, { tags: ['vendors', 'directory'] });
+
+      assert.deepEqual(invalidatePublicCache('vendors:index'), ['vendors:index']);
+      assert.equal(getPublicCache('vendors:index'), null);
+      assert.deepEqual(invalidatePublicCache('vendors', { scope: 'tag' }), []);
+      assert.deepEqual(invalidatePublicCache('directory', { scope: 'tag' }), []);
+    });
+
     it('applies centralized cache control policies', function () {
       const res = {
         headers: {},

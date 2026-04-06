@@ -106,7 +106,7 @@ export default function PlannerShell() {
   const [isLoggingIn, setIsLoggingIn] = useState(false);
   const [loginError, setLoginError] = useState("");
   const [saveState, setSaveState] = useState("idle");
-  const [plannerRevision, setPlannerRevision] = useState(0);
+  const [, setPlannerRevision] = useState(0);
   const [showWeddingDetailsEditor, setShowWeddingDetailsEditor] = useState(false);
   const [weddingDetailsForm, setWeddingDetailsForm] = useState({ bride: "", groom: "", date: "", country: "", state: "", city: "", budget: "", guests: "" });
   const [extraLocationDraft, setExtraLocationDraft] = useState({ country: "", state: "", city: "" });
@@ -283,7 +283,7 @@ export default function PlannerShell() {
     });
   }, [user?.email]);
 
-  function syncPlanMetadataFromPlanner(nextPlanner) {
+  const syncPlanMetadataFromPlanner = useCallback((nextPlanner) => {
     const normalized = normalizePlanner(nextPlanner);
 
     setMarriages(current => {
@@ -312,9 +312,9 @@ export default function PlannerShell() {
 
       return didChange ? updated : current;
     });
-  }
+  }, []);
 
-  function buildPlannerSnapshotFromState() {
+  const buildPlannerSnapshotFromState = useCallback(() => {
     return {
       marriages,
       activePlanId,
@@ -326,9 +326,9 @@ export default function PlannerShell() {
       vendors,
       tasks,
     };
-  }
+  }, [activePlanId, customTemplates, events, expenses, guests, marriages, tasks, vendors, wedding]);
 
-  function syncPlannerAuthority(nextPlanner, nextPlannerRevision, options = {}) {
+  const syncPlannerAuthority = useCallback((nextPlanner, nextPlannerRevision, options = {}) => {
     const normalizedPlanner = normalizePlanner(nextPlanner);
     const normalizedRevision = Math.max(0, Number(nextPlannerRevision) || 0);
 
@@ -350,9 +350,9 @@ export default function PlannerShell() {
       lastDispatchedPlannerRef.current = normalizedPlanner;
     }
     return normalizedPlanner;
-  }
+  }, []);
 
-  function hydratePlannerFromResponse(response, options = {}) {
+  const hydratePlannerFromResponse = useCallback((response, options = {}) => {
     const normalizedPlanner = syncPlannerAuthority(
       response?.planner,
       response?.plannerRevision,
@@ -366,7 +366,7 @@ export default function PlannerShell() {
       setScreen(options.nextScreen);
     }
     return normalizedPlanner;
-  }
+  }, [applyPlanner, syncPlannerAuthority]);
 
   const effectivePlannerOwnerId = plannerOwnerId || user?.id || "";
   const plannerQueryEnabled = (authMode === "google" || authMode === "clerk") && Boolean(authToken) && Boolean(effectivePlannerOwnerId);
@@ -471,7 +471,9 @@ export default function PlannerShell() {
       } else {
         try {
           await queryClient.invalidateQueries({ queryKey: plannerQueryKey(nextPlannerOwnerId || effectivePlannerOwnerId) });
-        } catch {}
+        } catch {
+          // Best-effort reconciliation after a non-rollback failure.
+        }
       }
 
       setSaveState(plannerMutationJournalRef.current.pendingMutations.size === 0 ? "error" : "saving");
@@ -555,9 +557,13 @@ export default function PlannerShell() {
     }
   }, [queryClient]);
 
+  const runPlannerMutation = useCallback(async (variables) => (
+    plannerSaveMutation.mutateAsync(variables)
+  ), [plannerSaveMutation]);
+
   useEffect(() => {
     currentPlannerRef.current = normalizePlanner(buildPlannerSnapshotFromState());
-  }, [activePlanId, customTemplates, events, expenses, guests, marriages, tasks, vendors, wedding]);
+  }, [buildPlannerSnapshotFromState]);
 
   useEffect(() => {
     if (!(authMode === "google" || authMode === "clerk") || !authToken) {
@@ -617,7 +623,7 @@ export default function PlannerShell() {
       fallbackPlannerOwnerId: effectivePlannerOwnerId,
       nextScreen: screen === "app" ? "app" : undefined,
     });
-  }, [effectivePlannerOwnerId, plannerQuery.data, plannerQueryEnabled, screen]);
+  }, [effectivePlannerOwnerId, hydratePlannerFromResponse, plannerQuery.data, plannerQueryEnabled, screen]);
 
   async function handleWorkspaceSwitch(nextOwnerId) {
     if (!nextOwnerId || !authToken || nextOwnerId === plannerOwnerId) {
@@ -1199,7 +1205,7 @@ export default function PlannerShell() {
     return () => {
       cancelled = true;
     };
-  }, [applyPlanner, fetchAndApplyNotificationSettings, queryClient, refreshAccessibleWorkspaces]);
+  }, [applyPlanner, fetchAndApplyNotificationSettings, hydratePlannerFromResponse, queryClient, refreshAccessibleWorkspaces]);
 
   useEffect(() => {
     let unsubscribe = () => {};
@@ -1257,7 +1263,7 @@ export default function PlannerShell() {
     saveTimerRef.current = setTimeout(async () => {
       try {
         setSaveState("saving");
-        await plannerSaveMutation.mutateAsync({
+        await runPlannerMutation({
           plannerSnapshot: planner,
           nextPlannerOwnerId: plannerOwnerId,
         });
@@ -1269,7 +1275,7 @@ export default function PlannerShell() {
     return () => {
       clearTimeout(saveTimerRef.current);
     };
-  }, [authMode, authToken, customTemplates, expenses, events, guests, isBootstrapping, tasks, vendors, wedding, marriages, activePlanId, planAccess.canEdit, plannerOwnerId, plannerSaveMutation.mutateAsync]);
+  }, [activePlanId, authMode, authToken, customTemplates, expenses, events, guests, isBootstrapping, marriages, planAccess.canEdit, plannerOwnerId, runPlannerMutation, tasks, vendors, wedding]);
 
   function handleDemoLogin() {
     const demoUser = {
@@ -1315,7 +1321,6 @@ export default function PlannerShell() {
         plannerRevision: nextPlannerRevision,
         plannerOwnerId: resolvedOwnerId || authenticatedUser.id || "",
       };
-      const nextRequiresOnboarding = shouldShowOnboarding(planner);
       const nextSession = persistSession({ mode: "clerk", user: authenticatedUser, plannerOwnerId: loginResponse.plannerOwnerId });
       queryClient.setQueryData(plannerQueryKey(loginResponse.plannerOwnerId), loginResponse);
 
@@ -1351,7 +1356,6 @@ export default function PlannerShell() {
         plannerRevision: nextPlannerRevision,
         plannerOwnerId: resolvedOwnerId || authenticatedUser.id || "",
       };
-      const nextRequiresOnboarding = shouldShowOnboarding(planner);
       const nextSession = persistSession({ mode: "google", user: authenticatedUser, plannerOwnerId: loginResponse.plannerOwnerId });
       queryClient.setQueryData(plannerQueryKey(loginResponse.plannerOwnerId), loginResponse);
 

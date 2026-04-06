@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
 import { MARKETING_SITE_URL } from "./siteUrls.js";
 
 export const DEFAULT_SITE_URL = MARKETING_SITE_URL;
@@ -220,7 +220,7 @@ export function usePageSeo(config) {
   const themeColor = config?.themeColor;
   const title = config?.title;
   const type = config?.type;
-  const alternateLinks = config?.alternateLinks || [];
+  const alternateLinks = useMemo(() => config?.alternateLinks || [], [config?.alternateLinks]);
   const structuredData = config?.structuredData || null;
   const structuredDataKey = JSON.stringify(structuredData);
   const alternateLinksKey = JSON.stringify(alternateLinks);
