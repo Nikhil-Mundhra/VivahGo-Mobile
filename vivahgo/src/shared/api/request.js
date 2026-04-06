@@ -88,17 +88,21 @@ function normalizeInvalidateKeys(keys) {
     .filter(Boolean);
 }
 
+function buildAuthScope(token) {
+  return token && token !== authStorageKeys.COOKIE_AUTH_PLACEHOLDER
+    ? `bearer:${token}`
+    : "cookie";
+}
+
 function buildRequestCacheKey(path, requestOptions = {}, baseUrl = API_BASE_URL) {
   const { method = "GET", token, cacheKey } = requestOptions;
+  const authScope = buildAuthScope(token);
+
   if (cacheKey) {
-    return String(cacheKey);
+    return `${String(cacheKey)}:${authScope}`;
   }
 
   const normalizedMethod = String(method || "GET").toUpperCase();
-  const authScope = token && token !== authStorageKeys.COOKIE_AUTH_PLACEHOLDER
-    ? `bearer:${token}`
-    : "cookie";
-
   return `${normalizedMethod}:${baseUrl}${path}:${authScope}`;
 }
 
@@ -224,7 +228,11 @@ async function performRequest(path, requestOptions = {}, options = {}, hasRetrie
     }
 
     if (isMutatingMethod(normalizedMethod)) {
-      invalidateRequestCache(normalizeInvalidateKeys(invalidateKeys));
+      const authScope = buildAuthScope(token);
+      const scopedKeys = normalizeInvalidateKeys(invalidateKeys).map(
+        (key) => `${key}:${authScope}`
+      );
+      invalidateRequestCache(scopedKeys);
     }
 
     return data;

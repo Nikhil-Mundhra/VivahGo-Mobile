@@ -449,6 +449,20 @@ function setPublicCache(cacheKey, value, options = {}) {
   const tags = Array.isArray(options.tags)
     ? options.tags.map(tag => String(tag || '').trim()).filter(Boolean)
     : [];
+
+  const existing = sharedPublicCacheState.entries.get(normalizedKey);
+  if (existing && Array.isArray(existing.tags)) {
+    for (const oldTag of existing.tags) {
+      const tagSet = sharedPublicCacheState.tags.get(oldTag);
+      if (tagSet) {
+        tagSet.delete(normalizedKey);
+        if (tagSet.size === 0) {
+          sharedPublicCacheState.tags.delete(oldTag);
+        }
+      }
+    }
+  }
+
   const entry = {
     key: normalizedKey,
     value,
@@ -488,6 +502,18 @@ function invalidatePublicCache(target, options = {}) {
   }
 
   for (const key of keys) {
+    const entry = sharedPublicCacheState.entries.get(key);
+    if (entry && Array.isArray(entry.tags)) {
+      for (const tag of entry.tags) {
+        const tagSet = sharedPublicCacheState.tags.get(tag);
+        if (tagSet) {
+          tagSet.delete(key);
+          if (tagSet.size === 0) {
+            sharedPublicCacheState.tags.delete(tag);
+          }
+        }
+      }
+    }
     sharedPublicCacheState.entries.delete(key);
     sharedPublicCacheState.versions.set(key, getPublicCacheVersion(key) + 1);
   }
