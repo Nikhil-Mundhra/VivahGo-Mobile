@@ -119,8 +119,9 @@ Responsibilities:
 Primary files:
 
 - [`api/vendor.js`](/Users/nikhil/Documents/VivahGo-mobile/api/vendor.js)
-- [`api/media/presigned-url.js`](/Users/nikhil/Documents/VivahGo-mobile/api/media/presigned-url.js)
-- [`api/media/verification-presigned-url.js`](/Users/nikhil/Documents/VivahGo-mobile/api/media/verification-presigned-url.js)
+- [`api/media.js`](/Users/nikhil/Documents/VivahGo-mobile/api/media.js)
+- [`api-handlers/media/presignedUrl.js`](/Users/nikhil/Documents/VivahGo-mobile/api-handlers/media/presignedUrl.js)
+- [`api-handlers/media/verificationPresignedUrl.js`](/Users/nikhil/Documents/VivahGo-mobile/api-handlers/media/verificationPresignedUrl.js)
 
 Responsibilities:
 
