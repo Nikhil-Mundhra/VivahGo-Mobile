@@ -254,7 +254,9 @@ export default function VendorPortalPage() {
 
       try {
         await queryClient.invalidateQueries({ queryKey: vendorProfileQueryKey() });
-      } catch {}
+      } catch {
+        // Best-effort refresh after rollback is non-fatal.
+      }
     },
   });
 
