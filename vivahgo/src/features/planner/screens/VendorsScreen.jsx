@@ -456,7 +456,7 @@ function VendorsScreen({ vendors, setVendors, view = "directory", onBackToDirect
     }
 
     window.sessionStorage.setItem(VENDOR_FILTERS_SESSION_KEY, JSON.stringify({
-      activeTab,
+      activeTab: activeTab !== "All" && !VENDOR_TYPES.includes(activeTab) ? "All" : activeTab,
       locationFilter,
       subtypeFilter,
       bundledServiceFilter,
@@ -464,28 +464,26 @@ function VendorsScreen({ vendors, setVendors, view = "directory", onBackToDirect
       budgetFilter,
       priceSort,
       availabilityStartDate,
-      availabilityEndDate,
+      availabilityEndDate: availabilityStartDate && availabilityEndDate && availabilityStartDate > availabilityEndDate
+        ? ""
+        : availabilityEndDate,
     }));
   }, [activeTab, availabilityEndDate, availabilityStartDate, budgetFilter, bundledServiceFilter, locationFilter, priceSort, ratingFilter, subtypeFilter]);
 
-  useEffect(() => {
-    if (view !== "directory") {
-      setSelectedVendorId(null);
-      setShowMobileFilters(false);
-    }
+  const normalizedActiveTab = activeTab !== "All" && !VENDOR_TYPES.includes(activeTab) ? "All" : activeTab;
+  const effectiveSelectedVendorId = view === "directory" ? selectedVendorId : null;
+  const isMobileFiltersOpen = view === "directory" ? showMobileFilters : false;
+  const isPrivateVendorFormOpen = view === "my-vendors" ? showPrivateVendorForm : false;
+  const normalizedAvailabilityEndDate = availabilityStartDate && availabilityEndDate && availabilityStartDate > availabilityEndDate
+    ? ""
+    : availabilityEndDate;
 
-    if (view !== "my-vendors") {
+  useBackButtonClose(isMobileFiltersOpen, () => setShowMobileFilters(false));
+  useBackButtonClose(view === "my-vendors", () => {
+    if (isPrivateVendorFormOpen) {
       setShowPrivateVendorForm(false);
       setPrivateVendorError("");
       setPrivateVendorDraft(PRIVATE_VENDOR_INITIAL_FORM);
-    }
-  }, [view]);
-
-  useBackButtonClose(showMobileFilters, () => setShowMobileFilters(false));
-  useBackButtonClose(view === "my-vendors", () => {
-    if (showPrivateVendorForm) {
-      setShowPrivateVendorForm(false);
-      setPrivateVendorError("");
       return;
     }
 
@@ -583,89 +581,53 @@ function VendorsScreen({ vendors, setVendors, view = "directory", onBackToDirect
   );
 
   const availableSubtypes = useMemo(() => {
-    if (activeTab !== "All") {
-      return VENDOR_SUBTYPE_OPTIONS[activeTab] || [];
+    if (normalizedActiveTab !== "All") {
+      return VENDOR_SUBTYPE_OPTIONS[normalizedActiveTab] || [];
     }
 
     return Array.from(new Set(hydratedVendors.map(v => v.subType).filter(Boolean))).sort((a, b) => a.localeCompare(b));
-  }, [activeTab, hydratedVendors]);
+  }, [hydratedVendors, normalizedActiveTab]);
 
-  useEffect(() => {
-    if (activeTab !== "All" && !VENDOR_TYPES.includes(activeTab)) {
-      setActiveTab("All");
-    }
-  }, [activeTab]);
-
-  useEffect(() => {
-    if (!isAllowedFilterValue(locationFilter, availableCities)) {
-      setLocationFilter("all");
-    }
-  }, [availableCities, locationFilter]);
-
-  useEffect(() => {
-    if (!isAllowedFilterValue(subtypeFilter, availableSubtypes)) {
-      setSubtypeFilter("all");
-    }
-  }, [availableSubtypes, subtypeFilter]);
-
-  useEffect(() => {
-    const allowedBundledServices = BUNDLED_SERVICE_OPTIONS.filter(option => option !== activeTab);
-    if (!isAllowedFilterValue(bundledServiceFilter, allowedBundledServices)) {
-      setBundledServiceFilter("all");
-    }
-  }, [activeTab, bundledServiceFilter]);
-
-  useEffect(() => {
-    if (!["all", "3", "4", "5"].includes(String(ratingFilter))) {
-      setRatingFilter("all");
-    }
-  }, [ratingFilter]);
-
-  useEffect(() => {
-    if (!["all", "budget", "mid", "luxury"].includes(String(budgetFilter))) {
-      setBudgetFilter("all");
-    }
-  }, [budgetFilter]);
-
-  useEffect(() => {
-    if (!["none", "low-high", "high-low", "rating"].includes(String(priceSort))) {
-      setPriceSort("none");
-    }
-  }, [priceSort]);
-
-  useEffect(() => {
-    if (availabilityStartDate && availabilityEndDate && availabilityStartDate > availabilityEndDate) {
-      setAvailabilityEndDate("");
-    }
-  }, [availabilityEndDate, availabilityStartDate]);
+  const normalizedLocationFilter = isAllowedFilterValue(locationFilter, availableCities) ? locationFilter : "all";
+  const normalizedSubtypeFilter = isAllowedFilterValue(subtypeFilter, availableSubtypes) ? subtypeFilter : "all";
+  const allowedBundledServices = useMemo(
+    () => BUNDLED_SERVICE_OPTIONS.filter(option => option !== normalizedActiveTab),
+    [normalizedActiveTab]
+  );
+  const normalizedBundledServiceFilter = isAllowedFilterValue(bundledServiceFilter, allowedBundledServices)
+    ? bundledServiceFilter
+    : "all";
+  const normalizedRatingFilter = ["all", "3", "4", "5"].includes(String(ratingFilter)) ? String(ratingFilter) : "all";
+  const normalizedBudgetFilter = ["all", "budget", "mid", "luxury"].includes(String(budgetFilter)) ? String(budgetFilter) : "all";
+  const normalizedPriceSort = ["none", "low-high", "high-low", "rating"].includes(String(priceSort)) ? String(priceSort) : "none";
 
   const filtered = hydratedVendors
     .map(vendor => ({
       ...vendor,
-      availabilityMatch: getVendorAvailabilityMatch(vendor, availabilityStartDate, availabilityEndDate),
+      availabilityMatch: getVendorAvailabilityMatch(vendor, availabilityStartDate, normalizedAvailabilityEndDate),
     }))
-    .filter(v => activeTab === "All" ? true : v.type === activeTab)
-    .filter(v => subtypeFilter === "all" ? true : v.subType === subtypeFilter)
-    .filter(v => bundledServiceFilter === "all" ? true : Array.isArray(v.bundledServices) && v.bundledServices.includes(bundledServiceFilter))
-    .filter(v => locationFilter === "all" ? true : v.city === locationFilter)
-    .filter(v => ratingFilter === "all" ? true : Number(v.rating) >= Number(ratingFilter))
+    .filter(v => normalizedActiveTab === "All" ? true : v.type === normalizedActiveTab)
+    .filter(v => normalizedSubtypeFilter === "all" ? true : v.subType === normalizedSubtypeFilter)
+    .filter(v => normalizedBundledServiceFilter === "all" ? true : Array.isArray(v.bundledServices) && v.bundledServices.includes(normalizedBundledServiceFilter))
+    .filter(v => normalizedLocationFilter === "all" ? true : v.city === normalizedLocationFilter)
+    .filter(v => normalizedRatingFilter === "all" ? true : Number(v.rating) >= Number(normalizedRatingFilter))
     .filter(v => v.availabilityMatch?.isMatch !== false)
     .filter(v => {
-      if (budgetFilter === "all") return true;
+      if (normalizedBudgetFilter === "all") return true;
       const maxBudget = Number(v?.budgetRange?.max || 0);
-      if (!maxBudget) return budgetFilter === "luxury";
-      if (budgetFilter === "budget") return maxBudget <= 100000;
-      if (budgetFilter === "mid") return maxBudget > 100000 && maxBudget <= 350000;
+      if (!maxBudget) return normalizedBudgetFilter === "luxury";
+      if (normalizedBudgetFilter === "budget") return maxBudget <= 100000;
+      if (normalizedBudgetFilter === "mid") return maxBudget > 100000 && maxBudget <= 350000;
       return maxBudget > 350000;
     })
     .sort((a, b) => {
-      if (priceSort === "low-high") {
+      if (normalizedPriceSort === "low-high") {
         return getVendorPriceLevel(a) - getVendorPriceLevel(b);
       }
-      if (priceSort === "high-low") {
+      if (normalizedPriceSort === "high-low") {
         return getVendorPriceLevel(b) - getVendorPriceLevel(a);
       }
-      if (priceSort === "rating") {
+      if (normalizedPriceSort === "rating") {
         return (b.rating ?? 0) - (a.rating ?? 0);
       }
       if (Boolean(b.isChoiceProfile) !== Boolean(a.isChoiceProfile)) {
@@ -681,8 +643,8 @@ function VendorsScreen({ vendors, setVendors, view = "directory", onBackToDirect
     });
 
   const selectedVendor = useMemo(
-    () => filtered.find(v => v.id === selectedVendorId) || hydratedVendors.find(v => v.id === selectedVendorId) || null,
-    [filtered, hydratedVendors, selectedVendorId]
+    () => filtered.find(v => v.id === effectiveSelectedVendorId) || hydratedVendors.find(v => v.id === effectiveSelectedVendorId) || null,
+    [effectiveSelectedVendorId, filtered, hydratedVendors]
   );
 
   function toggleWishlist(vendorId) {
@@ -748,38 +710,38 @@ function VendorsScreen({ vendors, setVendors, view = "directory", onBackToDirect
   }
 
   const activeFilterCount = [
-    locationFilter,
-    subtypeFilter,
-    bundledServiceFilter,
-    ratingFilter,
-    budgetFilter,
-    priceSort,
+    normalizedLocationFilter,
+    normalizedSubtypeFilter,
+    normalizedBundledServiceFilter,
+    normalizedRatingFilter,
+    normalizedBudgetFilter,
+    normalizedPriceSort,
     availabilityStartDate,
-    availabilityEndDate,
+    normalizedAvailabilityEndDate,
   ].filter(value => value !== "all" && value !== "none" && value !== "").length;
 
   const filterControls = (
     <>
       <div className="vendor-filter-grid vendor-filter-grid-primary">
-        <select className="select-field vendor-filter-select" value={subtypeFilter} onChange={e=>setSubtypeFilter(e.target.value)}>
-          <option value="all">{activeTab === "All" ? "All Subcategories" : `${activeTab} Subcategories`}</option>
+        <select className="select-field vendor-filter-select" value={normalizedSubtypeFilter} onChange={e=>setSubtypeFilter(e.target.value)}>
+          <option value="all">{normalizedActiveTab === "All" ? "All Subcategories" : `${normalizedActiveTab} Subcategories`}</option>
           {availableSubtypes.map(subtype => <option key={subtype} value={subtype}>{subtype}</option>)}
         </select>
-        <select className="select-field vendor-filter-select" value={locationFilter} onChange={e=>setLocationFilter(e.target.value)}>
+        <select className="select-field vendor-filter-select" value={normalizedLocationFilter} onChange={e=>setLocationFilter(e.target.value)}>
           <option value="all">All Locations</option>
           {availableCities.map(city => <option key={city} value={city}>{city}</option>)}
         </select>
-        <select className="select-field vendor-filter-select" value={bundledServiceFilter} onChange={e=>setBundledServiceFilter(e.target.value)}>
+        <select className="select-field vendor-filter-select" value={normalizedBundledServiceFilter} onChange={e=>setBundledServiceFilter(e.target.value)}>
           <option value="all">Also Offers</option>
-          {BUNDLED_SERVICE_OPTIONS.filter(option => option !== activeTab).map(option => <option key={option} value={option}>{option}</option>)}
+          {allowedBundledServices.map(option => <option key={option} value={option}>{option}</option>)}
         </select>
-        <select className="select-field vendor-filter-select" value={ratingFilter} onChange={e=>setRatingFilter(e.target.value)}>
+        <select className="select-field vendor-filter-select" value={normalizedRatingFilter} onChange={e=>setRatingFilter(e.target.value)}>
           <option value="all">Any Rating</option>
           <option value="5">5★ & up</option>
           <option value="4">4★ & up</option>
           <option value="3">3★ & up</option>
         </select>
-        <select className="select-field vendor-filter-select" value={priceSort} onChange={e=>setPriceSort(e.target.value)}>
+        <select className="select-field vendor-filter-select" value={normalizedPriceSort} onChange={e=>setPriceSort(e.target.value)}>
           <option value="none">Default Order</option>
           <option value="low-high">INR tiers: low to high</option>
           <option value="high-low">INR tiers: high to low</option>
@@ -790,7 +752,7 @@ function VendorsScreen({ vendors, setVendors, view = "directory", onBackToDirect
         <div className="vendor-availability-filter-card">
           <div className="vendor-availability-filter-head">
             <span className="vendor-availability-filter-label">Availability dates</span>
-            {(availabilityStartDate || availabilityEndDate) && (
+            {(availabilityStartDate || normalizedAvailabilityEndDate) && (
               <button
                 type="button"
                 className="vendor-availability-clear-btn"
@@ -815,7 +777,7 @@ function VendorsScreen({ vendors, setVendors, view = "directory", onBackToDirect
             <input
               type="date"
               className="input-field vendor-availability-date-input"
-              value={availabilityEndDate}
+              value={normalizedAvailabilityEndDate}
               min={availabilityStartDate || undefined}
               onChange={e => setAvailabilityEndDate(e.target.value)}
               aria-label="Availability end date"
@@ -825,7 +787,7 @@ function VendorsScreen({ vendors, setVendors, view = "directory", onBackToDirect
             Show vendors available on at least one day in this range.
           </div>
         </div>
-        <select className="select-field vendor-filter-select" value={budgetFilter} onChange={e=>setBudgetFilter(e.target.value)}>
+        <select className="select-field vendor-filter-select" value={normalizedBudgetFilter} onChange={e=>setBudgetFilter(e.target.value)}>
           <option value="all">All Budgets</option>
           <option value="budget">Budget friendly</option>
           <option value="mid">Mid range</option>
@@ -975,7 +937,7 @@ function VendorsScreen({ vendors, setVendors, view = "directory", onBackToDirect
           </div>
           <div className="vendor-tabs">
             {VENDOR_TYPES.map(t=>(
-              <div key={t} className={`vendor-tab${activeTab===t?" active":""}`} onClick={() => { setActiveTab(t); setSubtypeFilter("all"); setBundledServiceFilter("all"); }}>{t}</div>
+              <div key={t} className={`vendor-tab${normalizedActiveTab===t?" active":""}`} onClick={() => { setActiveTab(t); setSubtypeFilter("all"); setBundledServiceFilter("all"); }}>{t}</div>
             ))}
           </div>
           {isMobileView ? (

@@ -5,7 +5,6 @@ import { FallbackImage, FallbackVideo } from '../../../components/MediaWithFallb
 
 const MAX_FILE_SIZE = 50 * 1024 * 1024;
 const MAX_CAPACITY = 99;
-const DEFAULT_CHOICE_NAME_PREFIX = "VivahGo's Choice";
 const WEEKDAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const CHOICE_BUDGET_MODE_OPTIONS = [
   {
@@ -41,11 +40,6 @@ function getChoiceAccountKey(profile) {
   const type = String(profile?.type || '').trim();
   const name = String(profile?.name || '').trim();
   return `${type}::${name || 'draft'}`;
-}
-
-function buildChoiceProfileName(type) {
-  const trimmedType = String(type || '').trim();
-  return trimmedType ? `${DEFAULT_CHOICE_NAME_PREFIX} ${trimmedType}` : DEFAULT_CHOICE_NAME_PREFIX;
 }
 
 function buildDraft(profile) {
