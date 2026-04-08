@@ -73,26 +73,26 @@ function isAuthenticatedSession(session) {
 
 function secureRandomIdFallback() {
   try {
-    // Prefer Web Crypto API if available (browsers, modern Node via globalThis.crypto)
+    // Prefer Web Crypto API if available (browsers, modern runtimes via globalThis.crypto)
     if (globalThis.crypto && typeof globalThis.crypto.getRandomValues === "function") {
       const bytes = new Uint8Array(16);
       globalThis.crypto.getRandomValues(bytes);
       return Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
     }
   } catch {
-    // ignore and fall back to Node.js crypto if present
+    // ignore and use the non-crypto fallback below
   }
 
-  try {
-    // Fallback for Node.js environments without Web Crypto on globalThis
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
-    const nodeCrypto = require("crypto");
-    return nodeCrypto.randomBytes(16).toString("hex");
-  } catch {
-    // As a last resort, still avoid Math.random by returning a timestamp-only value
-    // (better than Math.random, but this path should be extremely rare)
-    return Date.now().toString(16);
-  }
+  // Browser-safe last resort for environments without Web Crypto.
+  // Avoid Node-only modules in this frontend bundle.
+  const timestampPart = Date.now().toString(16);
+  const performancePart =
+    typeof globalThis.performance !== "undefined" &&
+    typeof globalThis.performance.now === "function"
+      ? Math.floor(globalThis.performance.now() * 1000).toString(16)
+      : "0";
+
+  return `${timestampPart}${performancePart}`;
 }
 
 function generateClaritySessionId() {
