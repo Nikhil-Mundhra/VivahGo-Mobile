@@ -5,6 +5,7 @@ import VendorDetailScreen from "../../vendor/components/VendorDetailScreen.jsx";
 import { fetchApprovedVendors } from "../../vendor/api.js";
 import { useBackButtonClose } from "../../../shared/hooks/useBackButtonClose.js";
 import { getVendorAvailabilityMatch } from "../../../vendorAvailability";
+import { FallbackImage, FallbackVideo } from "../../../components/MediaWithFallback.jsx";
 
 const VENDOR_FILTERS_SESSION_KEY = "vivahgo.vendorFilters";
 const PRIVATE_VENDOR_INITIAL_FORM = {
@@ -80,6 +81,14 @@ function normalizePrivateVendorBudgetRange({ budgetMin, budgetMax }) {
   };
 }
 
+function isAllowedFilterValue(value, allowedValues, fallbackValue = "all") {
+  if (value === fallbackValue) {
+    return true;
+  }
+
+  return allowedValues.includes(value);
+}
+
 function buildPlannerVendorRecord(vendor, marketplaceVendorById, fallbackIndex) {
   const vendorId = String(vendor?.id || "").trim();
   const matchedMarketplaceVendor = vendorId ? marketplaceVendorById.get(vendorId) : null;
@@ -99,6 +108,7 @@ function buildPlannerVendorRecord(vendor, marketplaceVendorById, fallbackIndex) 
 
   const normalizedType = normalizeVendorType(vendor?.type || "");
   const normalizedMedia = Array.isArray(vendor?.media) ? vendor.media : [];
+  const coverMedia = normalizedMedia.find(item => item?.isCover) || normalizedMedia[0] || null;
 
   return {
     id: vendorId || `planner_vendor_fallback_${fallbackIndex}`,
@@ -127,6 +137,8 @@ function buildPlannerVendorRecord(vendor, marketplaceVendorById, fallbackIndex) 
     budgetRange: vendor?.budgetRange && typeof vendor.budgetRange === "object" ? vendor.budgetRange : null,
     locations: [vendor?.city, vendor?.state, vendor?.country].filter(Boolean),
     media: normalizedMedia,
+    coverMediaUrl: String(vendor?.coverMediaUrl || vendor?.coverImageUrl || coverMedia?.url || "").trim(),
+    coverMediaType: String(vendor?.coverMediaType || (vendor?.coverImageUrl ? "IMAGE" : (coverMedia?.type || ""))).trim().toUpperCase(),
     coverImageUrl: String(vendor?.coverImageUrl || "").trim(),
     tier: String(vendor?.tier || "").trim(),
     featuredLabel: String(vendor?.featuredLabel || "").trim(),
@@ -147,6 +159,39 @@ function renderVendorStars(vendor) {
   return `${"★".repeat(rating)}${"☆".repeat(5 - rating)}`;
 }
 
+function VendorCoverVisual({ vendor, className, style, alt }) {
+  const coverMediaUrl = String(vendor?.coverMediaUrl || vendor?.coverImageUrl || "").trim();
+  const coverMediaType = String(vendor?.coverMediaType || (vendor?.coverImageUrl ? "IMAGE" : "")).trim().toUpperCase();
+
+  if (!coverMediaUrl) {
+    return <div className="vendor-icon">{vendor?.emoji}</div>;
+  }
+
+  if (coverMediaType === "VIDEO") {
+    return (
+      <FallbackVideo
+        src={coverMediaUrl}
+        className={className}
+        style={style}
+        muted
+        autoPlay
+        loop
+        playsInline
+        preload="metadata"
+      />
+    );
+  }
+
+  return (
+    <FallbackImage
+      src={coverMediaUrl}
+      alt={alt || vendor?.name || "Vendor"}
+      className={className}
+      style={style}
+    />
+  );
+}
+
 function MyVendorCard({ vendor }) {
   const quickFacts = getVendorQuickFacts(vendor);
   const statusLabel = vendor.booked ? "Booked" : "Not booked yet";
@@ -156,9 +201,9 @@ function MyVendorCard({ vendor }) {
   return (
     <div className="my-vendors-card">
       <div className="my-vendors-card-top">
-        {vendor.coverImageUrl ? (
-          <img
-            src={vendor.coverImageUrl}
+        {String(vendor?.coverMediaUrl || vendor?.coverImageUrl || "").trim() ? (
+          <VendorCoverVisual
+            vendor={vendor}
             alt={vendor.name}
             className="my-vendors-card-image"
           />
@@ -377,6 +422,7 @@ function VendorsScreen({ vendors, setVendors, view = "directory", onBackToDirect
   const [showPrivateVendorForm, setShowPrivateVendorForm] = useState(false);
   const [privateVendorDraft, setPrivateVendorDraft] = useState(PRIVATE_VENDOR_INITIAL_FORM);
   const [privateVendorError, setPrivateVendorError] = useState("");
+  const [myVendorsFilter, setMyVendorsFilter] = useState(null);
   const [isMobileView, setIsMobileView] = useState(() =>
     typeof window !== "undefined" ? window.matchMedia("(max-width: 767px)").matches : false
   );
@@ -447,8 +493,12 @@ function VendorsScreen({ vendors, setVendors, view = "directory", onBackToDirect
 
   useEffect(() => {
     fetchApprovedVendors()
-      .then(data => { setDbVendors(Array.isArray(data?.vendors) ? data.vendors : []); })
-      .catch(() => { /* Graceful degradation: fall back to local planner vendors only */ });
+      .then(data => {
+        setDbVendors(Array.isArray(data?.vendors) ? data.vendors : []);
+      })
+      .catch(() => {
+        setDbVendors([]);
+      });
   }, []);
 
   const bookedById = useMemo(
@@ -513,6 +563,19 @@ function VendorsScreen({ vendors, setVendors, view = "directory", onBackToDirect
     [privatePlannerVendors]
   );
 
+  const filteredMyVendors = useMemo(() => {
+    if (myVendorsFilter === "booked") {
+      return bookedPlannerVendors;
+    }
+    if (myVendorsFilter === "private") {
+      return privatePlannerVendors;
+    }
+    if (myVendorsFilter === "pending-private") {
+      return pendingPrivatePlannerVendors;
+    }
+    return plannerVendors;
+  }, [bookedPlannerVendors, myVendorsFilter, pendingPrivatePlannerVendors, plannerVendors, privatePlannerVendors]);
+
   const availableCities = useMemo(
     () => Array.from(new Set(hydratedVendors.map(v => v.city).filter(Boolean))).sort((a, b) => a.localeCompare(b)),
     [hydratedVendors]
@@ -525,6 +588,55 @@ function VendorsScreen({ vendors, setVendors, view = "directory", onBackToDirect
 
     return Array.from(new Set(hydratedVendors.map(v => v.subType).filter(Boolean))).sort((a, b) => a.localeCompare(b));
   }, [activeTab, hydratedVendors]);
+
+  useEffect(() => {
+    if (activeTab !== "All" && !VENDOR_TYPES.includes(activeTab)) {
+      setActiveTab("All");
+    }
+  }, [activeTab]);
+
+  useEffect(() => {
+    if (!isAllowedFilterValue(locationFilter, availableCities)) {
+      setLocationFilter("all");
+    }
+  }, [availableCities, locationFilter]);
+
+  useEffect(() => {
+    if (!isAllowedFilterValue(subtypeFilter, availableSubtypes)) {
+      setSubtypeFilter("all");
+    }
+  }, [availableSubtypes, subtypeFilter]);
+
+  useEffect(() => {
+    const allowedBundledServices = BUNDLED_SERVICE_OPTIONS.filter(option => option !== activeTab);
+    if (!isAllowedFilterValue(bundledServiceFilter, allowedBundledServices)) {
+      setBundledServiceFilter("all");
+    }
+  }, [activeTab, bundledServiceFilter]);
+
+  useEffect(() => {
+    if (!["all", "3", "4", "5"].includes(String(ratingFilter))) {
+      setRatingFilter("all");
+    }
+  }, [ratingFilter]);
+
+  useEffect(() => {
+    if (!["all", "budget", "mid", "luxury"].includes(String(budgetFilter))) {
+      setBudgetFilter("all");
+    }
+  }, [budgetFilter]);
+
+  useEffect(() => {
+    if (!["none", "low-high", "high-low", "rating"].includes(String(priceSort))) {
+      setPriceSort("none");
+    }
+  }, [priceSort]);
+
+  useEffect(() => {
+    if (availabilityStartDate && availabilityEndDate && availabilityStartDate > availabilityEndDate) {
+      setAvailabilityEndDate("");
+    }
+  }, [availabilityEndDate, availabilityStartDate]);
 
   const filtered = hydratedVendors
     .map(vendor => ({
@@ -762,23 +874,42 @@ function VendorsScreen({ vendors, setVendors, view = "directory", onBackToDirect
         </div>
 
         <div className="my-vendors-summary-grid">
-          <div className="my-vendors-summary-card">
+          <div
+            className="my-vendors-summary-card"
+            onClick={() => setMyVendorsFilter(current => current === "booked" ? null : "booked")}
+            style={{ cursor: "pointer", outline: myVendorsFilter === "booked" ? "2px solid #2E7D32" : "none" }}
+          >
             <div className="my-vendors-summary-label">Booked Vendors</div>
-            <div className="my-vendors-summary-value">{bookedPlannerVendors.length}</div>
+            <div className="my-vendors-summary-value" style={{ color: "#2E7D32" }}>{bookedPlannerVendors.length}</div>
           </div>
-          <div className="my-vendors-summary-card">
+          <div
+            className="my-vendors-summary-card"
+            onClick={() => setMyVendorsFilter(current => current === "private" ? null : "private")}
+            style={{ cursor: "pointer", outline: myVendorsFilter === "private" ? "2px solid var(--color-crimson)" : "none" }}
+          >
             <div className="my-vendors-summary-label">Private Vendors</div>
             <div className="my-vendors-summary-value">{privatePlannerVendors.length}</div>
           </div>
-          <div className="my-vendors-summary-card">
+          <div
+            className="my-vendors-summary-card"
+            onClick={() => setMyVendorsFilter(current => current === "pending-private" ? null : "pending-private")}
+            style={{ cursor: "pointer", outline: myVendorsFilter === "pending-private" ? "2px solid #F57F17" : "none" }}
+          >
             <div className="my-vendors-summary-label">Pending Private</div>
-            <div className="my-vendors-summary-value">{pendingPrivatePlannerVendors.length}</div>
+            <div className="my-vendors-summary-value" style={{ color: "#F57F17" }}>{pendingPrivatePlannerVendors.length}</div>
           </div>
         </div>
 
         {!hasAnyPlannerVendor && <EmptyMyVendorsState />}
 
-        {bookedPlannerVendors.length > 0 && (
+        {filteredMyVendors.length === 0 && hasAnyPlannerVendor && (
+          <div className="my-vendors-empty">
+            <div className="my-vendors-empty-title">No vendors match this filter.</div>
+            <p>Try a different view to see the rest of the vendors linked to this wedding.</p>
+          </div>
+        )}
+
+        {(myVendorsFilter === null || myVendorsFilter === "booked") && bookedPlannerVendors.length > 0 && (
           <div className="my-vendors-section">
             <div className="my-vendors-section-head">
               <h3>Booked for This Wedding</h3>
@@ -790,7 +921,7 @@ function VendorsScreen({ vendors, setVendors, view = "directory", onBackToDirect
           </div>
         )}
 
-        {privatePlannerVendors.length > 0 && (
+        {(myVendorsFilter === null || myVendorsFilter === "private" || myVendorsFilter === "pending-private") && privatePlannerVendors.length > 0 && (
           <div className="my-vendors-section">
             <div className="my-vendors-section-head">
               <h3>Private Vendors</h3>
@@ -880,6 +1011,28 @@ function VendorsScreen({ vendors, setVendors, view = "directory", onBackToDirect
           {filtered.length === 0 && (
             <div style={{textAlign:"center",padding:"8px 16px 14px",color:"var(--color-light-text)",fontSize:13}}>
               No vendors found for selected filters.
+              {hydratedVendors.length > 0 && (
+                <>
+                  {" "}
+                  <button
+                    type="button"
+                    className="vendor-inline-reset-btn"
+                    onClick={() => {
+                      setActiveTab("All");
+                      setLocationFilter("all");
+                      setSubtypeFilter("all");
+                      setBundledServiceFilter("all");
+                      setRatingFilter("all");
+                      setBudgetFilter("all");
+                      setPriceSort("none");
+                      setAvailabilityStartDate("");
+                      setAvailabilityEndDate("");
+                    }}
+                  >
+                    Reset filters
+                  </button>
+                </>
+              )}
             </div>
           )}
           {filtered.map(v => {
@@ -893,9 +1046,9 @@ function VendorsScreen({ vendors, setVendors, view = "directory", onBackToDirect
             return (
               <div className="vendor-card vendor-card-clickable" key={v.id} onClick={()=>setSelectedVendorId(v.id)}>
                 <div className="vendor-top">
-                  {v.coverImageUrl ? (
-                    <img
-                      src={v.coverImageUrl}
+                  {String(v?.coverMediaUrl || v?.coverImageUrl || "").trim() ? (
+                    <VendorCoverVisual
+                      vendor={v}
                       alt={v.name}
                       style={{ width: 56, height: 56, borderRadius: 14, objectFit: "cover", flexShrink: 0 }}
                     />

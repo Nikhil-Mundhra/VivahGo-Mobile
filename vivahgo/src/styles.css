@@ -1430,6 +1430,17 @@
 .vendor-card-clickable { cursor: pointer; transition: box-shadow 0.15s, transform 0.1s; }
 .vendor-card-clickable:active { transform: scale(0.985); }
 .vendor-view-arrow { font-size: 12px; font-weight: 600; color: var(--color-crimson); }
+.vendor-inline-reset-btn {
+  background: none;
+  border: none;
+  color: var(--color-crimson);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 0;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
 
 /* MY VENDORS */
 .my-vendors-shell {
@@ -4392,7 +4403,6 @@
 }
 
 @media (max-width: 767px) {
-  .my-vendors-summary-grid,
   .my-vendor-form-grid {
     grid-template-columns: 1fr;
   }
