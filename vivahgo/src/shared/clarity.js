@@ -149,7 +149,8 @@ function buildRouteContext(path, options = {}, win = typeof window !== "undefine
 }
 
 function buildClarityPageId(routePath, bodyRoute) {
-  return `${String(bodyRoute || "app")}:${String(routePath || "/")}`;
+  const pathname = String(routePath || "/").trim().split("?")[0] || "/";
+  return `${String(bodyRoute || "app")}:${pathname}`;
 }
 
 function ensureClarityCommandQueue(win = typeof window !== "undefined" ? window : undefined) {
