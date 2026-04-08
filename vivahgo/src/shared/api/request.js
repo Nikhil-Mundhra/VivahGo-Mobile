@@ -265,7 +265,10 @@ export async function request(path, requestOptions = {}, options = {}) {
         },
         extra: {
           status: Number.isFinite(status) ? status : undefined,
-          code: typeof error?.code === "string" ? error.code : "",
+          code:
+            typeof error?.code === "string" && error.code
+              ? error.code
+              : undefined,
           baseUrl: options?.baseUrl || API_BASE_URL,
         },
       });
