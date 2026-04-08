@@ -2,6 +2,7 @@ const { randomUUID } = require('crypto');
 const mongoose = require('mongoose');
 
 const {
+  applyRateLimit,
   getBillingReceiptModel,
   getCareerApplicationModel,
   getCareerEmailTemplateModel,
@@ -1069,6 +1070,14 @@ async function handleAdminChoice(req, res) {
     }
 
     if (req.method === 'PATCH') {
+      if (applyRateLimit(req, res, 'admin:choice:patch', {
+        windowMs: 10 * 60 * 1000,
+        max: 60,
+        message: 'Too many Choice profile updates. Please try again shortly.',
+      })) {
+        return;
+      }
+
       const session = await requireAdminSession(req, 'editor');
       if (session.error) {
         return res.status(session.status).json({ error: session.error });
@@ -1177,6 +1186,14 @@ async function handleAdminChoiceMediaUpload(req, res) {
   if (req.method !== 'POST') {
     res.setHeader('Allow', 'POST, OPTIONS');
     return res.status(405).json({ error: 'Method not allowed.' });
+  }
+
+  if (applyRateLimit(req, res, 'admin:choice:media-upload', {
+    windowMs: 10 * 60 * 1000,
+    max: 30,
+    message: 'Too many Choice media upload requests. Please try again shortly.',
+  })) {
+    return;
   }
 
   try {
