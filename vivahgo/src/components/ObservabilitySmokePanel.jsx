@@ -24,10 +24,10 @@ function isObservabilitySmokePanelEnabled(routePath, env = getRuntimeEnv(), win 
     params.get("observability-smoke") || params.get("observability_smoke") || ""
   ).trim().toLowerCase());
   const forceEnabled = String(env.VITE_ENABLE_OBSERVABILITY_SMOKE_TESTS || "").trim().toLowerCase() === "true";
-  const appEnv = String(env.VITE_APP_ENV || env.MODE || "development").trim().toLowerCase();
   const hostname = String(win?.location?.hostname || "").trim().toLowerCase();
+  const localEnabled = queryEnabled && isLocalHostname(hostname);
 
-  return forceEnabled || (queryEnabled && (appEnv !== "production" || isLocalHostname(hostname)));
+  return forceEnabled || localEnabled;
 }
 
 export default function ObservabilitySmokePanel({ routePath = "/", bodyRoute = "app" }) {

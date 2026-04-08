@@ -136,13 +136,16 @@ const ALLOWED_VERIFICATION_CONTENT_TYPES = new Set(['application/pdf', 'image/jp
 const ALLOWED_VERIFICATION_DOCUMENT_TYPES = ['AADHAAR', 'PAN', 'PASSPORT', 'DRIVING_LICENSE', 'OTHER'];
 const CAREER_REJECTION_TEMPLATE_KEY = 'career-application-rejection';
 
-function isProductionAppEnvironment() {
-  return String(process.env.APP_ENV || process.env.NODE_ENV || 'development').trim().toLowerCase() === 'production';
+function isObservabilitySmokeTestEnabled() {
+  return String(process.env.ENABLE_OBSERVABILITY_SMOKE_TESTS || '').trim().toLowerCase() === 'true';
 }
 
-function isObservabilitySmokeTestEnabled() {
-  return String(process.env.ENABLE_OBSERVABILITY_SMOKE_TESTS || '').trim().toLowerCase() === 'true'
-    || !isProductionAppEnvironment();
+function captureServerExceptionForStatus(error, statusCode, context = {}) {
+  if (!Number.isFinite(statusCode) || Number(statusCode) < 500) {
+    return '';
+  }
+
+  return captureServerException(error, context);
 }
 
 function resolveSubscriptionAmount(plan, billingCycle) {
@@ -1270,7 +1273,6 @@ export function csrfProtectionMiddleware(req, res, next) {
   if (
     isSafeMethod(req.method)
     || req.path === '/api/subscription/webhook'
-    || (req.path === '/api/observability/smoke-error' && isObservabilitySmokeTestEnabled())
     || hasBearerToken(req)
   ) {
     return next();
@@ -2060,7 +2062,6 @@ export function createApp(options = {}) {
       });
     } catch (error) {
       logServerError('Google auth failed', { error, req });
-      captureServerException(error, { tags: { route: 'POST /api/auth/google' } });
       return res.status(401).json({ error: 'Google sign-in could not be verified.' });
     }
   });
@@ -2144,7 +2145,6 @@ export function createApp(options = {}) {
       });
     } catch (error) {
       logServerError('Clerk auth failed', { error, req });
-      captureServerException(error, { tags: { route: 'POST /api/auth/clerk' } });
       return res.status(401).json({ error: 'Clerk sign-in could not be verified.' });
     }
   });
@@ -3586,8 +3586,8 @@ export function createApp(options = {}) {
       });
     } catch (error) {
       logServerError('Razorpay order creation failed', { error, req });
-      captureServerException(error, { tags: { route: 'POST /api/subscription/checkout' } });
       const statusCode = /coupon/i.test(error?.message || '') ? 400 : 500;
+      captureServerExceptionForStatus(error, statusCode, { tags: { route: 'POST /api/subscription/checkout' } });
       return res.status(statusCode).json({ error: error?.message || 'Failed to create checkout order.' });
     }
   });
@@ -3645,8 +3645,9 @@ export function createApp(options = {}) {
       return res.json({ success: true, receipt: result.receipt, checkoutMode: amount === 0 ? 'internal_free' : 'razorpay' });
     } catch (error) {
       logServerError('Razorpay payment confirmation failed', { error, req });
-      captureServerException(error, { tags: { route: 'POST /api/subscription/confirm' } });
-      return res.status(500).json({ error: 'Failed to confirm payment.' });
+      const statusCode = /coupon/i.test(error?.message || '') ? 400 : 500;
+      captureServerExceptionForStatus(error, statusCode, { tags: { route: 'POST /api/subscription/confirm' } });
+      return res.status(statusCode).json({ error: statusCode === 400 ? (error?.message || 'Failed to confirm payment.') : 'Failed to confirm payment.' });
     }
   });
 

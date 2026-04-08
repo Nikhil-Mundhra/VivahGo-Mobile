@@ -65,11 +65,24 @@ export function persistAuthSession(session, options = {}) {
 
   const previousSession = readAuthSession({ localStorageRef });
   const { token: _token, ...persistableSession } = session;
+  const previousUserId = typeof previousSession?.user?.id === 'string' ? previousSession.user.id : '';
+  const nextUserId = typeof persistableSession?.user?.id === 'string' ? persistableSession.user.id : '';
+  const previousWasAuthenticated = previousSession?.mode === 'google' || previousSession?.mode === 'clerk';
+  const nextIsAuthenticated = persistableSession?.mode === 'google' || persistableSession?.mode === 'clerk';
+  const shouldResetTrackedIdentity = previousWasAuthenticated
+    && nextIsAuthenticated
+    && previousUserId
+    && nextUserId
+    && previousUserId !== nextUserId;
   resetRequestCache();
   clearAppQueryState();
   localStorageRef.setItem(SESSION_STORAGE_KEY, JSON.stringify(persistableSession));
 
   if ((persistableSession.mode === 'google' || persistableSession.mode === 'clerk') && persistableSession.user) {
+    if (shouldResetTrackedIdentity) {
+      resetPostHogUser();
+    }
+
     setSentryUser(persistableSession.user, {
       authMode: persistableSession.mode,
       plannerOwnerId: persistableSession.plannerOwnerId || persistableSession.user.id || '',
@@ -80,8 +93,6 @@ export function persistAuthSession(session, options = {}) {
       plannerOwnerId: persistableSession.plannerOwnerId || persistableSession.user.id || '',
     });
 
-    const previousUserId = typeof previousSession?.user?.id === 'string' ? previousSession.user.id : '';
-    const nextUserId = typeof persistableSession.user.id === 'string' ? persistableSession.user.id : '';
     const shouldCaptureLogin = nextUserId && (
       previousSession?.mode !== persistableSession.mode
       || previousUserId !== nextUserId

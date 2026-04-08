@@ -89,4 +89,24 @@ describe("ObservabilitySmokePanel", () => {
     expect(screen.getByTestId("observability-backend-status")).toHaveTextContent("Request ID: req_123.");
     expect(screen.getByTestId("observability-backend-status")).toHaveTextContent("Event ID: backend_event_123.");
   });
+
+  it("stays hidden on non-local hosts unless explicitly force-enabled", async () => {
+    const originalLocation = window.location;
+    try {
+      Object.defineProperty(window, "location", {
+        configurable: true,
+        value: new URL("https://preview.vivahgo.com/planner?observability-smoke=1"),
+      });
+      const { default: ObservabilitySmokePanel } = await import("./ObservabilitySmokePanel.jsx");
+
+      render(<ObservabilitySmokePanel routePath="/planner?observability-smoke=1" bodyRoute="app" />);
+
+      expect(screen.queryByTestId("observability-smoke-panel")).toBeNull();
+    } finally {
+      Object.defineProperty(window, "location", {
+        configurable: true,
+        value: originalLocation,
+      });
+    }
+  });
 });

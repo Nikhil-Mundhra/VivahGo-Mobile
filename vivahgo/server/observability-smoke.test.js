@@ -151,6 +151,13 @@ async function invokeRoute(app, path, method, { body = {}, headers = {}, query =
   return { req, res };
 }
 
+function buildCsrfHeaders(token = "csrf_test_token") {
+  return {
+    cookie: `vivahgo_csrf=${token}`,
+    "x-csrf-token": token,
+  };
+}
+
 describe("observability smoke route", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -165,9 +172,11 @@ describe("observability smoke route", () => {
     delete process.env.ENABLE_OBSERVABILITY_SMOKE_TESTS;
   });
 
-  it("returns a backend smoke error with request metadata outside production", async () => {
+  it("returns a backend smoke error with request metadata when explicitly enabled", async () => {
+    process.env.ENABLE_OBSERVABILITY_SMOKE_TESTS = "true";
     const app = await loadApp();
     const { res } = await invokeRoute(app, "/api/observability/smoke-error", "post", {
+      headers: buildCsrfHeaders(),
       body: {
         source: "observability-smoke-panel",
         routePath: "/planner?observability-smoke=1",
@@ -212,8 +221,7 @@ describe("observability smoke route", () => {
     );
   });
 
-  it("is blocked by csrf before reaching the disabled smoke route in production", async () => {
-    process.env.APP_ENV = "production";
+  it("is blocked by csrf before reaching the disabled smoke route by default", async () => {
 
     const app = await loadApp();
     const { res } = await invokeRoute(app, "/api/observability/smoke-error", "post", {
@@ -230,8 +238,10 @@ describe("observability smoke route", () => {
   });
 
   it("runs the request logging and sentry request middleware with shared observability headers", async () => {
+    process.env.ENABLE_OBSERVABILITY_SMOKE_TESTS = "true";
     const app = await loadApp();
     const headers = {
+      ...buildCsrfHeaders(),
       "x-posthog-distinct-id": "ph_user_123",
       "x-axiom-trace-id": "axiom_trace_123",
       "x-clarity-session-id": "clarity_session_123",

@@ -199,6 +199,49 @@ describe("authStorage", () => {
     );
   });
 
+  it("resets PostHog before identifying a different authenticated user in the same browser", async () => {
+    const { authStorageKeys, persistAuthSession } = await import("./authStorage.js");
+    const localStorageRef = createStorage({
+      [authStorageKeys.SESSION_STORAGE_KEY]: JSON.stringify({
+        mode: "google",
+        plannerOwnerId: "planner_1",
+        user: {
+          id: "user_1",
+          email: "first@example.com",
+          name: "First User",
+        },
+      }),
+    });
+
+    persistAuthSession(
+      {
+        mode: "clerk",
+        token: "next-token",
+        plannerOwnerId: "planner_2",
+        user: {
+          id: "user_2",
+          email: "second@example.com",
+          name: "Second User",
+        },
+      },
+      { localStorageRef }
+    );
+
+    expect(resetPostHogUser).toHaveBeenCalledTimes(1);
+    expect(resetPostHogUser.mock.invocationCallOrder[0]).toBeLessThan(identifyPostHogUser.mock.invocationCallOrder[0]);
+    expect(identifyPostHogUser).toHaveBeenCalledWith(
+      {
+        id: "user_2",
+        email: "second@example.com",
+        name: "Second User",
+      },
+      {
+        authMode: "clerk",
+        plannerOwnerId: "planner_2",
+      }
+    );
+  });
+
   it("clears planner-scoped auth artifacts and resets login helpers", async () => {
     const { authStorageKeys, clearAuthStorage } = await import("./authStorage.js");
     const localStorageRef = createStorage({
