@@ -1778,7 +1778,7 @@ export default function PlannerShell() {
             {tab==="events" && <EventsScreen events={activeEvents} setEvents={setActiveEvents} expenses={activeExpenses} setExpenses={setActiveExpenses} planId={activePlanId} websitePath={activeWeddingWebsitePath} websiteSettings={activeMarriage?.websiteSettings || DEFAULT_WEBSITE_SETTINGS} subscriptionTier={subscription.tier} onSaveWebsiteSettings={updateActiveMarriageWebsiteSettings} onOpenBudget={() => setTab("budget")} initialEditingEventId={eventToEditId} defaultVenue={wedding.venue || ""} presetVenues={presetVenues}/>}
             {tab==="budget" && <BudgetScreen expenses={activeExpenses} setExpenses={setActiveExpenses} wedding={wedding} events={activeEvents} planId={activePlanId}/>} 
             {tab==="guests" && <GuestsScreen guests={activeGuests} setGuests={setActiveGuests} planId={activePlanId} authToken={authToken} plannerOwnerId={plannerOwnerId} />} 
-            {tab==="vendors" && <VendorsScreen vendors={activeVendors} setVendors={setActiveVendors} view={vendorsView} onBackToDirectory={() => setVendorsView("directory")} />} 
+            {tab==="vendors" && <VendorsScreen vendors={activeVendors} setVendors={setActiveVendors} events={activeEvents} planId={activePlanId} view={vendorsView} onBackToDirectory={() => setVendorsView("directory")} />} 
             {tab==="tasks" && <TasksScreen tasks={activeTasks} setTasks={setActiveTasks} events={activeEvents} planId={activePlanId}/>} 
           </div>
 

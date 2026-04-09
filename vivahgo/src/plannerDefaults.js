@@ -510,6 +510,79 @@ function normalizeExpense(expense, planId) {
   };
 }
 
+function normalizeVendorLineItem(item, index = 0) {
+  if (!item || typeof item !== 'object') {
+    return null;
+  }
+
+  const label = String(item.label || item.name || '').trim();
+  const amount = Number(item.amount || 0);
+  if (!label && amount <= 0) {
+    return null;
+  }
+
+  return {
+    id: item.id || `line_${Date.now()}_${index}`,
+    label: label || 'Linked spend',
+    amount,
+    eventId: item.eventId ?? '',
+  };
+}
+
+function normalizeVendor(vendor, planId) {
+  if (!vendor || typeof vendor !== 'object') {
+    return {
+      id: `vendor_${Date.now()}`,
+      name: '',
+      type: '',
+      subType: '',
+      city: '',
+      contactName: '',
+      phone: '',
+      notes: '',
+      status: 'pending',
+      booked: false,
+      wishlist: false,
+      priceRangeMin: 0,
+      priceRangeMax: 0,
+      contractTotal: 0,
+      contractLineItems: [],
+      directoryVendorId: '',
+      planId,
+    };
+  }
+
+  const explicitStatus = ['booked', 'pending', 'cancelled'].includes(vendor.status)
+    ? vendor.status
+    : null;
+  const booked = explicitStatus ? explicitStatus === 'booked' : Boolean(vendor.booked);
+  const status = explicitStatus || (booked ? 'booked' : 'pending');
+  const normalizedLineItems = Array.isArray(vendor.contractLineItems)
+    ? vendor.contractLineItems.map(normalizeVendorLineItem).filter(Boolean)
+    : [];
+
+  return {
+    ...vendor,
+    id: vendor.id ?? `vendor_${Date.now()}`,
+    name: vendor.name || '',
+    type: vendor.type || '',
+    subType: vendor.subType || '',
+    city: vendor.city || '',
+    contactName: vendor.contactName || '',
+    phone: vendor.phone || '',
+    notes: vendor.notes || '',
+    status,
+    booked,
+    wishlist: Boolean(vendor.wishlist),
+    priceRangeMin: status === 'booked' ? 0 : Number(vendor.priceRangeMin ?? vendor.budgetRange?.min ?? 0),
+    priceRangeMax: status === 'booked' ? 0 : Number(vendor.priceRangeMax ?? vendor.budgetRange?.max ?? 0),
+    contractTotal: status === 'booked' ? Number(vendor.contractTotal || 0) : 0,
+    contractLineItems: status === 'booked' ? normalizedLineItems : [],
+    directoryVendorId: vendor.directoryVendorId ?? (typeof vendor.id === 'number' ? vendor.id : ''),
+    planId: vendor.planId || planId,
+  };
+}
+
 function normalizeTask(task, planId) {
   if (!task || typeof task !== 'object') {
     return {
@@ -695,12 +768,12 @@ function createTemplateVendors(templateId, planId, customTemplates = []) {
     return [];
   }
 
-  return cloneCollection(DEFAULT_VENDORS).map((vendor, index) => ({
+  return cloneCollection(DEFAULT_VENDORS).map((vendor, index) => normalizeVendor({
     ...vendor,
     id: Date.now() + 200 + index,
     booked: false,
     planId,
-  }));
+  }, planId));
 }
 
 export function createTemplatePlanCollections(templateId, planId, customTemplates = []) {
@@ -767,13 +840,14 @@ function createDemoVendors(planId) {
   return cloneCollection(DEFAULT_VENDORS).map(vendor => {
     const booked = DEMO_BOOKED_VENDOR_TYPES.has(vendor.type);
 
-    return {
+    return normalizeVendor({
       ...vendor,
       booked,
+      status: booked ? 'booked' : 'pending',
       featuredLabel: booked ? 'Booked for this wedding' : vendor.featuredLabel,
       reviewCount: booked ? (vendor.reviewCount || 0) + 4 : vendor.reviewCount,
       planId,
-    };
+    }, planId);
   });
 }
 
@@ -950,7 +1024,8 @@ export function normalizePlanner(planner) {
   const normalizedExpenses = normalizePlanScopedItems(planner.expenses, activePlanId, validPlanIds)
     .map(e => normalizeExpense(e, activePlanId));
   const normalizedGuests = normalizePlanScopedItems(planner.guests, activePlanId, validPlanIds);
-  const normalizedVendors = normalizePlanScopedItems(planner.vendors, activePlanId, validPlanIds);
+  const normalizedVendors = normalizePlanScopedItems(planner.vendors, activePlanId, validPlanIds)
+    .map(vendor => normalizeVendor(vendor, activePlanId));
   const normalizedTasks = normalizePlanScopedItems(planner.tasks, activePlanId, validPlanIds)
     .map(t => normalizeTask(t, activePlanId));
 
