@@ -22,7 +22,7 @@
     "google-auth-library": "^10.6.2",
     "jsonwebtoken": "^9.0.2",
     "mongoose": "^9.4.1",
-    "nodemailer": "^8.0.4",
+    "nodemailer": "^8.0.5",
     "razorpay": "^2.9.6"
   },
   "devDependencies": {
