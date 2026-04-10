@@ -6,7 +6,7 @@
   "license": "UNLICENSED",
   "private": true,
   "dependencies": {
-    "@remotion/animation-utils": "^4.0.445",
+    "@remotion/animation-utils": "^4.0.447",
     "@remotion/cli": "^4.0.445",
     "@remotion/google-fonts": "^4.0.445",
     "@remotion/layout-utils": "^4.0.445",
