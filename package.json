@@ -11,7 +11,7 @@
     "coverage:check": "c8 --check-coverage --statements 90 --branches 0 --functions 0 --lines 0 --include=api/**/*.js --include=vivahgo/server/**/*.js --include=vivahgo/src/**/*.js mocha \"test/**/*.test.cjs\""
   },
   "dependencies": {
-    "@aws-sdk/client-s3": "3.1024.0",
+    "@aws-sdk/client-s3": "3.1028.0",
     "@aws-sdk/s3-request-presigner": "3.1016.0",
     "@axiomhq/js": "^1.6.0",
     "@capacitor/core": "^8.3.0",
