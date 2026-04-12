@@ -110,6 +110,7 @@ cp vivahgo/.env.example vivahgo/.env
 - `GOOGLE_CLIENT_ID`
 - `MONGODB_URI`
 - `JWT_SECRET`
+- `PLANNER_ENCRYPTION_KEY`
 - `CLIENT_ORIGIN`
 
 ### Frontend/runtime variables
@@ -120,6 +121,7 @@ cp vivahgo/.env.example vivahgo/.env
 ### Feature-specific backend variables
 
 - Feedback: `FEEDBACK_WEBHOOK_URL`, `FEEDBACK_SECRET_KEY`
+- Planner field encryption: `PLANNER_ENCRYPTION_KEY`
 - RSVP signing: `RSVP_TOKEN_SECRET` (optional, otherwise falls back to `JWT_SECRET`)
 - Coupons: `SUBSCRIPTION_COUPONS_JSON`
 - Payments: `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET`, `RAZORPAY_WEBHOOK_SECRET`
@@ -143,6 +145,20 @@ cp vivahgo/.env.example vivahgo/.env
   - `B2_BUCKET_NAME`
 
 Use [vivahgo/.env.example](/Users/nikhil/Documents/VivahGo-mobile/vivahgo/.env.example) as the source of truth for local setup.
+
+### Planner encryption
+
+Planner data is encrypted server-side before it is stored in MongoDB when `PLANNER_ENCRYPTION_KEY` is configured. The encryption layer protects private planner content such as wedding details, events, budgets, guests, vendors, tasks, website settings, framework answers, and custom templates. Lookup and access-control fields that the app still needs to query remain plaintext, including `googleId`, plan/item IDs, `planId`, public `websiteSlug`, and collaborator emails/roles.
+
+Use a 32-byte base64 key:
+
+```bash
+node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"
+```
+
+Local, staging, and production keys can be different when they use different MongoDB databases. A database must always be read with the same key that encrypted its planner data; pointing local code at production MongoDB requires the production planner encryption key.
+
+Production requires a real `PLANNER_ENCRYPTION_KEY`; placeholder values are rejected.
 
 ### Google OAuth Notes
 
