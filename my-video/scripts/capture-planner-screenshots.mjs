@@ -236,6 +236,17 @@ const main = async () => {
     await capture("tasks.png");
 
     await clickNav(
+      "Tasks",
+      "Boolean(document.querySelector('.framework-shell'))",
+    );
+    await capture("planner-framework.png");
+
+    await clickNav(
+      "Tasks",
+      "Boolean(document.querySelector('.section-title')?.textContent?.includes('Checklist'))",
+    );
+
+    await clickNav(
       "Budget",
       "Boolean(document.querySelector('.budget-summary'))",
     );
@@ -246,6 +257,17 @@ const main = async () => {
       "Boolean(document.querySelector('.guest-section-add'))",
     );
     await capture("guests.png");
+
+    await clickNav(
+      "Vendors",
+      "Boolean(document.querySelector('.section-title')?.textContent?.includes('Vendor Directory'))",
+    );
+
+    await clickNav(
+      "Vendors",
+      "Boolean(document.querySelector('.my-vendors-shell')) && Boolean(document.querySelector('.section-title')?.textContent?.includes('My Vendors'))",
+    );
+    await capture("my-vendors.png");
 
     console.log(`Saved planner screenshots to ${outputDir}`);
   } finally {

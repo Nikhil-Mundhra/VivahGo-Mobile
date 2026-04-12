@@ -6,22 +6,16 @@ import LegalFooter from "../../../components/LegalFooter";
 import MarketingSiteHeader from "../../../components/MarketingSiteHeader.jsx";
 import GoogleLoginButton from "../../../components/GoogleLoginButton";
 import LoadingBar from "../../../components/LoadingBar";
+import ScrollScrubbedLottie from "../../../components/ScrollScrubbedLottie.jsx";
 import SubscriptionCheckoutSheet from "../../../components/SubscriptionCheckoutSheet";
 import SubscriptionCheckoutPage from "../../../components/SubscriptionCheckoutPage";
-import Dashboard from "../../planner/screens/Dashboard";
-import EventsScreen from "../../planner/screens/EventsScreen";
-import BudgetScreen from "../../planner/screens/BudgetScreen";
-import GuestsScreen from "../../planner/screens/GuestsScreen";
 import { persistAuthSession, readAuthSession } from "../../../authStorage";
 import { confirmCheckoutPayment, createCheckoutSession, getCheckoutQuote, getSubscriptionStatus } from "../api.js";
 import { loginWithGoogle } from "../../auth/api.js";
-import { createDemoPlanner } from "../../../plannerDefaults";
 import { DEFAULT_SITE_URL, usePageSeo } from "../../../seo.js";
 import { getMarketingUrl, getPlannerUrl } from "../../../siteUrls.js";
 import { resolvePublicAssetUrl } from "../../../publicAssetUrls.js";
 import seoKeywordLibrary from "../../../generated/seo-keywords.json";
-
-const DEMO_PLANNER = createDemoPlanner();
 
 const trustSignals = [
   "Used by early couples and planners across India",
@@ -199,6 +193,16 @@ const howItWorksSteps = [
   "Create your wedding workspace",
   "Add family, guests, and vendors",
   "Track everything together",
+];
+
+const productTourMobileScreens = [
+  { src: "/marketing/screens/dashboard.png", alt: "VivahGo dashboard view" },
+  { src: "/marketing/screens/events.png", alt: "VivahGo events view" },
+  { src: "/marketing/screens/tasks.png", alt: "VivahGo tasks checklist view" },
+  { src: "/marketing/screens/planner-framework.png", alt: "VivahGo planner framework view" },
+  { src: "/marketing/screens/budget.png", alt: "VivahGo budget tracking view" },
+  { src: "/marketing/screens/guests.png", alt: "VivahGo guests and RSVP view" },
+  { src: "/marketing/screens/my-vendors.png", alt: "VivahGo My Vendors view" },
 ];
 
 const testimonials = [
@@ -384,6 +388,9 @@ function SocialIcon({ name }) {
 
 export default function MarketingHomePage({ page = "home" }) {
   const [session, setSession] = useState(() => readAuthSession());
+  const [isMobileProductTour, setIsMobileProductTour] = useState(() => (
+    typeof window !== "undefined" ? window.matchMedia("(max-width: 900px)").matches : false
+  ));
   const [billingCycle, setBillingCycle] = useState("monthly");
   const [showFeedbackModal, setShowFeedbackModal] = useState(false);
   const [checkoutLoadingPlan, setCheckoutLoadingPlan] = useState(null);
@@ -411,6 +418,24 @@ export default function MarketingHomePage({ page = "home" }) {
     };
 
   usePageSeo(seoConfig);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || typeof window.matchMedia !== "function") {
+      return undefined;
+    }
+
+    const mediaQuery = window.matchMedia("(max-width: 900px)");
+    const updateProductTourMode = (event) => {
+      setIsMobileProductTour(event.matches);
+    };
+
+    setIsMobileProductTour(mediaQuery.matches);
+    mediaQuery.addEventListener("change", updateProductTourMode);
+
+    return () => {
+      mediaQuery.removeEventListener("change", updateProductTourMode);
+    };
+  }, []);
 
   useEffect(() => {
     const syncSession = () => {
@@ -1076,68 +1101,32 @@ export default function MarketingHomePage({ page = "home" }) {
             <h2>See the workspace your wedding runs on.</h2>
           </div>
 
-          <div className="marketing-screen-grid">
-            <article className="marketing-product-shot">
-              <div className="marketing-shot-header marketing-shot-header-centered">
-                <strong>Dashboard</strong>
+          {!isMobileProductTour ? (
+            <div className="marketing-product-tour-desktop">
+              <ScrollScrubbedLottie
+                animationPath="/animations/homepage-product-tour.json?v=20260412-3"
+                endFrame={560}
+                scrubEasingPower={1}
+                ariaLabel="Animated product tour of VivahGo planning views including dashboard, events, vendors, tasks, budget, and guests."
+              />
+            </div>
+          ) : (
+            <div className="marketing-product-tour-mobile" aria-label="VivahGo product screenshot carousel">
+              <div className="marketing-product-carousel" role="region" aria-label="VivahGo planner screenshots">
+                {productTourMobileScreens.map((screen) => (
+                  <figure className="marketing-product-carousel-item" key={screen.src}>
+                    <img
+                      src={screen.src}
+                      alt={screen.alt}
+                      className="marketing-product-carousel-image"
+                      loading="lazy"
+                      decoding="async"
+                    />
+                  </figure>
+                ))}
               </div>
-              <p className="marketing-shot-caption">Events, timelines, budget, and guest status.<br />All in one place</p>
-              <div className="marketing-app-preview marketing-app-preview-dashboard">
-                <Dashboard
-                  wedding={DEMO_PLANNER.wedding}
-                  events={DEMO_PLANNER.events}
-                  expenses={DEMO_PLANNER.expenses}
-                  guests={DEMO_PLANNER.guests}
-                  onTabChange={() => {}}
-                  onEditEvent={() => {}}
-                />
-              </div>
-            </article>
-
-            <article className="marketing-product-shot">
-              <div className="marketing-shot-header marketing-shot-header-centered">
-                <strong>Events Plan</strong>
-              </div>
-              <p className="marketing-shot-caption">Track every ceremony, linked spend, venue status, and timeline from one screen.</p>
-              <div className="marketing-app-preview marketing-app-preview-events">
-                <EventsScreen
-                  events={DEMO_PLANNER.events}
-                  setEvents={() => {}}
-                  expenses={DEMO_PLANNER.expenses}
-                  setExpenses={() => {}}
-                  onOpenBudget={() => {}}
-                  initialEditingEventId={null}
-                  planId={DEMO_PLANNER.activePlanId}
-                />
-              </div>
-            </article>
-
-            <article className="marketing-product-shot">
-              <div className="marketing-shot-header marketing-shot-header-centered">
-                <strong>Guest list and RSVPs</strong>
-              </div>
-              <p className="marketing-shot-caption">Track confirmations, follow-ups, and family sides easily</p>
-              <div className="marketing-app-preview marketing-app-preview-guests">
-                <GuestsScreen guests={DEMO_PLANNER.guests} setGuests={() => {}} planId={DEMO_PLANNER.activePlanId} />
-              </div>
-            </article>
-
-            <article className="marketing-product-shot">
-              <div className="marketing-shot-header marketing-shot-header-centered">
-                <strong>Budget tracking</strong>
-              </div>
-              <p className="marketing-shot-caption">Planned spend, actual spend, pending costs, and ceremony-wise breakdowns.</p>
-              <div className="marketing-app-preview marketing-app-preview-budget">
-                <BudgetScreen
-                  expenses={DEMO_PLANNER.expenses}
-                  setExpenses={() => {}}
-                  wedding={DEMO_PLANNER.wedding}
-                  events={DEMO_PLANNER.events}
-                  planId={DEMO_PLANNER.activePlanId}
-                />
-              </div>
-            </article>
-          </div>
+            </div>
+          )}
 
           <div className="marketing-hero-actions marketing-product-cta">
             <a className="marketing-primary-action" href={PLANNER_HOME_URL}>
