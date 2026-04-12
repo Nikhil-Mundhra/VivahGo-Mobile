@@ -1225,13 +1225,6 @@ function normalizeStepId(stepId) {
   return LEGACY_STEP_ID_ALIASES[normalizedStepId] || normalizedStepId;
 }
 
-function findFrameworkStep(stepId) {
-  const normalizedStepId = normalizeStepId(stepId);
-  return PLANNER_FRAMEWORK_PHASES
-    .flatMap((phase) => phase.steps.map((step) => ({ ...step, phase })))
-    .find(({ id }) => id === normalizedStepId) || null;
-}
-
 function findQuestion(step, questionId) {
   return (step?.questions || []).find((question) => question.id === questionId) || null;
 }

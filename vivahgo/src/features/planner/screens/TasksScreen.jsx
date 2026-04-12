@@ -499,7 +499,6 @@ function TasksScreen({
   guests = [],
   frameworkProgress,
   onUpdateFrameworkProgress,
-  onBackToChecklist,
 }) {
   if (view === "framework") {
     return (
