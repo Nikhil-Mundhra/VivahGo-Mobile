@@ -16,6 +16,7 @@ describe('VivahGo/src/plannerDefaults.js', function () {
     assert.ok(planner.activePlanId.startsWith('plan_'), 'activePlanId should start with plan_');
     assert.deepEqual(planner.marriages.length, 1, 'should have one marriage plan');
     assert.equal(planner.marriages[0].id, planner.activePlanId, 'marriage id should match activePlanId');
+    assert.deepEqual(planner.marriages[0].frameworkProgress, { completedStepIds: [], answers: {}, encouragements: {} });
     assert.deepEqual(planner.customTemplates, []);
     assert.deepEqual(planner.wedding, mod.EMPTY_WEDDING);
     assert.deepEqual(planner.events, []);
@@ -49,6 +50,7 @@ describe('VivahGo/src/plannerDefaults.js', function () {
     assert.ok(demoA.marriages.length > 0, 'should have marriages');
     assert.ok(demoA.activePlanId, 'should have activePlanId');
     assert.equal(demoA.marriages[0].websiteSlug, 'aarohi-pranav-1');
+    assert.deepEqual(demoA.marriages[0].frameworkProgress, { completedStepIds: [], answers: {}, encouragements: {} });
     assert.ok(demoA.vendors.some(vendor => vendor.name === "VivahGo's Choice Pandit"));
 
     demoA.events[0].name = 'Mutated Event';
@@ -94,6 +96,7 @@ describe('VivahGo/src/plannerDefaults.js', function () {
     assert.equal(normalized.tasks.length, 1);
     assert.equal(normalized.tasks[0].done, true);
     assert.ok(normalized.tasks[0].planId, 'tasks should have planId');
+    assert.deepEqual(normalized.marriages[0].frameworkProgress, { completedStepIds: [], answers: {}, encouragements: {} });
 
     assert.deepEqual(normalized.guests, []);
     assert.equal(normalized.vendors.length, 1);
@@ -117,6 +120,57 @@ describe('VivahGo/src/plannerDefaults.js', function () {
     assert.equal(normalized.marriages[0].websiteSettings.theme, 'garden-sage');
     assert.equal(normalized.marriages[0].websiteSettings.heroTagline, 'Celebrate with us');
     assert.equal(normalized.marriages[0].websiteSettings.scheduleTitle, 'Wedding Calendar');
+  });
+
+  it('normalizes framework progress on marriages', async function () {
+    const mod = await loadModule();
+
+    const normalized = mod.normalizePlanner({
+      marriages: [
+        {
+          id: 'plan_framework',
+          bride: 'Asha',
+          groom: 'Rohan',
+          frameworkProgress: {
+            completedStepIds: ['big-three-priorities', 'makeup-hair', 'makeup-hair', 'budget', 'attire-jewelry', 'unknown-step'],
+            answers: {
+              'big-three-priorities': {
+                'top-priority': 'food',
+                missing: 'food',
+              },
+              budget: {
+                'host-distribution': 'joint',
+                missing: 'joint',
+              },
+            },
+            encouragements: {
+              'big-three-priorities': {
+                'top-priority': 'Nice! Keep it up!',
+                missing: 'Nope',
+              },
+            },
+          },
+        },
+      ],
+      activePlanId: 'plan_framework',
+    });
+
+    assert.deepEqual(normalized.marriages[0].frameworkProgress, {
+      completedStepIds: ['big-three-priorities', 'makeup-hair', 'budget-distribution', 'bridal-groom-styling'],
+      answers: {
+        'big-three-priorities': {
+          'top-priority': 'food',
+        },
+        'budget-distribution': {
+          'host-distribution': 'joint',
+        },
+      },
+      encouragements: {
+        'big-three-priorities': {
+          'top-priority': 'Nice! Keep it up!',
+        },
+      },
+    });
   });
 
   it('normalizes and uses custom templates for plan collections', async function () {

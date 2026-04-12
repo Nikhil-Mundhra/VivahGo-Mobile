@@ -45,9 +45,11 @@ import { buildLoginAuthOptions } from "../../loginAuthOptions.js";
 import { getMarketingUrl } from "../../siteUrls.js";
 import { getBrowserNotificationSupport, removeBrowserPushToken, requestBrowserPushToken, subscribeToForegroundMessages } from "../../firebaseMessaging.js";
 import { ackMutation, createPlannerMutationJournal, enqueueMutation, failMutation, maybeRollback } from "./lib/plannerMutationManager.js";
+import { DEFAULT_FRAMEWORK_PROGRESS, normalizePlannerFrameworkProgress } from "./lib/plannerFramework.js";
 
 const DEMO_PLANNER_STORAGE_KEY = "vivahgo.demoPlanner";
 const VENDORS_VIEW_SESSION_KEY = "vivahgo.vendorsView";
+const TASKS_VIEW_SESSION_KEY = "vivahgo.tasksView";
 const PRICING_URL = getMarketingUrl("/pricing");
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 const YEARS = Array.from({ length: 8 }, (_, i) => 2025 + i);
@@ -101,6 +103,14 @@ export default function PlannerShell() {
 
     const storedView = window.sessionStorage.getItem(VENDORS_VIEW_SESSION_KEY);
     return storedView === "my-vendors" ? "my-vendors" : "directory";
+  });
+  const [tasksView, setTasksView] = useState(() => {
+    if (typeof window === "undefined") {
+      return "checklist";
+    }
+
+    const storedView = window.sessionStorage.getItem(TASKS_VIEW_SESSION_KEY);
+    return storedView === "framework" ? "framework" : "checklist";
   });
   const [user, setUser] = useState(null);
   const [authMode, setAuthMode] = useState(null);
@@ -265,6 +275,16 @@ export default function PlannerShell() {
       return;
     }
 
+    if (nextTab === "tasks") {
+      if (tab === "tasks") {
+        setTasksView(current => current === "checklist" ? "framework" : "checklist");
+        return;
+      }
+
+      setTab("tasks");
+      return;
+    }
+
     setTab(nextTab);
   }
 
@@ -319,15 +339,18 @@ export default function PlannerShell() {
         }
 
         const nextReminderSettings = serverPlan.reminderSettings || { ...DEFAULT_REMINDER_SETTINGS };
+        const nextFrameworkProgress = normalizePlannerFrameworkProgress(serverPlan.frameworkProgress);
         const websiteChanged = (serverPlan.websiteSlug || "") !== (plan.websiteSlug || "");
         const reminderChanged = JSON.stringify(plan.reminderSettings || DEFAULT_REMINDER_SETTINGS) !== JSON.stringify(nextReminderSettings);
+        const frameworkChanged = JSON.stringify(normalizePlannerFrameworkProgress(plan.frameworkProgress)) !== JSON.stringify(nextFrameworkProgress);
 
-        if (websiteChanged || reminderChanged) {
+        if (websiteChanged || reminderChanged || frameworkChanged) {
           didChange = true;
           return {
             ...plan,
             websiteSlug: serverPlan.websiteSlug || "",
             reminderSettings: nextReminderSettings,
+            frameworkProgress: nextFrameworkProgress,
           };
         }
 
@@ -598,6 +621,14 @@ export default function PlannerShell() {
   }, [vendorsView]);
 
   useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    window.sessionStorage.setItem(TASKS_VIEW_SESSION_KEY, tasksView);
+  }, [tasksView]);
+
+  useEffect(() => {
     if (!(authMode === "google" || authMode === "clerk") || !authToken) {
       setAccessibleWorkspaces([]);
       return;
@@ -734,6 +765,7 @@ export default function PlannerShell() {
       template: formData.template,
       websiteSettings: { ...DEFAULT_WEBSITE_SETTINGS },
       reminderSettings: { ...DEFAULT_REMINDER_SETTINGS },
+      frameworkProgress: normalizePlannerFrameworkProgress(DEFAULT_FRAMEWORK_PROGRESS),
       collaborators: user?.email
         ? [{ email: normalizeEmail(user.email), role: "owner", addedBy: user.id || "", addedAt: new Date() }]
         : [],
@@ -962,6 +994,28 @@ export default function PlannerShell() {
         }
         : plan
     )));
+  }
+
+  function updateActiveMarriageFrameworkProgress(nextProgressOrUpdater) {
+    if (!activePlanId || !planAccess.canEdit) {
+      return;
+    }
+
+    setMarriages(current => current.map(plan => {
+      if (plan.id !== activePlanId) {
+        return plan;
+      }
+
+      const currentProgress = normalizePlannerFrameworkProgress(plan.frameworkProgress);
+      const nextProgress = typeof nextProgressOrUpdater === "function"
+        ? nextProgressOrUpdater(currentProgress)
+        : nextProgressOrUpdater;
+
+      return {
+        ...plan,
+        frameworkProgress: normalizePlannerFrameworkProgress(nextProgress),
+      };
+    }));
   }
 
   async function handleSaveNotificationPreferences(nextPartial) {
@@ -1778,8 +1832,29 @@ export default function PlannerShell() {
             {tab==="events" && <EventsScreen events={activeEvents} setEvents={setActiveEvents} expenses={activeExpenses} setExpenses={setActiveExpenses} planId={activePlanId} websitePath={activeWeddingWebsitePath} websiteSettings={activeMarriage?.websiteSettings || DEFAULT_WEBSITE_SETTINGS} subscriptionTier={subscription.tier} onSaveWebsiteSettings={updateActiveMarriageWebsiteSettings} onOpenBudget={() => setTab("budget")} initialEditingEventId={eventToEditId} defaultVenue={wedding.venue || ""} presetVenues={presetVenues}/>}
             {tab==="budget" && <BudgetScreen expenses={activeExpenses} setExpenses={setActiveExpenses} wedding={wedding} events={activeEvents} planId={activePlanId}/>} 
             {tab==="guests" && <GuestsScreen guests={activeGuests} setGuests={setActiveGuests} planId={activePlanId} authToken={authToken} plannerOwnerId={plannerOwnerId} />} 
-            {tab==="vendors" && <VendorsScreen vendors={activeVendors} setVendors={setActiveVendors} events={activeEvents} planId={activePlanId} view={vendorsView} onBackToDirectory={() => setVendorsView("directory")} />} 
-            {tab==="tasks" && <TasksScreen tasks={activeTasks} setTasks={setActiveTasks} events={activeEvents} planId={activePlanId}/>} 
+            {tab==="vendors" && <VendorsScreen vendors={activeVendors} setVendors={setActiveVendors} events={activeEvents} planId={activePlanId} view={vendorsView} onBackToDirectory={() => setVendorsView("directory")} wedding={wedding} frameworkProgress={activeMarriage?.frameworkProgress || DEFAULT_FRAMEWORK_PROGRESS} />} 
+            {tab==="tasks" && (
+              <TasksScreen
+                tasks={activeTasks}
+                setTasks={setActiveTasks}
+                events={activeEvents}
+                planId={activePlanId}
+                view={tasksView}
+                wedding={wedding}
+                vendors={activeVendors}
+                expenses={activeExpenses}
+                guests={activeGuests}
+                frameworkProgress={activeMarriage?.frameworkProgress || DEFAULT_FRAMEWORK_PROGRESS}
+                onUpdateFrameworkProgress={updateActiveMarriageFrameworkProgress}
+                onBackToChecklist={() => setTasksView("checklist")}
+                onOpenWeddingDetails={openWeddingDetailsEditor}
+                onOpenGuests={() => setTab("guests")}
+                onOpenVendorDirectory={() => {
+                  setVendorsView("directory");
+                  setTab("vendors");
+                }}
+              />
+            )}
           </div>
 
           {/* Bottom Nav */}
@@ -1787,7 +1862,7 @@ export default function PlannerShell() {
             {NAV_ITEMS.map(n=>(
               <div
                 key={n.id}
-                className={`nav-item${tab===n.id?" active":""}${n.id === "vendors" && tab === "vendors" && vendorsView === "my-vendors" ? " nav-item-vendors-alt" : ""}`}
+                className={`nav-item${tab===n.id?" active":""}${n.id === "vendors" && tab === "vendors" && vendorsView === "my-vendors" ? " nav-item-vendors-alt" : ""}${n.id === "tasks" && tab === "tasks" && tasksView === "framework" ? " nav-item-tasks-alt" : ""}`}
                 onClick={()=>handlePlannerTabChange(n.id)}
               >
                 <div className="nav-icon"><NavIcon name={n.icon} /></div>
