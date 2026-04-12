@@ -1,6 +1,7 @@
 const assert = require('node:assert/strict');
 
 const { createRes } = require('./helpers/testUtils.cjs');
+const queryPages = require('../vivahgo/src/shared/content/query-pages.json');
 const {
   buildGuideMetadata,
   buildMarketingMetadata,
@@ -12,6 +13,10 @@ const {
   injectMetadataIntoHtml,
   injectRootMarkupIntoHtml,
 } = require('../api/page');
+
+function escapeRegex(value) {
+  return String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
 
 describe('api/page.js', function () {
   it('injects fresh metadata into the built app shell', function () {
@@ -237,6 +242,7 @@ describe('api/page.js', function () {
   });
 
   it('renders query page html for a valid query slug', async function () {
+    const page = queryPages.find((item) => item.slug === 'wedding-planner-app');
     const handler = createPageHandler({
       loadHtmlTemplate: async () => '<!doctype html><html><head><script type="module" src="/assets/app.js"></script></head><body><div id="root"></div></body></html>',
       plannerHandlers: {},
@@ -252,7 +258,7 @@ describe('api/page.js', function () {
 
     assert.equal(res.statusCode, 200);
     assert.match(res.body, /VivahGo Wedding Planner App/);
-    assert.match(res.body, /The wedding planner app that keeps your entire wedding organized in one place/);
+    assert.match(res.body, new RegExp(escapeRegex(page.heroTitle)));
     assert.match(res.body, /https:\/\/vivahgo\.com\/wedding-planner-app/);
   });
 
