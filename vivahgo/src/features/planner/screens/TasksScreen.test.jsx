@@ -63,7 +63,9 @@ describe("TasksScreen", () => {
 
     render(<FrameworkHarness onProgressUpdate={onProgressUpdate} />);
 
+    expect(screen.getByText("Your Wedding Blueprint")).toBeInTheDocument();
     expect(screen.getByText("The step-by-step foundation to plan your celebration with confidence.")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "←" })).not.toBeInTheDocument();
     expect(screen.getByText("The Couple Brief")).toBeInTheDocument();
     expect(screen.getByText("Start")).toBeInTheDocument();
 

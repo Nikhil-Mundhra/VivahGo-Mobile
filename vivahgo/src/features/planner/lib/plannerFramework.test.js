@@ -82,6 +82,16 @@ describe("plannerFramework", () => {
     expect(vendorTypes.every(type => knownTypes.has(type))).toBe(true);
   });
 
+  it("assigns a unique visual theme to every framework phase", () => {
+    const phaseThemeKeys = PLANNER_FRAMEWORK_PHASES.map(phase => [
+      phase.theme?.start,
+      phase.theme?.end,
+    ].join(":"));
+
+    expect(phaseThemeKeys.every(themeKey => themeKey.length > 1)).toBe(true);
+    expect(new Set(phaseThemeKeys).size).toBe(PLANNER_FRAMEWORK_PHASES.length);
+  });
+
   it("keeps manual completions unique and limited to known framework steps", () => {
     const progress = addPlannerFrameworkCompletedStep({
       completedStepIds: ["big-three-priorities", "budget", "guest-matrix", "attire-jewelry", "missing-step"],

@@ -1700,6 +1700,9 @@ export default function PlannerShell() {
   const accountName = (user?.name || "Account").trim() || "Account";
   const accountFirstName = accountName.split(/\s+/)[0] || accountName;
   const showOauthHelp = /invalid_client|no registered origin|origin.*not.*allowed|idpiframe/i.test(loginError);
+  const isClerkRuntimeAvailable = typeof window === "undefined"
+    ? Boolean(import.meta.env.VITE_CLERK_PUBLISHABLE_KEY)
+    : Boolean(import.meta.env.VITE_CLERK_PUBLISHABLE_KEY) && window.__VIVAHGO_CLERK_UNAVAILABLE__ !== true;
   const authOptions = buildLoginAuthOptions(
     {
       onGoogleLogin: handleGoogleLoginSuccess,
@@ -1708,7 +1711,7 @@ export default function PlannerShell() {
       isLoggingIn,
     },
     {
-      isClerkEnabled: Boolean(import.meta.env.VITE_CLERK_PUBLISHABLE_KEY),
+      isClerkEnabled: isClerkRuntimeAvailable,
       hiddenOptionIds: ['facebook'], // Do this to enable facebook: remove this line.
     }
   );

@@ -2773,6 +2773,14 @@
   color: var(--color-crimson);
 }
 
+.framework-progress-subtitle {
+  margin-top: 4px;
+  max-width: 520px;
+  color: var(--color-light-text);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
 .framework-progress-ring {
   width: 58px;
   height: 58px;
@@ -2808,12 +2816,18 @@
 }
 
 .framework-phase-head {
+  position: sticky;
+  top: 0;
+  z-index: 5;
   margin: 0 0 16px;
-  padding: 0 2px;
+  padding: 14px 16px;
+  border-radius: 8px;
+  background: linear-gradient(135deg, var(--phase-theme-start, #14b8a6), var(--phase-theme-end, #0f766e));
+  box-shadow: 0 8px 0 var(--phase-theme-shadow, rgba(15, 118, 110, 0.18)), 0 14px 28px var(--phase-theme-glow, rgba(15, 118, 110, 0.14));
 }
 
 .framework-phase-head span {
-  color: #0f766e;
+  color: rgba(255, 255, 255, 0.72);
   font-size: 11px;
   font-weight: 800;
   text-transform: uppercase;
@@ -2825,13 +2839,13 @@
   font-family: 'Cormorant Garamond', serif;
   font-size: 24px;
   line-height: 1.1;
-  color: var(--color-crimson);
+  color: var(--color-white);
 }
 
 .framework-phase-head p {
   margin: 0;
   max-width: 520px;
-  color: var(--color-light-text);
+  color: rgba(255, 255, 255, 0.82);
   font-size: 13px;
   line-height: 1.45;
 }

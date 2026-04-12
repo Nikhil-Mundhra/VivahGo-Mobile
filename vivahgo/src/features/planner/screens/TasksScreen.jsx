@@ -13,31 +13,23 @@ const FRAMEWORK_STEP_ROW_HEIGHT = 116;
 const FRAMEWORK_STEP_PATH_TOP_PAD = 50;
 const FRAMEWORK_STEP_NODE_CENTER = 41;
 const FRAMEWORK_INCOMPLETE_ICON = "▶";
-const PHASE_STEP_WAVE_OFFSETS = {
-  1: [12, 12, 30],
-  2: [12, 28, 44],
-  3: [12, 28, 44, 52],
-};
+const FRAMEWORK_STEP_START_OFFSET = 12;
+const FRAMEWORK_STEP_HORIZONTAL_GAP = 14;
 
-function getPhaseStepOffsets(phaseNumber, stepCount) {
-  const baseOffsets = PHASE_STEP_WAVE_OFFSETS[phaseNumber] || PHASE_STEP_WAVE_OFFSETS[1];
-  const offsets = Array.from({ length: stepCount }, (_, index) => baseOffsets[index % baseOffsets.length]);
+function getFrameworkStepLeftOffset() {
+  return FRAMEWORK_STEP_START_OFFSET;
+}
 
-  if (offsets.length < 3) {
-    return offsets;
-  }
+function getFrameworkStepRightOffset() {
+  return getFrameworkStepLeftOffset() + FRAMEWORK_STEP_HORIZONTAL_GAP;
+}
 
-  const lastIndex = offsets.length - 1;
-  const previousDelta = offsets[lastIndex - 1] - offsets[lastIndex - 2];
+function getFrameworkStepOffset(index) {
+  return index % 2 === 0 ? getFrameworkStepLeftOffset() : getFrameworkStepRightOffset();
+}
 
-  if (previousDelta === 0) {
-    return offsets;
-  }
-
-  const reversedLastOffset = offsets[lastIndex - 1] - previousDelta;
-  offsets[lastIndex] = Math.max(12, Math.min(58, reversedLastOffset));
-
-  return offsets;
+function getPhaseStepOffsets(_phaseNumber, stepCount) {
+  return Array.from({ length: stepCount }, (_, index) => getFrameworkStepOffset(index));
 }
 
 function getFrameworkStepPath(points) {
@@ -51,6 +43,15 @@ function getFrameworkStepPath(points) {
 
     return `${path} C ${previous.x} ${previous.y + verticalEase}, ${point.x} ${point.y - verticalEase}, ${point.x} ${point.y}`;
   }, `M ${points[0].x} ${points[0].y}`);
+}
+
+function getFrameworkPhaseThemeStyle(theme = {}) {
+  return {
+    "--phase-theme-start": theme.start,
+    "--phase-theme-end": theme.end,
+    "--phase-theme-shadow": theme.shadow,
+    "--phase-theme-glow": theme.glow,
+  };
 }
 
 function ChecklistView({ tasks, setTasks, events, planId }) {
@@ -317,7 +318,6 @@ function FrameworkOverview({
   guests,
   frameworkProgress,
   onUpdateFrameworkProgress,
-  onBackToChecklist,
 }) {
   const [activeStepId, setActiveStepId] = useState("");
   const [previewStepId, setPreviewStepId] = useState("");
@@ -382,22 +382,12 @@ function FrameworkOverview({
 
   return (
     <div className="framework-shell">
-      <div className="section-head framework-section-head">
-        <div className="my-vendors-title-wrap">
-          <button type="button" className="my-vendors-back-btn" onClick={onBackToChecklist}>←</button>
-          <div>
-            <div className="section-title">Your Wedding Blueprint</div>
-            <div className="my-vendors-subtitle">
-              The step-by-step foundation to plan your celebration with confidence.
-            </div>
-          </div>
-        </div>
-      </div>
-
       <div className="framework-progress-card">
         <div>
-          <div className="framework-progress-kicker">Wedding starter path</div>
-          <div className="framework-progress-title">{framework.completedCount}/{framework.totalCount} steps complete</div>
+          <div className="framework-progress-title">Your Wedding Blueprint</div>
+          <div className="framework-progress-subtitle">
+            The step-by-step foundation to plan your celebration with confidence.
+          </div>
         </div>
         <div className="framework-progress-ring" style={{ "--framework-progress": `${pct * 3.6}deg` }}>
           <span>{pct}%</span>
@@ -415,7 +405,11 @@ function FrameworkOverview({
           const phasePath = getFrameworkStepPath(phasePathPoints);
 
           return (
-            <section className="framework-phase" key={phase.id}>
+            <section
+              className="framework-phase"
+              key={phase.id}
+              style={getFrameworkPhaseThemeStyle(phase.theme)}
+            >
               <div className="framework-phase-head">
                 <span>Phase {phase.number}</span>
                 <h2>{phase.title}</h2>
@@ -516,7 +510,6 @@ function TasksScreen({
         guests={guests}
         frameworkProgress={frameworkProgress}
         onUpdateFrameworkProgress={onUpdateFrameworkProgress}
-        onBackToChecklist={onBackToChecklist}
       />
     );
   }

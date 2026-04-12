@@ -4,12 +4,52 @@ export const DEFAULT_FRAMEWORK_PROGRESS = {
   encouragements: {},
 };
 
+export const PLANNER_FRAMEWORK_PHASE_THEMES = {
+  coupleBrief: {
+    start: "#e11d48",
+    end: "#be123c",
+    shadow: "rgba(190, 18, 60, 0.18)",
+    glow: "rgba(225, 29, 72, 0.14)",
+  },
+  venueMovement: {
+    start: "#14b8a6",
+    end: "#0f766e",
+    shadow: "rgba(15, 118, 110, 0.18)",
+    glow: "rgba(20, 184, 166, 0.14)",
+  },
+  ritualsLooks: {
+    start: "#ec4899",
+    end: "#db2777",
+    shadow: "rgba(219, 39, 119, 0.18)",
+    glow: "rgba(236, 72, 153, 0.14)",
+  },
+  foodProduction: {
+    start: "#f59e0b",
+    end: "#d97706",
+    shadow: "rgba(217, 119, 6, 0.18)",
+    glow: "rgba(245, 158, 11, 0.14)",
+  },
+  memoriesEntertainment: {
+    start: "#2563eb",
+    end: "#1d4ed8",
+    shadow: "rgba(29, 78, 216, 0.18)",
+    glow: "rgba(37, 99, 235, 0.14)",
+  },
+  guestTouchpoints: {
+    start: "#7c3aed",
+    end: "#6d28d9",
+    shadow: "rgba(109, 40, 217, 0.18)",
+    glow: "rgba(124, 58, 237, 0.14)",
+  },
+};
+
 export const PLANNER_FRAMEWORK_PHASES = [
   {
     id: "couple-brief",
     number: 1,
     title: "The Couple Brief",
     summary: "Collect the context every vendor needs before you ask for availability or a quote.",
+    theme: PLANNER_FRAMEWORK_PHASE_THEMES.coupleBrief,
     steps: [
       {
         id: "big-three-priorities",
@@ -237,6 +277,7 @@ export const PLANNER_FRAMEWORK_PHASES = [
     number: 2,
     title: "Venue, Stay & Movement",
     summary: "Prepare strong outreach for venues, planners, transport, and party spaces.",
+    theme: PLANNER_FRAMEWORK_PHASE_THEMES.venueMovement,
     steps: [
       {
         id: "venue-stay",
@@ -413,6 +454,7 @@ export const PLANNER_FRAMEWORK_PHASES = [
     number: 3,
     title: "Rituals, Beauty & Looks",
     summary: "Brief vendors who need cultural, family, and personal context.",
+    theme: PLANNER_FRAMEWORK_PHASE_THEMES.ritualsLooks,
     steps: [
       {
         id: "ritual-guidance",
@@ -587,6 +629,7 @@ export const PLANNER_FRAMEWORK_PHASES = [
     number: 4,
     title: "Food, Decor & Production",
     summary: "Collect the operational details that prevent vague quotes and missed inclusions.",
+    theme: PLANNER_FRAMEWORK_PHASE_THEMES.foodProduction,
     steps: [
       {
         id: "catering-bar",
@@ -767,6 +810,7 @@ export const PLANNER_FRAMEWORK_PHASES = [
     number: 5,
     title: "Memories & Entertainment",
     summary: "Brief photo, film, music, DJ, entertainment, choreography, and photo booth teams.",
+    theme: PLANNER_FRAMEWORK_PHASE_THEMES.memoriesEntertainment,
     steps: [
       {
         id: "photo-video",
@@ -999,6 +1043,7 @@ export const PLANNER_FRAMEWORK_PHASES = [
     number: 6,
     title: "Guest Touchpoints",
     summary: "Prepare invitation and gifting briefs without adding heavy planning friction.",
+    theme: PLANNER_FRAMEWORK_PHASE_THEMES.guestTouchpoints,
     steps: [
       {
         id: "invitations",
