@@ -8,6 +8,7 @@ const {
   clearSessionCookie,
   connectDb,
   createSessionToken,
+  decryptPlannerFromStorage,
   ensureCsrfToken,
   getPlannerModel,
   getUserModel,
@@ -137,7 +138,7 @@ async function handleGoogleAuth(req, res) {
         picture: user.picture,
         staffRole: resolveStaffRole(user.email, user.staffRole),
       },
-      planner: sanitizePlanner(planner.toObject(), { ownerEmail: user.email, ownerId: user.googleId }),
+      planner: sanitizePlanner(decryptPlannerFromStorage(planner.toObject()), { ownerEmail: user.email, ownerId: user.googleId }),
       plannerRevision: Math.max(0, Number(planner?.plannerRevision) || 0),
       plannerOwnerId: user.googleId,
     });
@@ -246,7 +247,7 @@ async function handleClerkAuth(req, res) {
         picture: user.picture || '',
         staffRole: resolveStaffRole(user.email, user.staffRole),
       },
-      planner: sanitizePlanner(planner, { ownerEmail: user.email, ownerId: user.googleId }),
+      planner: sanitizePlanner(decryptPlannerFromStorage(planner), { ownerEmail: user.email, ownerId: user.googleId }),
       plannerRevision: Math.max(0, Number(planner?.plannerRevision) || 0),
       plannerOwnerId: user.googleId,
     });

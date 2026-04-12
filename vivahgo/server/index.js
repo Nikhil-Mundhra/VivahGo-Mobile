@@ -40,6 +40,10 @@ const require = createRequire(import.meta.url);
 const adminHandler = require('../../api/admin.js');
 const plannerHandler = require('../../api/planner.js');
 const vendorHandler = require('../../api/vendor.js');
+const {
+  decryptPlannerFromStorage,
+  encryptPlannerForStorage,
+} = require('../../api/_lib/core.js');
 
 const port = Number(process.env.PORT || 4000);
 const mongoUri = process.env.MONGODB_URI;
@@ -75,6 +79,12 @@ const defaultReminderSettings = {
   eventHoursBefore: true,
   paymentThreeDaysBefore: true,
   paymentDayOf: true,
+};
+
+const defaultFrameworkProgress = {
+  completedStepIds: [],
+  answers: {},
+  encouragements: {},
 };
 
 const ROLE_LEVEL = {
@@ -581,6 +591,8 @@ export function buildEmptyPlanner(options = {}) {
         guests: '',
         websiteSlug: '',
         websiteSettings: { ...defaultWebsiteSettings },
+        frameworkProgress: { ...defaultFrameworkProgress },
+        extraLocations: [],
         reminderSettings: { ...defaultReminderSettings },
         template: 'blank',
         collaborators: ownerEmail
@@ -763,6 +775,18 @@ function sanitizeMarriages(value, ownerEmail, ownerId) {
         ...defaultWebsiteSettings,
         ...(isRecord(marriage.websiteSettings) ? marriage.websiteSettings : {}),
       },
+      frameworkProgress: {
+        ...defaultFrameworkProgress,
+        ...(isRecord(marriage.frameworkProgress) ? marriage.frameworkProgress : {}),
+        completedStepIds: Array.isArray(marriage.frameworkProgress?.completedStepIds)
+          ? marriage.frameworkProgress.completedStepIds.filter(item => typeof item === 'string')
+          : [],
+        answers: isRecord(marriage.frameworkProgress?.answers) ? marriage.frameworkProgress.answers : {},
+        encouragements: isRecord(marriage.frameworkProgress?.encouragements) ? marriage.frameworkProgress.encouragements : {},
+      },
+      extraLocations: Array.isArray(marriage.extraLocations)
+        ? marriage.extraLocations.map(location => String(location || '').trim()).filter(Boolean)
+        : [],
       reminderSettings: sanitizeReminderSettings(marriage.reminderSettings),
       template: marriage.template || 'blank',
       collaborators: sanitizeCollaborators(marriage.collaborators, ownerEmail, ownerId),
@@ -844,6 +868,8 @@ export function sanitizePlanner(payload = {}, options = {}) {
       guests: '',
       websiteSlug: '',
       websiteSettings: { ...defaultWebsiteSettings },
+      frameworkProgress: { ...defaultFrameworkProgress },
+      extraLocations: [],
       reminderSettings: { ...defaultReminderSettings },
       template: 'blank',
       collaborators: sanitizeCollaborators([], ownerEmail, ownerId),
@@ -1761,7 +1787,7 @@ async function listAccessiblePlanners(PlannerModel, auth) {
     }
     seen.add(ownerId);
 
-    const normalized = sanitizePlanner(normalizePlannerOwnership(doc.toObject(), email, ownerId), {
+    const normalized = sanitizePlanner(normalizePlannerOwnership(decryptPlannerFromStorage(doc.toObject()), email, ownerId), {
       ownerEmail: email,
       ownerId,
     });
@@ -2057,7 +2083,7 @@ export function createApp(options = {}) {
           picture: user.picture,
           staffRole: resolveStaffRole(user.email, user.staffRole),
         },
-        planner: sanitizePlanner(planner.toObject(), { ownerEmail: user.email, ownerId: user.googleId }),
+        planner: sanitizePlanner(decryptPlannerFromStorage(planner.toObject()), { ownerEmail: user.email, ownerId: user.googleId }),
         plannerOwnerId: user.googleId,
       });
     } catch (error) {
@@ -2140,7 +2166,7 @@ export function createApp(options = {}) {
           picture: user.picture || '',
           staffRole: resolveStaffRole(user.email, user.staffRole),
         },
-        planner: sanitizePlanner(planner.toObject(), { ownerEmail: user.email, ownerId: user.googleId }),
+        planner: sanitizePlanner(decryptPlannerFromStorage(planner.toObject()), { ownerEmail: user.email, ownerId: user.googleId }),
         plannerOwnerId: user.googleId,
       });
     } catch (error) {
@@ -3010,7 +3036,7 @@ export function createApp(options = {}) {
         return res.status(404).json({ error: 'Wedding website not found.' });
       }
 
-      const planner = sanitizePlanner(plannerDoc.toObject(), { ownerId: plannerDoc.googleId || '' });
+      const planner = sanitizePlanner(decryptPlannerFromStorage(plannerDoc.toObject()), { ownerId: plannerDoc.googleId || '' });
       const publicPlan = (planner.marriages || []).find(item => String(item.websiteSlug || '').toLowerCase() === slug);
       if (!publicPlan) {
         return res.status(404).json({ error: 'Wedding website not found.' });
@@ -3037,7 +3063,7 @@ export function createApp(options = {}) {
 
       const email = normalizeEmail(req.auth.email);
       const ownerId = plannerDoc.googleId || plannerOwnerId;
-      const normalized = normalizePlannerOwnership(plannerDoc.toObject(), email, ownerId);
+      const normalized = normalizePlannerOwnership(decryptPlannerFromStorage(plannerDoc.toObject()), email, ownerId);
       const plan = getPlanFromPlanner(normalized, req.body?.planId || normalized.activePlanId);
       if (!plan) {
         return res.status(404).json({ error: 'Plan not found.' });
@@ -3088,7 +3114,7 @@ export function createApp(options = {}) {
         return res.status(404).json({ error: 'Wedding invitation not found.' });
       }
 
-      const planner = sanitizePlanner(plannerDoc.toObject(), { ownerId: plannerDoc.googleId || '' });
+      const planner = sanitizePlanner(decryptPlannerFromStorage(plannerDoc.toObject()), { ownerId: plannerDoc.googleId || '' });
       const guest = (planner.guests || []).find((item) => {
         if (String(item?.id || '') !== payload.guestId) {
           return false;
@@ -3146,7 +3172,7 @@ export function createApp(options = {}) {
         return res.status(404).json({ error: 'Wedding invitation not found.' });
       }
 
-      const planner = sanitizePlanner(plannerDoc.toObject(), { ownerId: plannerDoc.googleId || '' });
+      const planner = sanitizePlanner(decryptPlannerFromStorage(plannerDoc.toObject()), { ownerId: plannerDoc.googleId || '' });
       const guestIndex = (planner.guests || []).findIndex((item) => {
         if (String(item?.id || '') !== payload.guestId) {
           return false;
@@ -3189,7 +3215,7 @@ export function createApp(options = {}) {
 
       await PlannerModel.findOneAndUpdate(
         { _id: plannerDoc._id },
-        { $set: { guests: nextGuests } },
+        { $set: { guests: encryptPlannerForStorage({ guests: nextGuests }).guests } },
         { new: true }
       );
 
@@ -3231,7 +3257,7 @@ export function createApp(options = {}) {
       }
       const email = normalizeEmail(req.auth.email);
       const ownerId = plannerDoc.googleId || req.auth.sub;
-      const normalized = normalizePlannerOwnership(plannerDoc.toObject(), email, ownerId);
+      const normalized = normalizePlannerOwnership(decryptPlannerFromStorage(plannerDoc.toObject()), email, ownerId);
       const plan = getPlanFromPlanner(normalized, req.query?.planId || normalized.activePlanId);
 
       if (!plan) {
@@ -3260,7 +3286,7 @@ export function createApp(options = {}) {
 
       const email = normalizeEmail(req.auth.email);
       const ownerId = plannerDoc.googleId || req.auth.sub;
-      const normalized = normalizePlannerOwnership(plannerDoc.toObject(), email, ownerId);
+      const normalized = normalizePlannerOwnership(decryptPlannerFromStorage(plannerDoc.toObject()), email, ownerId);
       const plan = getPlanFromPlanner(normalized, req.body?.planId || normalized.activePlanId);
 
       if (!plan) {
@@ -3304,11 +3330,11 @@ export function createApp(options = {}) {
 
       const updated = await PlannerModel.findOneAndUpdate(
         { _id: plannerDoc._id },
-        { $set: { marriages } },
+        { $set: { marriages: encryptPlannerForStorage({ marriages }).marriages } },
         { new: true }
       );
 
-      const updatedPlanner = sanitizePlanner(updated.toObject(), {
+      const updatedPlanner = sanitizePlanner(decryptPlannerFromStorage(updated.toObject()), {
         ownerEmail: findOwnerEmail({ collaborators: nextCollaborators }) || email,
         ownerId,
       });
@@ -3331,7 +3357,7 @@ export function createApp(options = {}) {
 
       const email = normalizeEmail(req.auth.email);
       const ownerId = plannerDoc.googleId || req.auth.sub;
-      const normalized = normalizePlannerOwnership(plannerDoc.toObject(), email, ownerId);
+      const normalized = normalizePlannerOwnership(decryptPlannerFromStorage(plannerDoc.toObject()), email, ownerId);
       const plan = getPlanFromPlanner(normalized, req.body?.planId || normalized.activePlanId);
 
       if (!plan) {
@@ -3372,11 +3398,11 @@ export function createApp(options = {}) {
 
       const updated = await PlannerModel.findOneAndUpdate(
         { _id: plannerDoc._id },
-        { $set: { marriages } },
+        { $set: { marriages: encryptPlannerForStorage({ marriages }).marriages } },
         { new: true }
       );
 
-      const updatedPlanner = sanitizePlanner(updated.toObject(), {
+      const updatedPlanner = sanitizePlanner(decryptPlannerFromStorage(updated.toObject()), {
         ownerEmail: findOwnerEmail({ collaborators: nextCollaborators }) || email,
         ownerId,
       });
@@ -3399,7 +3425,7 @@ export function createApp(options = {}) {
 
       const email = normalizeEmail(req.auth.email);
       const ownerId = plannerDoc.googleId || req.auth.sub;
-      const normalized = normalizePlannerOwnership(plannerDoc.toObject(), email, ownerId);
+      const normalized = normalizePlannerOwnership(decryptPlannerFromStorage(plannerDoc.toObject()), email, ownerId);
       const plan = getPlanFromPlanner(normalized, req.body?.planId || req.query?.planId || normalized.activePlanId);
 
       if (!plan) {
@@ -3436,11 +3462,11 @@ export function createApp(options = {}) {
 
       const updated = await PlannerModel.findOneAndUpdate(
         { _id: plannerDoc._id },
-        { $set: { marriages } },
+        { $set: { marriages: encryptPlannerForStorage({ marriages }).marriages } },
         { new: true }
       );
 
-      const updatedPlanner = sanitizePlanner(updated.toObject(), {
+      const updatedPlanner = sanitizePlanner(decryptPlannerFromStorage(updated.toObject()), {
         ownerEmail: findOwnerEmail({ collaborators: nextCollaborators }) || email,
         ownerId,
       });

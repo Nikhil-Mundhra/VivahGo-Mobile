@@ -6,6 +6,8 @@ const {
   buildEmptyPlanner,
   connectDb,
   createGuestRsvpToken,
+  decryptPlannerFromStorage,
+  encryptPlannerForStorage,
   getCollaboratorRoleForPlan,
   getPublicCache,
   getPlannerModel,
@@ -795,7 +797,7 @@ async function handlePlannerMe(req, res) {
       return res.status(404).json({ error: 'Planner not found.' });
     }
     const ownerId = plannerDoc.googleId || auth.sub;
-    const normalized = normalizePlannerOwnership(plannerDoc.toObject(), email, ownerId);
+    const normalized = normalizePlannerOwnership(decryptPlannerFromStorage(plannerDoc.toObject()), email, ownerId);
     const activePlan = getPlanFromPlanner(normalized, normalized.activePlanId);
     const activeRole = getCollaboratorRoleForPlan(activePlan, email) || (ownerId === auth.sub ? 'owner' : null);
 
@@ -857,7 +859,7 @@ async function handlePlannerMe(req, res) {
       },
       {
         $set: {
-          ...gatedPlanner,
+          ...encryptPlannerForStorage(gatedPlanner),
         },
         $inc: {
           plannerRevision: 1,
@@ -879,7 +881,7 @@ async function handlePlannerMe(req, res) {
 
     const updatedOwnerId = updated.googleId || ownerId;
     const nextPlannerRevision = Math.max(currentPlannerRevision + 1, Number(updated?.plannerRevision) || 0);
-    const updatedNormalized = normalizePlannerOwnership(updated.toObject(), email, updatedOwnerId);
+    const updatedNormalized = normalizePlannerOwnership(decryptPlannerFromStorage(updated.toObject()), email, updatedOwnerId);
     refreshPlannerPublicSnapshots(updatedNormalized, normalized);
     await rebuildReminderJobsForPlanner(
       updatedNormalized,
@@ -943,7 +945,7 @@ async function handlePlannerAccess(req, res) {
     const allPlanners = [ownPlanner, ...sharedPlanners]
       .filter(Boolean)
       .map(doc => {
-        const planner = sanitizePlanner(normalizePlannerOwnership(doc.toObject(), email, doc.googleId), {
+        const planner = sanitizePlanner(normalizePlannerOwnership(decryptPlannerFromStorage(doc.toObject()), email, doc.googleId), {
           ownerEmail: email,
           ownerId: doc.googleId,
         });
@@ -1013,7 +1015,7 @@ async function handlePlannerPublic(req, res) {
         return res.status(404).json({ error: 'Wedding website not found.' });
       }
 
-      const planner = sanitizePlanner(plannerDoc.toObject(), { ownerId: plannerDoc.googleId || '' });
+      const planner = sanitizePlanner(decryptPlannerFromStorage(plannerDoc.toObject()), { ownerId: plannerDoc.googleId || '' });
       const publicPlan = (planner.marriages || []).find(item => String(item.websiteSlug || '').toLowerCase() === slug);
 
       if (!publicPlan) {
@@ -1074,7 +1076,7 @@ async function handlePlannerRsvpLink(req, res) {
     }
 
     const ownerId = plannerDoc.googleId || plannerOwnerId;
-    const normalized = normalizePlannerOwnership(plannerDoc.toObject(), email, ownerId);
+    const normalized = normalizePlannerOwnership(decryptPlannerFromStorage(plannerDoc.toObject()), email, ownerId);
     const plan = getPlanFromPlanner(normalized, req.body?.planId || normalized.activePlanId);
     if (!plan) {
       return res.status(404).json({ error: 'Plan not found.' });
@@ -1154,7 +1156,7 @@ async function handlePlannerRsvp(req, res) {
       return res.status(404).json({ error: 'Wedding invitation not found.' });
     }
 
-    const planner = sanitizePlanner(plannerDoc.toObject(), { ownerId: plannerDoc.googleId || '' });
+    const planner = sanitizePlanner(decryptPlannerFromStorage(plannerDoc.toObject()), { ownerId: plannerDoc.googleId || '' });
     const guestIndex = (planner.guests || []).findIndex((item) => {
       if (String(item?.id || '') !== payload.guestId) {
         return false;
@@ -1218,7 +1220,7 @@ async function handlePlannerRsvp(req, res) {
 
     await Planner.findOneAndUpdate(
       { _id: plannerDoc._id },
-      { $set: { guests: nextGuests } },
+      { $set: { guests: encryptPlannerForStorage({ guests: nextGuests }).guests } },
       { new: true }
     );
 
@@ -1277,7 +1279,7 @@ async function handlePlannerCollaborators(req, res) {
       return res.status(404).json({ error: 'Planner not found.' });
     }
 
-    const plannerObject = planner.toObject();
+    const plannerObject = decryptPlannerFromStorage(planner.toObject());
     const requestedPlanId = req.method === 'GET' ? req.query?.planId : req.body?.planId;
     const sourcePlan = getPlanFromPlanner(plannerObject, requestedPlanId || plannerObject.activePlanId);
 
@@ -1397,11 +1399,11 @@ async function handlePlannerCollaborators(req, res) {
     const ownerEmail = findOwnerEmail({ collaborators: nextCollaborators });
     const updated = await Planner.findOneAndUpdate(
       { _id: planner._id },
-      { $set: { marriages: updatedMarriages } },
+      { $set: { marriages: encryptPlannerForStorage({ marriages: updatedMarriages }).marriages } },
       { new: true }
     );
 
-    const sanitized = sanitizePlanner(updated.toObject(), { ownerEmail, ownerId: planner.googleId || plannerOwnerId });
+    const sanitized = sanitizePlanner(decryptPlannerFromStorage(updated.toObject()), { ownerEmail, ownerId: planner.googleId || plannerOwnerId });
     const updatedPlan = getPlanFromPlanner(sanitized, plan.id);
     const ownerTier = await getSubscriptionTier(planner.googleId || plannerOwnerId);
     await rebuildReminderJobsForPlanner(

@@ -57,6 +57,10 @@ const plannerSchema = new mongoose.Schema(
             type: mongoose.Schema.Types.Mixed,
             default: () => ({ completedStepIds: [], answers: {}, encouragements: {} }),
           },
+          extraLocations: {
+            type: [String],
+            default: [],
+          },
           template: String, // 'blank', 'traditional', 'modern', 'minimalist', 'adventure'
           collaborators: {
             type: [collaboratorSchema],
@@ -74,6 +78,11 @@ const plannerSchema = new mongoose.Schema(
     activePlanId: {
       type: String,
       default: null,
+    },
+    plannerRevision: {
+      type: Number,
+      default: 0,
+      min: 0,
     },
     customTemplates: {
       type: [mongoose.Schema.Types.Mixed],
