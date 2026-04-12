@@ -76,9 +76,10 @@ if (clientId) {
 }
 
 if (clerkPublishableKey) {
+  const appWithoutClerk = wrappedApp;
   wrappedApp = (
-    <ClerkProviderBoundary fallback={providers}>
-      <ClerkProvider publishableKey={clerkPublishableKey}>{wrappedApp}</ClerkProvider>
+    <ClerkProviderBoundary fallback={appWithoutClerk}>
+      <ClerkProvider publishableKey={clerkPublishableKey}>{appWithoutClerk}</ClerkProvider>
     </ClerkProviderBoundary>
   );
 }
