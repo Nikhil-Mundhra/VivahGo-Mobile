@@ -15,6 +15,7 @@ describe('VivahGo/server/models/Planner.js', function () {
     assert.ok(Planner.schema.path('expenses'));
     assert.ok(Planner.schema.path('tasks'));
     assert.ok(Planner.schema.path('marriages.reminderSettings'));
+    assert.ok(Planner.schema.path('marriages.frameworkProgress'));
   });
 
   it('applies array/object defaults for planner sections', async function () {
@@ -32,5 +33,19 @@ describe('VivahGo/server/models/Planner.js', function () {
     assert.deepEqual(doc.guests, []);
     assert.deepEqual(doc.vendors, []);
     assert.deepEqual(doc.tasks, []);
+  });
+
+  it('applies framework progress defaults on marriage subdocuments', async function () {
+    const mod = await import(toFileUrl(appPath('server/models/Planner.js')));
+    const Planner = mod.default;
+
+    const doc = new Planner({
+      googleId: 'test-google-id-framework',
+      marriages: [{ id: 'plan_a', bride: 'Asha', groom: 'Rohan' }],
+    });
+    const err = doc.validateSync();
+
+    assert.equal(err, undefined);
+    assert.deepEqual(doc.marriages[0].frameworkProgress, { completedStepIds: [], answers: {}, encouragements: {} });
   });
 });

@@ -1,4 +1,5 @@
 import { DEFAULT_EVENTS, DEFAULT_TASKS, DEFAULT_VENDORS } from './data.js';
+import { DEFAULT_FRAMEWORK_PROGRESS, normalizePlannerFrameworkProgress } from './features/planner/lib/plannerFramework.js';
 
 export const EMPTY_WEDDING = {
   bride: '',
@@ -866,6 +867,7 @@ export function createBlankMarriagePlan(planId = null) {
     websiteSlug: '',
     websiteSettings: { ...DEFAULT_WEBSITE_SETTINGS },
     reminderSettings: { ...DEFAULT_REMINDER_SETTINGS },
+    frameworkProgress: normalizePlannerFrameworkProgress(DEFAULT_FRAMEWORK_PROGRESS),
     template: 'blank',
     collaborators: [],
     createdAt: new Date(),
@@ -882,6 +884,7 @@ export function createDemoMarriagePlan() {
     websiteSlug: 'aarohi-pranav-1',
     websiteSettings: { ...DEMO_WEBSITE_SETTINGS },
     reminderSettings: { ...DEFAULT_REMINDER_SETTINGS, enabled: true },
+    frameworkProgress: normalizePlannerFrameworkProgress(DEFAULT_FRAMEWORK_PROGRESS),
     template: 'punjabi',
     collaborators: [],
     createdAt: new Date(),
@@ -955,6 +958,7 @@ export function normalizePlanner(planner) {
           paymentThreeDaysBefore: marriage.reminderSettings?.paymentThreeDaysBefore !== false,
           paymentDayOf: marriage.reminderSettings?.paymentDayOf !== false,
         },
+        frameworkProgress: normalizePlannerFrameworkProgress(marriage.frameworkProgress),
         collaborators: Array.isArray(marriage.collaborators)
           ? marriage.collaborators
             .filter(item => item && typeof item === 'object' && typeof item.email === 'string' && item.email.trim())
@@ -984,6 +988,7 @@ export function normalizePlanner(planner) {
       websiteSlug: '',
       websiteSettings: { ...DEFAULT_WEBSITE_SETTINGS },
       reminderSettings: { ...DEFAULT_REMINDER_SETTINGS },
+      frameworkProgress: normalizePlannerFrameworkProgress(DEFAULT_FRAMEWORK_PROGRESS),
       template: 'blank',
       collaborators: [],
       createdAt: new Date(),

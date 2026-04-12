@@ -53,6 +53,10 @@ const plannerSchema = new mongoose.Schema(
             type: mongoose.Schema.Types.Mixed,
             default: () => ({}),
           },
+          frameworkProgress: {
+            type: mongoose.Schema.Types.Mixed,
+            default: () => ({ completedStepIds: [], answers: {}, encouragements: {} }),
+          },
           template: String, // 'blank', 'traditional', 'modern', 'minimalist', 'adventure'
           collaborators: {
             type: [collaboratorSchema],

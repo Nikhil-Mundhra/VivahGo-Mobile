@@ -6,9 +6,11 @@ const BACK_STATE_KEY = "__vivahgoModalToken";
  * While `isOpen` is true, push a lightweight history entry so browser Back
  * closes the current form/modal before navigating away.
  */
-export function useBackButtonClose(isOpen, onClose) {
+export function useBackButtonClose(isOpen, onClose, options = {}) {
   const onCloseRef = useRef(onClose);
   const tokenRef = useRef(null);
+  const ignoreNextPopStateRef = useRef(false);
+  const shouldSkipHistoryBack = options.shouldSkipHistoryBack;
 
   useEffect(() => {
     onCloseRef.current = onClose;
@@ -27,6 +29,11 @@ export function useBackButtonClose(isOpen, onClose) {
     );
 
     function onPopState() {
+      if (ignoreNextPopStateRef.current) {
+        ignoreNextPopStateRef.current = false;
+        return;
+      }
+
       if (!tokenRef.current) return;
       tokenRef.current = null;
       onCloseRef.current?.();
@@ -43,10 +50,18 @@ export function useBackButtonClose(isOpen, onClose) {
       const ownsCurrentHistoryEntry =
         window.history.state &&
         window.history.state[BACK_STATE_KEY] === tokenRef.current;
+      const skipHistoryBack = !!shouldSkipHistoryBack?.();
       tokenRef.current = null;
       if (hadToken && ownsCurrentHistoryEntry) {
-        window.history.back();
+        if (skipHistoryBack) {
+          const nextState = { ...(window.history.state || {}) };
+          delete nextState[BACK_STATE_KEY];
+          window.history.replaceState(nextState, "");
+        } else {
+          ignoreNextPopStateRef.current = true;
+          window.history.back();
+        }
       }
     };
-  }, [isOpen]);
+  }, [isOpen, shouldSkipHistoryBack]);
 }

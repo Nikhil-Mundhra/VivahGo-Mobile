@@ -1,4 +1,4 @@
-import { StrictMode } from 'react'
+import { Component, StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { GoogleOAuthProvider } from '@react-oauth/google'
 import { ClerkProvider } from '@clerk/react'
@@ -18,6 +18,39 @@ const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
 const clerkPublishableKey = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY;
 const initialSession = readAuthSession();
 const appErrorFallback = <div className="app-page-fallback" role="alert">Something went wrong. Please refresh and try again.</div>;
+
+function markClerkUnavailable(error, options = {}) {
+  if (typeof window !== "undefined") {
+    window.__VIVAHGO_CLERK_UNAVAILABLE__ = true;
+  }
+  if (options.log !== false) {
+    console.error("Clerk failed to initialize:", error);
+  }
+}
+
+class ClerkProviderBoundary extends Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false };
+  }
+
+  static getDerivedStateFromError(error) {
+    markClerkUnavailable(error, { log: false });
+    return { hasError: true };
+  }
+
+  componentDidCatch(error) {
+    markClerkUnavailable(error);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return this.props.fallback;
+    }
+
+    return this.props.children;
+  }
+}
 
 initSentry({ session: initialSession });
 initPostHog({ session: initialSession });
@@ -43,7 +76,12 @@ if (clientId) {
 }
 
 if (clerkPublishableKey) {
-  wrappedApp = <ClerkProvider publishableKey={clerkPublishableKey}>{wrappedApp}</ClerkProvider>;
+  const appWithoutClerk = wrappedApp;
+  wrappedApp = (
+    <ClerkProviderBoundary fallback={appWithoutClerk}>
+      <ClerkProvider publishableKey={clerkPublishableKey}>{appWithoutClerk}</ClerkProvider>
+    </ClerkProviderBoundary>
+  );
 }
 
 createRoot(document.getElementById("root")).render(wrappedApp);

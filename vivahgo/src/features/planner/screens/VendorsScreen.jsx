@@ -7,6 +7,7 @@ import VendorDetailScreen from "../../vendor/components/VendorDetailScreen.jsx";
 import { fetchApprovedVendors } from "../../vendor/api.js";
 import { useBackButtonClose } from "../../../shared/hooks/useBackButtonClose.js";
 import { getVendorAvailabilityMatch } from "../../../vendorAvailability";
+import { DEFAULT_FRAMEWORK_PROGRESS, buildPlannerFrameworkVendorBrief } from "../lib/plannerFramework.js";
 
 const VENDOR_FILTERS_SESSION_KEY = "vivahgo.vendorFilters";
 const VENDOR_STATUSES = [
@@ -293,6 +294,8 @@ function VendorsScreen({
   planId,
   view = "directory",
   onBackToDirectory,
+  wedding = {},
+  frameworkProgress = DEFAULT_FRAMEWORK_PROGRESS,
 }) {
   const savedFilters = getSavedVendorFilters();
   const [activeTab, setActiveTab] = useState(savedFilters?.activeTab || "All");
@@ -505,6 +508,18 @@ function VendorsScreen({
     () => filtered.find(v => String(v.id) === String(selectedVendorId)) || hydratedVendors.find(v => String(v.id) === String(selectedVendorId)) || null,
     [filtered, hydratedVendors, selectedVendorId]
   );
+  const selectedVendorRequestMessage = useMemo(() => {
+    if (!selectedVendor) {
+      return "";
+    }
+
+    return buildPlannerFrameworkVendorBrief({
+      vendorType: selectedVendor.type,
+      vendorName: selectedVendor.name,
+      wedding,
+      frameworkProgress,
+    }).message;
+  }, [frameworkProgress, selectedVendor, wedding]);
 
   const editingVendor = useMemo(
     () => myVendors.find(vendor => String(vendor.id) === String(editingVendorId)) || null,
@@ -992,6 +1007,7 @@ function VendorsScreen({
           onBack={() => setSelectedVendorId(null)}
           onToggleWishlist={() => toggleWishlist(selectedVendor.id)}
           onAddReview={review => handleAddReview(selectedVendor.id, review)}
+          requestServiceMessage={selectedVendorRequestMessage}
         />
       )}
       {!selectedVendor && (

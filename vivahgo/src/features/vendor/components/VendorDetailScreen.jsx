@@ -14,7 +14,7 @@ function formatWeekOption(date) {
   return `${WEEK_RANGE_FORMATTER.format(weekStart)} - ${WEEK_RANGE_FORMATTER.format(weekEnd)}`;
 }
 
-function VendorDetailScreen({ vendor, availabilityRange, onBack, onToggleWishlist, onAddReview }) {
+function VendorDetailScreen({ vendor, availabilityRange, onBack, onToggleWishlist, onAddReview, requestServiceMessage = "" }) {
   const initialVisibleTestimonials = 2;
   const quickFacts = getVendorQuickFacts(vendor);
   const media = Array.isArray(vendor.media) ? vendor.media : [];
@@ -58,9 +58,9 @@ function VendorDetailScreen({ vendor, availabilityRange, onBack, onToggleWishlis
 
   function handleRequestService() {
     const whatsappNumber = String(vendor?.whatsappNumber || WHATSAPP_SUPPORT_NUMBER || "").replace(/[^0-9]/g, "");
-    const message = encodeURIComponent(
-      `Hello! I found ${vendor.name} on VivahGo and would like to request their ${vendor.type} services. Could you please help me with availability and booking details?`
-    );
+    const messageText = String(requestServiceMessage || "").trim()
+      || `Hello! I found ${vendor.name} on VivahGo and would like to request their ${vendor.type} services. Could you please help me with availability and booking details?`;
+    const message = encodeURIComponent(messageText);
     window.open(`https://wa.me/${whatsappNumber || WHATSAPP_SUPPORT_NUMBER}?text=${message}`, "_blank", "noopener,noreferrer");
   }
 
