@@ -28,48 +28,52 @@ describe("plannerFramework", () => {
     expect(completionMap["guest-event-matrix"]).toEqual({ isComplete: true, source: "derived" });
   });
 
-  it("pre-ticks vendor and expense represented steps", () => {
+  it("does not derive framework completion from vendors, expenses, or guest-list records", () => {
     const completionMap = getPlannerFrameworkCompletionMap({
       vendors: [
         { type: "Wedding Planners", status: "booked" },
-        { type: "Wedding Transportation", status: "pending" },
-        { type: "Pandit", status: "pending" },
-        { type: "Photography", status: "pending" },
-        { type: "Wedding Videography", status: "pending" },
-        { type: "Music", status: "pending" },
-        { type: "Wedding DJ", status: "pending" },
-        { type: "Wedding Entertainment", status: "pending" },
-        { type: "Bridal & Pre-Bridal", status: "pending" },
-        { type: "Groom Services", status: "pending" },
-        { type: "Choreographer", status: "pending" },
-        { type: "Wedding Decorators", status: "pending" },
-        { type: "Florists", status: "pending" },
-        { type: "Tent House", status: "pending" },
-        { type: "Wedding Cakes", status: "pending" },
-        { type: "Photobooth", status: "pending" },
-        { type: "Wedding Invitations", status: "pending" },
-        { type: "Wedding Gifts", status: "pending" },
+        { type: "Wedding Transportation", status: "pending", wishlist: true },
+        { type: "Pandit", status: "pending", source: "private" },
+        { type: "Photography", status: "pending", source: "directory" },
+        { type: "Wedding Videography", status: "booked" },
+        { type: "Music", status: "booked" },
+        { type: "Wedding DJ", status: "booked" },
+        { type: "Wedding Entertainment", status: "booked" },
+        { type: "Bridal & Pre-Bridal", status: "booked" },
+        { type: "Groom Services", status: "booked" },
+        { type: "Choreographer", status: "booked" },
+        { type: "Wedding Decorators", status: "booked" },
+        { type: "Florists", status: "booked" },
+        { type: "Tent House", status: "booked" },
+        { type: "Wedding Cakes", status: "booked" },
+        { type: "Photobooth", status: "booked" },
+        { type: "Wedding Invitations", status: "booked" },
+        { type: "Wedding Gifts", status: "booked" },
       ],
       expenses: [
         { category: "catering", amount: 50000 },
         { category: "attire", amount: 20000 },
       ],
+      guests: [
+        { name: "Asha Sharma", rsvp: "yes" },
+      ],
     });
 
-    expect(completionMap["planner-coordination"]).toEqual({ isComplete: true, source: "derived" });
-    expect(completionMap["transport-hospitality"]).toEqual({ isComplete: true, source: "derived" });
-    expect(completionMap["ritual-guidance"]).toEqual({ isComplete: true, source: "derived" });
-    expect(completionMap["makeup-hair"]).toEqual({ isComplete: true, source: "derived" });
-    expect(completionMap["bridal-groom-styling"]).toEqual({ isComplete: true, source: "derived" });
-    expect(completionMap["photo-video"]).toEqual({ isComplete: true, source: "derived" });
-    expect(completionMap["catering-bar"]).toEqual({ isComplete: true, source: "derived" });
-    expect(completionMap["decor-florals-tent"]).toEqual({ isComplete: true, source: "derived" });
-    expect(completionMap["cake-dessert"]).toEqual({ isComplete: true, source: "derived" });
-    expect(completionMap["music-dj-entertainment"]).toEqual({ isComplete: true, source: "derived" });
-    expect(completionMap.choreography).toEqual({ isComplete: true, source: "derived" });
-    expect(completionMap["photobooth-extras"]).toEqual({ isComplete: true, source: "derived" });
-    expect(completionMap.invitations).toEqual({ isComplete: true, source: "derived" });
-    expect(completionMap["gifts-hampers"]).toEqual({ isComplete: true, source: "derived" });
+    expect(completionMap["planner-coordination"]).toEqual({ isComplete: false, source: null });
+    expect(completionMap["transport-hospitality"]).toEqual({ isComplete: false, source: null });
+    expect(completionMap["ritual-guidance"]).toEqual({ isComplete: false, source: null });
+    expect(completionMap["makeup-hair"]).toEqual({ isComplete: false, source: null });
+    expect(completionMap["bridal-groom-styling"]).toEqual({ isComplete: false, source: null });
+    expect(completionMap["photo-video"]).toEqual({ isComplete: false, source: null });
+    expect(completionMap["catering-bar"]).toEqual({ isComplete: false, source: null });
+    expect(completionMap["decor-florals-tent"]).toEqual({ isComplete: false, source: null });
+    expect(completionMap["cake-dessert"]).toEqual({ isComplete: false, source: null });
+    expect(completionMap["music-dj-entertainment"]).toEqual({ isComplete: false, source: null });
+    expect(completionMap.choreography).toEqual({ isComplete: false, source: null });
+    expect(completionMap["photobooth-extras"]).toEqual({ isComplete: false, source: null });
+    expect(completionMap.invitations).toEqual({ isComplete: false, source: null });
+    expect(completionMap["gifts-hampers"]).toEqual({ isComplete: false, source: null });
+    expect(completionMap["guest-event-matrix"]).toEqual({ isComplete: false, source: null });
   });
 
   it("maps framework vendor metadata to known vendor types", () => {

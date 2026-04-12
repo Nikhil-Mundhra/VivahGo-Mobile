@@ -313,9 +313,6 @@ function FrameworkStepDetail({
 
 function FrameworkOverview({
   wedding,
-  vendors,
-  expenses,
-  guests,
   frameworkProgress,
   onUpdateFrameworkProgress,
 }) {
@@ -325,11 +322,8 @@ function FrameworkOverview({
   const shouldSkipPreviewHistoryBack = useCallback(() => skipPreviewHistoryBackRef.current, []);
   const framework = useMemo(() => buildPlannerFramework({
     wedding,
-    vendors,
-    expenses,
-    guests,
     frameworkProgress,
-  }), [expenses, frameworkProgress, guests, vendors, wedding]);
+  }), [frameworkProgress, wedding]);
   const pct = framework.totalCount ? Math.round(framework.completedCount / framework.totalCount * 100) : 0;
   const activeStep = activeStepId ? framework.allSteps.find(step => step.id === activeStepId) : null;
   const previewStep = previewStepId ? framework.allSteps.find(step => step.id === previewStepId) : null;
@@ -494,9 +488,6 @@ function TasksScreen({
   planId,
   view = "checklist",
   wedding = {},
-  vendors = [],
-  expenses = [],
-  guests = [],
   frameworkProgress,
   onUpdateFrameworkProgress,
 }) {
@@ -504,9 +495,6 @@ function TasksScreen({
     return (
       <FrameworkOverview
         wedding={wedding}
-        vendors={vendors}
-        expenses={expenses}
-        guests={guests}
         frameworkProgress={frameworkProgress}
         onUpdateFrameworkProgress={onUpdateFrameworkProgress}
       />

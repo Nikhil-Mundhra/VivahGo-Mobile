@@ -1198,28 +1198,6 @@ function hasValue(value) {
   return normalizeText(value).length > 0;
 }
 
-function hasVendorType(vendors, expectedTypes) {
-  const expected = new Set(expectedTypes.map(normalizeText));
-  return (Array.isArray(vendors) ? vendors : []).some((vendor) => (
-    vendor &&
-    normalizeText(vendor.status) !== "cancelled" &&
-    expected.has(normalizeText(vendor.type))
-  ));
-}
-
-function hasAnyVendorType(vendors, expectedTypes) {
-  return hasVendorType(vendors, expectedTypes);
-}
-
-function hasExpenseCategory(expenses, expectedCategories) {
-  const expected = new Set(expectedCategories.map(normalizeText));
-  return (Array.isArray(expenses) ? expenses : []).some((expense) => (
-    expense &&
-    Number(expense.amount || 0) > 0 &&
-    expected.has(normalizeText(expense.category))
-  ));
-}
-
 function normalizeStepId(stepId) {
   const normalizedStepId = String(stepId || "").trim();
   return LEGACY_STEP_ID_ALIASES[normalizedStepId] || normalizedStepId;
@@ -1395,33 +1373,15 @@ export function setPlannerFrameworkAnswer(progress, stepId, questionId, optionId
 
 export function getPlannerFrameworkCompletionMap({
   wedding = {},
-  vendors = [],
-  expenses = [],
-  guests = [],
   frameworkProgress = DEFAULT_FRAMEWORK_PROGRESS,
 } = {}) {
   const manualCompleted = new Set(normalizePlannerFrameworkProgress(frameworkProgress).completedStepIds);
-  const guestCountKnown = hasValue(wedding.guests) || (Array.isArray(guests) && guests.length > 0);
 
   const derivedCompleted = {
     "auspicious-timing": hasValue(wedding.date),
     "budget-distribution": hasValue(wedding.budget),
     "venue-stay": hasValue(wedding.venue),
-    "guest-event-matrix": guestCountKnown,
-    "planner-coordination": hasAnyVendorType(vendors, ["Wedding Planners"]),
-    "transport-hospitality": hasAnyVendorType(vendors, ["Wedding Transportation"]),
-    "ritual-guidance": hasAnyVendorType(vendors, ["Pandit", "Astrologers"]),
-    "makeup-hair": hasAnyVendorType(vendors, ["Bridal & Pre-Bridal"]),
-    "bridal-groom-styling": hasAnyVendorType(vendors, ["Bridal & Pre-Bridal", "Groom Services"]) || hasExpenseCategory(expenses, ["attire", "jewelry"]),
-    "catering-bar": hasAnyVendorType(vendors, ["Catering"]) || hasExpenseCategory(expenses, ["catering"]),
-    "decor-florals-tent": hasAnyVendorType(vendors, ["Wedding Decorators", "Florists", "Tent House"]) || hasExpenseCategory(expenses, ["decor", "flowers", "tent"]),
-    "cake-dessert": hasAnyVendorType(vendors, ["Wedding Cakes"]) || hasExpenseCategory(expenses, ["cake", "dessert"]),
-    "photo-video": hasAnyVendorType(vendors, ["Photography", "Wedding Videography"]) || hasExpenseCategory(expenses, ["photography"]),
-    "music-dj-entertainment": hasAnyVendorType(vendors, ["Music", "Wedding DJ", "Wedding Entertainment"]) || hasExpenseCategory(expenses, ["music", "entertainment"]),
-    choreography: hasAnyVendorType(vendors, ["Choreographer"]) || hasExpenseCategory(expenses, ["choreography"]),
-    "photobooth-extras": hasAnyVendorType(vendors, ["Photobooth"]),
-    invitations: hasAnyVendorType(vendors, ["Wedding Invitations"]) || hasExpenseCategory(expenses, ["invitations"]),
-    "gifts-hampers": hasAnyVendorType(vendors, ["Wedding Gifts"]) || hasExpenseCategory(expenses, ["gifts"]),
+    "guest-event-matrix": hasValue(wedding.guests),
   };
 
   return Object.fromEntries([...VALID_STEP_IDS].map((stepId) => {
@@ -1435,12 +1395,9 @@ export function getPlannerFrameworkCompletionMap({
 
 export function buildPlannerFramework({
   wedding = {},
-  vendors = [],
-  expenses = [],
-  guests = [],
   frameworkProgress = DEFAULT_FRAMEWORK_PROGRESS,
 } = {}) {
-  const completionMap = getPlannerFrameworkCompletionMap({ wedding, vendors, expenses, guests, frameworkProgress });
+  const completionMap = getPlannerFrameworkCompletionMap({ wedding, frameworkProgress });
   const normalizedProgress = normalizePlannerFrameworkProgress(frameworkProgress);
   let firstIncompleteId = "";
 

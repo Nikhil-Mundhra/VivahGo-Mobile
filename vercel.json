@@ -9,6 +9,7 @@
   },
   "rewrites": [
     { "source": "/api/auth/google", "destination": "/api/auth?route=google" },
+    { "source": "/api/auth/clerk", "destination": "/api/auth?route=clerk" },
     { "source": "/api/auth/csrf", "destination": "/api/auth?route=csrf" },
     { "source": "/api/auth/me", "destination": "/api/auth?route=me" },
     { "source": "/api/auth/logout", "destination": "/api/auth?route=logout" },
