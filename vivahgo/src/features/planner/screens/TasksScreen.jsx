@@ -446,7 +446,7 @@ function FrameworkOverview({
                       style={{ "--path-x": `${pathX}%` }}
                     >
                       {framework.firstIncompleteId === step.id && (
-                        <div className="framework-jump-callout">Start</div>
+                        <div className="framework-jump-callout" aria-hidden="true">Start</div>
                       )}
                       <button
                         type="button"
