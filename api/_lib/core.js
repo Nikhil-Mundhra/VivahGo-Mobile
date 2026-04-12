@@ -44,6 +44,12 @@ const defaultReminderSettings = {
   paymentDayOf: true,
 };
 
+const defaultFrameworkProgress = {
+  completedStepIds: [],
+  answers: {},
+  encouragements: {},
+};
+
 const defaultNotificationPreferences = {
   browserPushEnabled: false,
   eventReminders: true,
@@ -71,6 +77,8 @@ const SESSION_COOKIE_NAME = 'vivahgo_session';
 const SESSION_MAX_AGE_SECONDS = 7 * 24 * 60 * 60;
 const CSRF_COOKIE_NAME = 'vivahgo_csrf';
 const CSRF_MAX_AGE_SECONDS = 7 * 24 * 60 * 60;
+const PLANNER_ENCRYPTION_PREFIX = 'vgenc:v1:';
+const PLANNER_ENCRYPTION_AAD = 'vivahgo.planner.v1';
 
 function isProductionEnv() {
   return process.env.NODE_ENV === 'production';
@@ -87,6 +95,174 @@ function getConfiguredSecret(envKey, fallbackValue) {
   }
 
   return configuredValue || fallbackValue;
+}
+
+function getPlannerEncryptionKey() {
+  const configuredValue = String(process.env.PLANNER_ENCRYPTION_KEY || process.env.PLANNER_DATA_ENCRYPTION_KEY || '').trim();
+  if (!configuredValue) {
+    if (isProductionEnv()) {
+      throw new Error('PLANNER_ENCRYPTION_KEY must be configured in production.');
+    }
+    return null;
+  }
+
+  if (isProductionEnv() && /^(replace-with|change-me|your-)/i.test(configuredValue)) {
+    throw new Error('PLANNER_ENCRYPTION_KEY must be a real secret in production.');
+  }
+
+  if (/^[a-f0-9]{64}$/i.test(configuredValue)) {
+    return Buffer.from(configuredValue, 'hex');
+  }
+
+  const base64Value = configuredValue.replace(/^base64:/i, '');
+  try {
+    const decoded = Buffer.from(base64Value, 'base64');
+    if (decoded.length === 32) {
+      return decoded;
+    }
+  } catch {
+    // Fall through to a stable key derivation for passphrase-style config.
+  }
+
+  return crypto.createHash('sha256').update(configuredValue).digest();
+}
+
+function isEncryptedPlannerString(value) {
+  return typeof value === 'string' && value.startsWith(PLANNER_ENCRYPTION_PREFIX);
+}
+
+function encryptPlannerPrimitive(value) {
+  if (value === undefined || value === null || value === '' || isEncryptedPlannerString(value)) {
+    return value;
+  }
+
+  const key = getPlannerEncryptionKey();
+  if (!key) {
+    return value;
+  }
+
+  const iv = crypto.randomBytes(12);
+  const cipher = crypto.createCipheriv('aes-256-gcm', key, iv);
+  cipher.setAAD(Buffer.from(PLANNER_ENCRYPTION_AAD));
+
+  const plaintext = Buffer.from(JSON.stringify(value), 'utf8');
+  const encrypted = Buffer.concat([cipher.update(plaintext), cipher.final()]);
+  const tag = cipher.getAuthTag();
+
+  return [
+    PLANNER_ENCRYPTION_PREFIX.slice(0, -1),
+    iv.toString('base64url'),
+    tag.toString('base64url'),
+    encrypted.toString('base64url'),
+  ].join(':');
+}
+
+function decryptPlannerPrimitive(value) {
+  if (!isEncryptedPlannerString(value)) {
+    return value;
+  }
+
+  const key = getPlannerEncryptionKey();
+  if (!key) {
+    throw new Error('PLANNER_ENCRYPTION_KEY is required to decrypt planner data.');
+  }
+
+  const parts = value.split(':');
+  if (parts.length !== 5 || `${parts[0]}:${parts[1]}` !== 'vgenc:v1') {
+    throw new Error('Encrypted planner value is malformed.');
+  }
+
+  const [, , encodedIv, encodedTag, encodedData] = parts;
+  const decipher = crypto.createDecipheriv('aes-256-gcm', key, Buffer.from(encodedIv, 'base64url'));
+  decipher.setAAD(Buffer.from(PLANNER_ENCRYPTION_AAD));
+  decipher.setAuthTag(Buffer.from(encodedTag, 'base64url'));
+
+  const plaintext = Buffer.concat([
+    decipher.update(Buffer.from(encodedData, 'base64url')),
+    decipher.final(),
+  ]).toString('utf8');
+
+  return JSON.parse(plaintext);
+}
+
+function plannerPathSegmentAfterCollection(pathParts) {
+  return pathParts.length >= 3 ? pathParts[2] : '';
+}
+
+function shouldEncryptPlannerLeaf(pathParts) {
+  const root = pathParts[0];
+  if (!root) {
+    return false;
+  }
+
+  if (root === 'wedding') {
+    return pathParts.length > 1;
+  }
+
+  if (root === 'marriages') {
+    const segment = plannerPathSegmentAfterCollection(pathParts);
+    if (!segment) {
+      return false;
+    }
+    return !['id', 'websiteSlug', 'template', 'collaborators', 'createdAt'].includes(segment);
+  }
+
+  if (root === 'customTemplates') {
+    const segment = plannerPathSegmentAfterCollection(pathParts);
+    if (!segment) {
+      return false;
+    }
+    return !['id', 'createdAt', 'sortOrder', 'eventCount'].includes(segment);
+  }
+
+  if (['events', 'expenses', 'guests', 'vendors', 'tasks'].includes(root)) {
+    const segment = plannerPathSegmentAfterCollection(pathParts);
+    if (!segment) {
+      return false;
+    }
+    return !['id', 'planId', 'createdAt', 'updatedAt', 'sortOrder'].includes(segment);
+  }
+
+  return false;
+}
+
+function encryptPlannerNode(value, pathParts = []) {
+  if (Array.isArray(value)) {
+    return value.map((item, index) => encryptPlannerNode(item, [...pathParts, String(index)]));
+  }
+
+  if (isRecord(value)) {
+    return Object.fromEntries(
+      Object.entries(value).map(([key, entryValue]) => [
+        key,
+        encryptPlannerNode(entryValue, [...pathParts, key]),
+      ])
+    );
+  }
+
+  return shouldEncryptPlannerLeaf(pathParts) ? encryptPlannerPrimitive(value) : value;
+}
+
+function decryptPlannerNode(value) {
+  if (Array.isArray(value)) {
+    return value.map(item => decryptPlannerNode(item));
+  }
+
+  if (isRecord(value)) {
+    return Object.fromEntries(
+      Object.entries(value).map(([key, entryValue]) => [key, decryptPlannerNode(entryValue)])
+    );
+  }
+
+  return decryptPlannerPrimitive(value);
+}
+
+function encryptPlannerForStorage(planner = {}) {
+  return encryptPlannerNode(planner);
+}
+
+function decryptPlannerFromStorage(planner = {}) {
+  return decryptPlannerNode(planner);
 }
 
 function getClientOrigins() {
@@ -897,6 +1073,19 @@ function getPlannerModel() {
             venue: String,
             budget: String,
             guests: String,
+            websiteSlug: String,
+            websiteSettings: {
+              type: mongoose.Schema.Types.Mixed,
+              default: () => ({ ...defaultWebsiteSettings }),
+            },
+            frameworkProgress: {
+              type: mongoose.Schema.Types.Mixed,
+              default: () => ({ completedStepIds: [], answers: {}, encouragements: {} }),
+            },
+            extraLocations: {
+              type: [String],
+              default: [],
+            },
             template: String,
             reminderSettings: {
               type: mongoose.Schema.Types.Mixed,
@@ -1058,6 +1247,10 @@ function buildEmptyPlanner(options = {}) {
         venue: '',
         budget: '',
         guests: '',
+        websiteSlug: '',
+        websiteSettings: { ...defaultWebsiteSettings },
+        frameworkProgress: { ...defaultFrameworkProgress },
+        extraLocations: [],
         template: 'blank',
         reminderSettings: { ...defaultReminderSettings },
         collaborators: ownerEmail
@@ -1224,6 +1417,18 @@ function sanitizeMarriages(value) {
         ...defaultWebsiteSettings,
         ...(isRecord(marriage.websiteSettings) ? marriage.websiteSettings : {}),
       },
+      frameworkProgress: {
+        ...defaultFrameworkProgress,
+        ...(isRecord(marriage.frameworkProgress) ? marriage.frameworkProgress : {}),
+        completedStepIds: Array.isArray(marriage.frameworkProgress?.completedStepIds)
+          ? marriage.frameworkProgress.completedStepIds.filter(item => typeof item === 'string')
+          : [],
+        answers: isRecord(marriage.frameworkProgress?.answers) ? marriage.frameworkProgress.answers : {},
+        encouragements: isRecord(marriage.frameworkProgress?.encouragements) ? marriage.frameworkProgress.encouragements : {},
+      },
+      extraLocations: Array.isArray(marriage.extraLocations)
+        ? marriage.extraLocations.map(location => String(location || '').trim()).filter(Boolean)
+        : [],
       reminderSettings: sanitizeReminderSettings(marriage.reminderSettings),
       template: marriage.template || 'blank',
       collaborators: sanitizeCollaborators(marriage.collaborators),
@@ -1384,6 +1589,8 @@ function sanitizePlanner(payload = {}, options = {}) {
       guests: '',
       websiteSlug: '',
       websiteSettings: { ...defaultWebsiteSettings },
+      frameworkProgress: { ...defaultFrameworkProgress },
+      extraLocations: [],
       reminderSettings: { ...defaultReminderSettings },
       template: 'blank',
       collaborators: sanitizeCollaborators([], ownerEmail, ownerId),
@@ -1719,6 +1926,8 @@ module.exports = {
   connectDb,
   createGuestRsvpToken,
   createSessionToken,
+  decryptPlannerFromStorage,
+  encryptPlannerForStorage,
   ensureCsrfToken,
   generateCsrfToken,
   getCacheControlPolicy,
