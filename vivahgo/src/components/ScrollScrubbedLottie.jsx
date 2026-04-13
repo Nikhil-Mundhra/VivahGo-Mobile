@@ -1,9 +1,9 @@
 import { useEffect, useRef } from "react";
 import lottie from "lottie-web";
+import gsap from "gsap";
+import { ScrollTrigger } from "gsap/ScrollTrigger";
 
-function clampProgress(value) {
-  return Math.max(0, Math.min(1, value));
-}
+gsap.registerPlugin(ScrollTrigger);
 
 export default function ScrollScrubbedLottie({
   animationPath,
@@ -22,7 +22,8 @@ export default function ScrollScrubbedLottie({
 
     const reduceMotionQuery = window.matchMedia?.("(prefers-reduced-motion: reduce)");
     const shouldReduceMotion = Boolean(reduceMotionQuery?.matches);
-    let animationFrameId = 0;
+    let scrubTween;
+    let initialized = false;
 
     const animation = lottie.loadAnimation({
       container: animationRef.current,
@@ -44,50 +45,45 @@ export default function ScrollScrubbedLottie({
       return animationLastFrame;
     }
 
-    function renderFrameFromScroll() {
-      animationFrameId = 0;
-
-      if (!sectionRef.current) {
+    function initializeScrollScrub() {
+      if (initialized || !sectionRef.current) {
         return;
       }
+
+      initialized = true;
 
       if (shouldReduceMotion) {
         animation.goToAndStop(getLastFrame(), true);
         return;
       }
 
-      const rect = sectionRef.current.getBoundingClientRect();
-      const scrollDistance = Math.max(1, rect.height - window.innerHeight);
-      const progress = clampProgress(-rect.top / scrollDistance);
-      const easedProgress = Math.pow(progress, Math.max(0.01, scrubEasingPower));
-      animation.goToAndStop(easedProgress * getLastFrame(), true);
+      const playhead = { progress: 0 };
+      const easingPower = Math.max(0.01, scrubEasingPower);
+      scrubTween = gsap.to(playhead, {
+        progress: 1,
+        ease: "none",
+        scrollTrigger: {
+          trigger: sectionRef.current,
+          start: "top top",
+          end: "bottom bottom",
+          scrub: 1.2,
+        },
+        onUpdate: () => {
+          const easedProgress = Math.pow(playhead.progress, easingPower);
+          animation.goToAndStop(easedProgress * getLastFrame(), true);
+        },
+      });
     }
 
-    function requestRenderFrame() {
-      if (animationFrameId) {
-        return;
-      }
-      animationFrameId = window.requestAnimationFrame(renderFrameFromScroll);
-    }
-
-    animation.addEventListener("DOMLoaded", requestRenderFrame);
-    animation.addEventListener("data_ready", requestRenderFrame);
-
-    if (!shouldReduceMotion) {
-      window.addEventListener("scroll", requestRenderFrame, { passive: true });
-      window.addEventListener("resize", requestRenderFrame);
-    }
-
-    requestRenderFrame();
+    animation.addEventListener("DOMLoaded", initializeScrollScrub);
+    animation.addEventListener("data_ready", initializeScrollScrub);
+    initializeScrollScrub();
 
     return () => {
-      if (animationFrameId) {
-        window.cancelAnimationFrame(animationFrameId);
-      }
-      animation.removeEventListener("DOMLoaded", requestRenderFrame);
-      animation.removeEventListener("data_ready", requestRenderFrame);
-      window.removeEventListener("scroll", requestRenderFrame);
-      window.removeEventListener("resize", requestRenderFrame);
+      scrubTween?.scrollTrigger?.kill();
+      scrubTween?.kill();
+      animation.removeEventListener("DOMLoaded", initializeScrollScrub);
+      animation.removeEventListener("data_ready", initializeScrollScrub);
       animation.destroy();
     };
   }, [animationPath, endFrame, scrubEasingPower]);
