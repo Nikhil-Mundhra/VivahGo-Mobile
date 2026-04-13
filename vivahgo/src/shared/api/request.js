@@ -37,10 +37,6 @@ export function resolveApiBaseUrl(env = getRuntimeEnv(), win = typeof window !==
       return `http://${host}:4000/api`;
     }
 
-    if (env.VITE_USE_REMOTE_API === "true" && configuredBaseUrl) {
-      return configuredBaseUrl.replace(/\/$/, "");
-    }
-
     return "/api";
   }
 

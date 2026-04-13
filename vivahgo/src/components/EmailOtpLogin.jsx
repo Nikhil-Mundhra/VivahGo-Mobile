@@ -43,6 +43,16 @@ function isAlreadyVerifiedClerkError(err) {
   return typeof code === 'string' && /already_verified|verification_already_verified/i.test(code);
 }
 
+function getCreatedSessionId(resource, fallbackResource) {
+  return resource?.createdSessionId
+    || resource?.createdSession?.id
+    || resource?.createdSession?.sessionId
+    || fallbackResource?.createdSessionId
+    || fallbackResource?.createdSession?.id
+    || fallbackResource?.createdSession?.sessionId
+    || '';
+}
+
 function EmailOtpLogin({ onLoginSuccess, onLoginError }) {
   const clerkPublishableKey = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY;
   const clerk = useClerk();
@@ -102,11 +112,28 @@ function EmailOtpLogin({ onLoginSuccess, onLoginError }) {
       return completeWithActiveClerkSession();
     }
 
+    const fallbackResource = flowType === 'sign-up' ? signUp : signIn;
+    const activateCreatedSession = async (nextResource = resource) => {
+      const createdSessionId = getCreatedSessionId(nextResource, fallbackResource);
+      const setActive = clerk?.setActive || window.Clerk?.setActive;
+      if (!createdSessionId || typeof setActive !== 'function') {
+        return false;
+      }
+
+      await setActive({ session: createdSessionId });
+      return completeWithActiveClerkSession();
+    };
+
+    if (await activateCreatedSession()) {
+      return true;
+    }
+
     const status = typeof resource.status === 'string' ? resource.status : '';
     if (status === 'complete' || status === 'completed') {
       if (await completeWithActiveClerkSession()) {
         return true;
       }
+      return false;
     }
 
     const finalizeFn = typeof resource.finalize === 'function'
@@ -127,8 +154,12 @@ function EmailOtpLogin({ onLoginSuccess, onLoginError }) {
       throw finalErr;
     }
 
+    if (await activateCreatedSession(finalized)) {
+      return true;
+    }
+
     return completeWithActiveClerkSession();
-  }, [completeWithActiveClerkSession, signIn, signUp]);
+  }, [clerk, completeWithActiveClerkSession, signIn, signUp]);
 
   useEffect(() => {
     if (clerk.loaded) {

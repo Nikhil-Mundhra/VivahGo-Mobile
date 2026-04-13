@@ -1,4 +1,4 @@
-import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const clerkState = {
@@ -87,5 +87,72 @@ describe("EmailOtpLogin", () => {
     });
 
     expect(screen.getByRole("button", { name: "Get code" })).toBeEnabled();
+  });
+
+  it("activates the created Clerk session after sign-up OTP verification", async () => {
+    vi.useRealTimers();
+
+    const setActive = vi.fn().mockImplementation(async () => {
+      window.Clerk.session = {
+        getToken: vi.fn().mockResolvedValue("clerk-token"),
+      };
+      window.Clerk.user = {
+        id: "user_123",
+        fullName: "Planner User",
+        imageUrl: "",
+        primaryEmailAddress: { emailAddress: "planner@example.com" },
+      };
+    });
+    const finalize = vi.fn();
+
+    window.Clerk = {
+      setActive,
+      session: null,
+      user: null,
+    };
+    clerkState.clerk = { loaded: true, setActive };
+    clerkState.signIn = {
+      create: vi.fn().mockResolvedValue({
+        error: { errors: [{ code: "form_identifier_not_found", message: "Not found" }] },
+      }),
+      emailCode: {
+        sendCode: vi.fn(),
+        verifyCode: vi.fn(),
+      },
+    };
+    clerkState.signUp = {
+      create: vi.fn().mockResolvedValue({}),
+      finalize,
+      verifications: {
+        sendEmailCode: vi.fn().mockResolvedValue({}),
+        verifyEmailCode: vi.fn().mockResolvedValue({
+          status: "complete",
+          createdSessionId: "sess_123",
+        }),
+      },
+    };
+
+    const { default: EmailOtpLogin } = await import("./EmailOtpLogin.jsx");
+    const onLoginSuccess = vi.fn();
+
+    render(<EmailOtpLogin onLoginSuccess={onLoginSuccess} />);
+
+    fireEvent.change(screen.getByPlaceholderText("Enter your email"), {
+      target: { value: "planner@example.com" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Get code" }));
+
+    expect(await screen.findByPlaceholderText("Enter 6-digit code")).toBeInTheDocument();
+
+    fireEvent.change(screen.getByPlaceholderText("Enter 6-digit code"), {
+      target: { value: "123456" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Verify" }));
+
+    await waitFor(() => {
+      expect(setActive).toHaveBeenCalledWith({ session: "sess_123" });
+    });
+    expect(finalize).not.toHaveBeenCalled();
+    expect(onLoginSuccess).toHaveBeenCalled();
   });
 });

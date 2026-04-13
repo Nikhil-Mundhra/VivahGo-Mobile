@@ -41,6 +41,44 @@ describe("request helpers", () => {
     ).toBe("http://127.0.0.1:4000/api");
   });
 
+  it("allows localhost development to opt into a remote API", async () => {
+    const { resolveApiBaseUrl } = await import("./request.js");
+
+    expect(
+      resolveApiBaseUrl(
+        {
+          VITE_API_BASE_URL: "https://vivahgo.vercel.app/api",
+          VITE_USE_REMOTE_API: "true",
+        },
+        {
+          location: {
+            hostname: "localhost",
+            protocol: "http:",
+          },
+        }
+      )
+    ).toBe("https://vivahgo.vercel.app/api");
+  });
+
+  it("uses same-origin API routes on deployed domains even when remote API env is present", async () => {
+    const { resolveApiBaseUrl } = await import("./request.js");
+
+    expect(
+      resolveApiBaseUrl(
+        {
+          VITE_API_BASE_URL: "https://vivahgo.vercel.app/api",
+          VITE_USE_REMOTE_API: "true",
+        },
+        {
+          location: {
+            hostname: "planner.vivahgo.com",
+            protocol: "https:",
+          },
+        }
+      )
+    ).toBe("/api");
+  });
+
   it("does not report expected 4xx API errors to Sentry", async () => {
     const { request } = await import("./request.js");
 
