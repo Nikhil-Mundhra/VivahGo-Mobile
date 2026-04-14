@@ -100,8 +100,8 @@ describe("main bootstrap", () => {
     });
     expect(createRoot).toHaveBeenCalledWith(document.getElementById("root"));
     expect(renderRoot).toHaveBeenCalledTimes(1);
-    expect(initSentry.mock.invocationCallOrder[0]).toBeLessThan(initPostHog.mock.invocationCallOrder[0]);
-    expect(initPostHog.mock.invocationCallOrder[0]).toBeLessThan(initClarity.mock.invocationCallOrder[0]);
+    expect(initPostHog.mock.invocationCallOrder[0]).toBeLessThan(initSentry.mock.invocationCallOrder[0]);
+    expect(initSentry.mock.invocationCallOrder[0]).toBeLessThan(initClarity.mock.invocationCallOrder[0]);
     expect(initClarity.mock.invocationCallOrder[0]).toBeLessThan(renderRoot.mock.invocationCallOrder[0]);
   });
 });

@@ -89,4 +89,65 @@ describe("shared sentry helper", () => {
       })
     );
   });
+
+  it("mirrors Sentry beforeSend events into PostHog for automatic capture paths", async () => {
+    vi.stubEnv("VITE_SENTRY_DSN", "https://public@example.ingest.sentry.io/1");
+    vi.stubEnv("VITE_SENTRY_PROJECT_URL", "https://sentry.io/organizations/vivahgo/issues");
+    const { initSentry } = await loadModule();
+
+    initSentry();
+    const sentryOptions = sentryMock.init.mock.calls[0][0];
+    const event = {
+      event_id: "event_autocaptured_123",
+      exception: {
+        values: [
+          {
+            type: "TypeError",
+            value: "Cannot read properties of undefined",
+            mechanism: {
+              type: "onerror",
+            },
+          },
+        ],
+      },
+      tags: {
+        route: "/planner",
+      },
+    };
+
+    expect(sentryOptions.beforeSend(event, {})).toBe(event);
+
+    expect(posthogMock.capturePostHogEvent).toHaveBeenCalledWith(
+      "exception_occurred",
+      expect.objectContaining({
+        sentry_event_id: "event_autocaptured_123",
+        sentry_url: "https://sentry.io/organizations/vivahgo/issues/?query=event_autocaptured_123",
+        error_name: "TypeError",
+        error_message: "Cannot read properties of undefined",
+        route: "/planner",
+        sentry_mechanism: "onerror",
+      })
+    );
+  });
+
+  it("does not duplicate a PostHog mirror when beforeSend and captureException see the same Sentry event", async () => {
+    vi.stubEnv("VITE_SENTRY_DSN", "https://public@example.ingest.sentry.io/1");
+    const { captureException, initSentry } = await loadModule();
+
+    initSentry();
+    const sentryOptions = sentryMock.init.mock.calls[0][0];
+    sentryOptions.beforeSend(
+      {
+        event_id: "event_123",
+        exception: {
+          values: [{ type: "Error", value: "boom" }],
+        },
+      },
+      { originalException: new Error("boom") }
+    );
+
+    captureException(new Error("boom"));
+
+    expect(posthogMock.capturePostHogEvent).toHaveBeenCalledTimes(1);
+  });
 });

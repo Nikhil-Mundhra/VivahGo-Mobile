@@ -9,6 +9,7 @@ const ROOT_DIR = path.resolve(__dirname, '..');
 const GUIDES_PATH = path.join(ROOT_DIR, 'vivahgo', 'src', 'shared', 'content', 'guides.json');
 const OUTPUT_JSON_PATH = path.join(ROOT_DIR, 'vivahgo', 'src', 'generated', 'public-asset-map.json');
 const OUTPUT_JS_PATH = path.join(ROOT_DIR, 'vivahgo', 'src', 'generated', 'public-asset-map.js');
+const DEFAULT_BLOB_LIST_TIMEOUT_MS = 10000;
 
 function readJson(filePath) {
   return JSON.parse(fs.readFileSync(filePath, 'utf8'));
@@ -55,6 +56,10 @@ function loadBlobToken() {
     return process.env.BLOB_READ_WRITE_TOKEN;
   }
 
+  if (process.env.PUBLIC_ASSET_MAP_USE_DOTENV_BLOB_TOKEN !== 'true') {
+    throw new Error('BLOB_READ_WRITE_TOKEN is not configured in the environment. Set PUBLIC_ASSET_MAP_USE_DOTENV_BLOB_TOKEN=true to load it from .env for local asset map refreshes.');
+  }
+
   const envCandidates = [
     path.join(ROOT_DIR, '.env'),
     path.join(ROOT_DIR, 'vivahgo', '.env'),
@@ -75,24 +80,66 @@ function loadBlobToken() {
   throw new Error('BLOB_READ_WRITE_TOKEN is not configured in the environment or an .env file.');
 }
 
+function resolveBlobListTimeoutMs(options = {}) {
+  const configuredTimeout = options.timeoutMs ?? process.env.PUBLIC_ASSET_MAP_BLOB_TIMEOUT_MS;
+  const timeoutMs = Number.parseInt(String(configuredTimeout || ''), 10);
+
+  return Number.isFinite(timeoutMs) && timeoutMs > 0
+    ? timeoutMs
+    : DEFAULT_BLOB_LIST_TIMEOUT_MS;
+}
+
+function createTimeoutController(timeoutMs) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => {
+    controller.abort(new Error(`Vercel Blob listing timed out after ${timeoutMs}ms.`));
+  }, timeoutMs);
+
+  timeout.unref?.();
+
+  return {
+    abortSignal: controller.signal,
+    clear: () => clearTimeout(timeout),
+  };
+}
+
 async function listAllBlobs(options = {}) {
   const token = loadBlobToken();
+  const timeoutMs = resolveBlobListTimeoutMs(options);
   const blobs = [];
   let cursor;
 
   do {
-    const result = await list({
-      cursor,
-      limit: 1000,
-      token,
-      prefix: options.prefix,
-    });
+    const timeoutController = createTimeoutController(timeoutMs);
+    let result;
+
+    try {
+      result = await list({
+        abortSignal: timeoutController.abortSignal,
+        cursor,
+        limit: 1000,
+        token,
+        prefix: options.prefix,
+      });
+    } finally {
+      timeoutController.clear();
+    }
 
     blobs.push(...(Array.isArray(result?.blobs) ? result.blobs : []));
     cursor = result?.cursor;
   } while (cursor);
 
   return blobs;
+}
+
+function shouldUseExistingAssetMapFallback(error) {
+  const message = String(error?.message || '');
+
+  return (
+    /BLOB_READ_WRITE_TOKEN is not configured/.test(message)
+    || error?.name === 'AbortError'
+    || /Vercel Blob listing timed out/.test(message)
+  );
 }
 
 function buildPublicAssetMapFromBlobs(trackedFilenameMap, blobs) {
@@ -122,13 +169,13 @@ async function buildPublicAssetMap(options = {}) {
   try {
     blobs = await listBlobs();
   } catch (error) {
-    const isMissingBlobToken = /BLOB_READ_WRITE_TOKEN is not configured/.test(String(error?.message || ''));
     const existingAssetMap = readExistingAssetMap();
 
-    if (!isMissingBlobToken || !existingAssetMap) {
+    if (!shouldUseExistingAssetMapFallback(error) || !existingAssetMap) {
       throw error;
     }
 
+    console.warn(`Using checked-in public asset map because Blob listing failed: ${error.message}`);
     return {
       ...existingAssetMap,
       generatedAt: existingAssetMap.generatedAt || new Date().toISOString(),
@@ -177,9 +224,12 @@ module.exports = {
   OUTPUT_JSON_PATH,
   buildPublicAssetMap,
   buildPublicAssetMapFromBlobs,
+  createTimeoutController,
   loadBlobToken,
   listAllBlobs,
   parseDotEnv,
   readExistingAssetMap,
+  resolveBlobListTimeoutMs,
+  shouldUseExistingAssetMapFallback,
   writePublicAssetMap,
 };

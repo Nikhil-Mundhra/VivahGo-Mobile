@@ -52,8 +52,8 @@ class ClerkProviderBoundary extends Component {
   }
 }
 
-initSentry({ session: initialSession });
 initPostHog({ session: initialSession });
+initSentry({ session: initialSession });
 initClarity({ session: initialSession });
 
 const app = (

@@ -111,6 +111,23 @@ function syncObservabilityPersonProperties() {
   };
 }
 
+function buildObservabilityEventProperties(properties = {}) {
+  const observabilityProperties = getObservabilityPersonProperties();
+
+  return Object.fromEntries(
+    Object.entries({
+      axiom_trace_id: getOrCreateAxiomTraceId(),
+      ms_clarity_link: observabilityProperties.ms_clarity_link,
+      ms_clarity_project_id: observabilityProperties.ms_clarity_project_id,
+      ms_clarity_custom_session_id: observabilityProperties.ms_clarity_custom_session_id,
+      ms_clarity_custom_page_id: observabilityProperties.ms_clarity_custom_page_id,
+      ms_clarity_user_id_hash: observabilityProperties.ms_clarity_user_id_hash,
+      last_sentry_error: observabilityProperties.last_sentry_error,
+      ...properties,
+    }).filter(([, value]) => typeof value !== "undefined" && value !== null && value !== "")
+  );
+}
+
 function installNavigationInstrumentation() {
   if (navigationInstrumentationInstalled || typeof window === "undefined") {
     return;
@@ -305,7 +322,7 @@ export function capturePostHogEvent(name, properties = {}) {
     return null;
   }
 
-  return posthog.capture(name, properties);
+  return posthog.capture(name, buildObservabilityEventProperties(properties));
 }
 
 export function setPostHogRouteContext(path, options = {}) {
