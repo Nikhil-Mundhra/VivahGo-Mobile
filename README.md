@@ -10,6 +10,7 @@ VivahGo is a wedding planning platform built for Indian weddings. It combines a 
 - [Getting Started](#getting-started)
 - [Configuration](#configuration)
 - [Run Locally](#run-locally)
+- [Observability](#observability)
 - [Routes and Product Areas](#routes-and-product-areas)
 - [API Overview](#api-overview)
 - [API and Architecture Doc](#api-and-architecture-doc)
@@ -67,7 +68,7 @@ VivahGo is a wedding planning platform built for Indian weddings. It combines a 
 - Payments: Razorpay
 - Public media storage: Cloudflare R2
 - Private document storage: Backblaze B2 (S3-compatible)
-- Analytics: Vercel Analytics, Vercel Speed Insights
+- Analytics and observability: PostHog, Sentry, Axiom, Microsoft Clarity, Vercel Analytics, Vercel Speed Insights
 - Mobile shell: Capacitor iOS
 - Testing: Mocha, Supertest, c8
 - Linting: ESLint
@@ -143,6 +144,23 @@ cp vivahgo/.env.example vivahgo/.env
   - `B2_SECRET_ACCESS_KEY`
   - `B2_ENDPOINT`
   - `B2_BUCKET_NAME`
+- Observability:
+  - `VITE_POSTHOG_KEY`
+  - `VITE_POSTHOG_HOST`
+  - `VITE_SENTRY_DSN`
+  - `VITE_SENTRY_PROJECT_URL`
+  - `SENTRY_DSN`
+  - `VITE_CLARITY_PROJECT_ID`
+  - `AXIOM_TOKEN`
+  - `AXIOM_DATASET`
+  - `AXIOM_ORG_ID`
+  - `AXIOM_URL`
+  - `AXIOM_EDGE`
+  - `AXIOM_EDGE_URL`
+- Public asset map refresh:
+  - `BLOB_READ_WRITE_TOKEN`
+  - `PUBLIC_ASSET_MAP_USE_DOTENV_BLOB_TOKEN=true` to allow the asset-map generator to read `BLOB_READ_WRITE_TOKEN` from `.env` during an intentional local refresh
+  - `PUBLIC_ASSET_MAP_BLOB_TIMEOUT_MS` to override the Blob listing timeout
 
 Use [vivahgo/.env.example](/Users/nikhil/Documents/VivahGo-mobile/vivahgo/.env.example) as the source of truth for local setup.
 
@@ -194,6 +212,17 @@ Or:
 ```bash
 make run_local
 ```
+
+## Observability
+
+VivahGo uses the strongest free parts of several observability tools, with PostHog as the main product analytics timeline:
+
+- PostHog captures manual pageviews, auth lifecycle events, product events, user identity, route context, and shared observability properties.
+- Sentry captures frontend and backend exceptions plus browser/server tracing. Frontend Sentry events are mirrored into PostHog as `exception_occurred` events, including Sentry event IDs and search links when configured.
+- Microsoft Clarity remains the session replay store. Clarity project/session/page IDs and replay links are attached to PostHog events and person properties so a PostHog event can lead directly to the relevant replay.
+- Axiom stores backend request and application logs. Client requests carry an `axiom_trace_id` header so PostHog, Sentry, Axiom logs, and API requests can be correlated.
+
+The shared browser context lives in [vivahgo/src/shared/observability.js](/Users/nikhil/Documents/VivahGo-mobile/vivahgo/src/shared/observability.js). PostHog event capture is centralized in [vivahgo/src/shared/posthog.js](/Users/nikhil/Documents/VivahGo-mobile/vivahgo/src/shared/posthog.js), Sentry mirroring in [vivahgo/src/shared/sentry.js](/Users/nikhil/Documents/VivahGo-mobile/vivahgo/src/shared/sentry.js), and Clarity replay linking in [vivahgo/src/shared/clarity.js](/Users/nikhil/Documents/VivahGo-mobile/vivahgo/src/shared/clarity.js).
 
 ## Routes and Product Areas
 
@@ -323,6 +352,7 @@ npm run lint
 - The local Express server in [vivahgo/server/index.js](/Users/nikhil/Documents/VivahGo-mobile/vivahgo/server/index.js) mirrors the main API behavior for development.
 - In local development, the frontend defaults to `http://localhost:4000/api` unless `VITE_USE_REMOTE_API=true`.
 - Production can usually use relative `/api` requests without setting `VITE_API_BASE_URL`.
+- `npm run build --prefix vivahgo` refreshes the public asset map before Vite builds. Local builds fall back to the checked-in generated map unless `BLOB_READ_WRITE_TOKEN` is present in the real environment. To intentionally refresh from a token stored in `.env`, set `PUBLIC_ASSET_MAP_USE_DOTENV_BLOB_TOKEN=true`.
 
 ## SEO Verification
 
