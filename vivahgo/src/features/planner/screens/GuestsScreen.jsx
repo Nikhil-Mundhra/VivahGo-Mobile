@@ -9,6 +9,33 @@ const DEFAULT_BULK_MESSAGE = "Dear *{name}*,\n\nWe would be delighted to have yo
 
 const GUEST_TITLES = new Set(["mr", "mrs", "ms", "miss", "dr", "prof", "shri", "smt", "km", "kum"]);
 
+function buildWhatsAppUrl(phone, message) {
+  return `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
+}
+
+function openPendingWhatsAppWindow() {
+  const openedWindow = window.open("about:blank", "_blank");
+  if (openedWindow) {
+    openedWindow.opener = null;
+  }
+  return openedWindow;
+}
+
+function navigateWhatsAppWindow(openedWindow, url) {
+  if (openedWindow) {
+    openedWindow.location.href = url;
+    return;
+  }
+
+  window.open(url, "_blank", "noopener,noreferrer");
+}
+
+function closePendingWhatsAppWindow(openedWindow) {
+  if (openedWindow && typeof openedWindow.close === "function") {
+    openedWindow.close();
+  }
+}
+
 function createGuestForm() {
   return {
     title: "",
@@ -209,14 +236,16 @@ function GuestsScreen({ guests, setGuests, planId, authToken, plannerOwnerId }) 
     const phone = String(guest?.phone || "").replace(/[^0-9]/g, "");
     if (!phone) return;
 
+    const openedWindow = openPendingWhatsAppWindow();
+
     try {
       setWhatsAppError("");
       const guestName = getDisplayName(guest) || "there";
       const { rsvpUrl, coupleName } = await createRsvpLinkForGuest(guest);
-      const message = encodeURIComponent(`Dear *${guestName}*,\n\nWe would be delighted to have you join us as we celebrate our wedding. Please kindly RSVP yourself and your family at your earliest convenience using the link below:\n\n${rsvpUrl}\n\nWe look forward to celebrating with you!\n\n${coupleName}`);
-      const url = `https://api.whatsapp.com/send/?phone=${phone}&text=${message}`;
-      window.open(url, "_blank", "noopener,noreferrer");
+      const message = `Dear *${guestName}*,\n\nWe would be delighted to have you join us as we celebrate our wedding. Please kindly RSVP yourself and your family at your earliest convenience using the link below:\n\n${rsvpUrl}\n\nWe look forward to celebrating with you!\n\n${coupleName}`;
+      navigateWhatsAppWindow(openedWindow, buildWhatsAppUrl(phone, message));
     } catch (error) {
+      closePendingWhatsAppWindow(openedWindow);
       setWhatsAppError(error.message || "Could not create an RSVP link for WhatsApp.");
     }
   }
@@ -224,6 +253,9 @@ function GuestsScreen({ guests, setGuests, planId, authToken, plannerOwnerId }) 
   async function sendBulkWhatsApp(guest) {
     const phone = String(guest?.phone || "").replace(/[^0-9]/g, "");
     if (!phone) return;
+
+    const openedWindow = openPendingWhatsAppWindow();
+
     try {
       setWhatsAppError("");
       const guestName = getDisplayName(guest) || "there";
@@ -233,10 +265,10 @@ function GuestsScreen({ guests, setGuests, planId, authToken, plannerOwnerId }) 
         .replace(/\{couple\}/gi, coupleName)
         .replace(/\{rsvp_link\}/gi, rsvpUrl);
       const finalMessage = personalized.includes(rsvpUrl) ? personalized : `${personalized} ${rsvpUrl}`;
-      const url = `https://api.whatsapp.com/send/?phone=${phone}&text=${encodeURIComponent(finalMessage)}`;
-      window.open(url, "_blank", "noopener,noreferrer");
+      navigateWhatsAppWindow(openedWindow, buildWhatsAppUrl(phone, finalMessage));
       setBulkSentIds(prev => new Set([...prev, guest.id]));
     } catch (error) {
+      closePendingWhatsAppWindow(openedWindow);
       setWhatsAppError(error.message || "Could not create an RSVP link for WhatsApp.");
     }
   }
