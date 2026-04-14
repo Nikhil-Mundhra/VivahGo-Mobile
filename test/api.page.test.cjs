@@ -140,6 +140,8 @@ describe('api/page.js', function () {
 
     assert.match(homeSnapshot, /One platform\. Every wedding\. Total control/);
     assert.match(homeSnapshot, /Ditch the chaos, master your wedding plan from Roka to Vidaai/);
+    assert.match(homeSnapshot, /Planner Login/);
+    assert.match(homeSnapshot, /Vendor Login/);
     assert.match(homeSnapshot, /wedding checklist app/i);
     assert.match(guideSnapshot, /Indian Wedding Budget Planning Guide/);
     assert.match(guideSnapshot, /Watch pending balances/);
@@ -219,8 +221,32 @@ describe('api/page.js', function () {
     assert.match(res.body, /Wedding Planner App for Indian Weddings/);
     assert.match(res.body, /One platform\. Every wedding\. Total control/);
     assert.match(res.body, /Ditch the chaos, master your wedding plan from Roka to Vidaai/);
+    assert.match(res.body, /SiteNavigationElement/);
+    assert.match(res.body, /Planner Login/);
+    assert.match(res.body, /Vendor Login/);
     assert.match(res.body, /wedding checklist app/i);
     assert.match(res.body, /https:\/\/vivahgo\.com\/guides\/indian-wedding-checklist/);
+  });
+
+  it('renders crawlable vendor login html through the page handler', async function () {
+    const handler = createPageHandler({
+      loadHtmlTemplate: async () => '<!doctype html><html><head><script type="module" src="/assets/app.js"></script></head><body><div id="root"></div></body></html>',
+      plannerHandlers: {},
+    });
+    const req = {
+      method: 'GET',
+      headers: { host: 'vivahgo.com', 'x-forwarded-proto': 'https' },
+      query: { route: 'vendor' },
+    };
+    const res = createRes();
+
+    await handler(req, res);
+
+    assert.equal(res.statusCode, 200);
+    assert.match(res.body, /VivahGo Vendor Login/);
+    assert.match(res.body, /meta name="robots" content="index, follow"/);
+    assert.match(res.body, /<link rel="canonical" href="https:\/\/vivahgo\.com\/vendor"/);
+    assert.match(res.body, /Manage your wedding vendor profile on VivahGo/);
   });
 
   it('renders guide html for a valid guide slug', async function () {

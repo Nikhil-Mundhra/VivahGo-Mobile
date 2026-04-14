@@ -50,13 +50,22 @@ describe('VivahGo/src/appRoutes.js', function () {
     assert.equal(mod.getRouteInfo('/home', { hostname: 'vivahgo.com' }).isMarketingHomeRoute, true);
 
     assert.equal(mod.getRouteInfo('/', { hostname: 'planner.vivahgo.com' }).bodyRoute, 'app');
+    assert.equal(mod.getRouteInfo('/', { hostname: 'planner.vivahgo.com' }).isPlannerRoute, true);
     assert.equal(mod.getRouteInfo('/', { hostname: 'planner.vivahgo.com' }).isMarketingHomeRoute, false);
+    assert.equal(mod.getRouteInfo('/dashboard', { hostname: 'planner.vivahgo.com' }).plannerTab, 'home');
+    assert.equal(mod.getRouteInfo('/events', { hostname: 'planner.vivahgo.com' }).plannerTab, 'events');
+    assert.equal(mod.getRouteInfo('/guests', { hostname: 'planner.vivahgo.com' }).plannerTab, 'guests');
+    assert.equal(mod.getRouteInfo('/guests', { hostname: 'planner.vivahgo.com' }).isPlannerRoute, true);
+    assert.equal(mod.getRouteInfo('/guests', { hostname: 'planner.vivahgo.com' }).publicWeddingSlug, '');
     assert.equal(mod.getRouteInfo('/home', { hostname: 'planner.vivahgo.com' }).bodyRoute, 'app');
     assert.equal(mod.getRouteInfo('/home', { hostname: 'planner.vivahgo.com' }).isMarketingHomeRoute, false);
 
     assert.equal(mod.getRouteInfo('/', { hostname: 'localhost' }).bodyRoute, 'home');
     assert.equal(mod.getRouteInfo('/', { hostname: 'localhost' }).isMarketingHomeRoute, true);
     assert.equal(mod.getRouteInfo('/planner', { hostname: 'localhost' }).bodyRoute, 'app');
+    assert.equal(mod.getRouteInfo('/planner', { hostname: 'localhost' }).isPlannerRoute, true);
+    assert.equal(mod.getRouteInfo('/planner/tasks', { hostname: 'localhost' }).plannerTab, 'tasks');
+    assert.equal(mod.getRouteInfo('/planner/tasks', { hostname: 'localhost' }).isPlannerRoute, true);
     assert.equal(mod.getRouteInfo('/planner', { hostname: 'localhost' }).publicWeddingSlug, '');
   });
 

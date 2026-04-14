@@ -42,7 +42,7 @@ import { getSubscriptionStatus } from "../marketing/api.js";
 import { DEFAULT_REMINDER_SETTINGS, DEFAULT_WEBSITE_SETTINGS, EMPTY_WEDDING, EXPECTED_GUEST_OPTIONS, buildWeddingWebsitePath, createBlankPlanner, createDemoPlanner, hasWeddingProfile, normalizePlanner, generatePlanId, createTemplatePlanCollections, normalizeCustomTemplates } from "../../plannerDefaults";
 import { useSwipeDown } from "../../shared/hooks/useSwipeDown.js";
 import { buildLoginAuthOptions } from "../../loginAuthOptions.js";
-import { getMarketingUrl } from "../../siteUrls.js";
+import { LOCAL_PLANNER_ROUTE, getMarketingUrl, isLocalHostname, isPlannerHostname } from "../../siteUrls.js";
 import { getBrowserNotificationSupport, removeBrowserPushToken, requestBrowserPushToken, subscribeToForegroundMessages } from "../../firebaseMessaging.js";
 import { ackMutation, createPlannerMutationJournal, enqueueMutation, failMutation, maybeRollback } from "./lib/plannerMutationManager.js";
 import { DEFAULT_FRAMEWORK_PROGRESS, normalizePlannerFrameworkProgress } from "./lib/plannerFramework.js";
@@ -58,6 +58,62 @@ const DEFAULT_NOTIFICATION_PREFERENCES = {
   eventReminders: true,
   paymentReminders: true,
 };
+const PLANNER_TAB_PATH_BY_ID = {
+  home: "dashboard",
+  events: "events",
+  budget: "budget",
+  guests: "guests",
+  vendors: "vendors",
+  tasks: "tasks",
+};
+const PLANNER_TAB_ID_BY_PATH = Object.fromEntries(
+  Object.entries(PLANNER_TAB_PATH_BY_ID).map(([tabId, path]) => [path, tabId])
+);
+
+function getPlannerTabFromLocation() {
+  if (typeof window === "undefined") {
+    return "home";
+  }
+
+  const requestedTab = new URLSearchParams(window.location.search).get("tab");
+  if (requestedTab && NAV_ITEMS.some((item) => item.id === requestedTab)) {
+    return requestedTab;
+  }
+
+  const hostname = window.location.hostname;
+  const pathname = window.location.pathname.replace(/\/+$/, "") || "/";
+  const plannerPath = isLocalHostname(hostname)
+    ? (pathname === LOCAL_PLANNER_ROUTE ? "" : pathname.replace(new RegExp(`^${LOCAL_PLANNER_ROUTE}/`), ""))
+    : pathname.replace(/^\/+/, "");
+  const normalizedPath = plannerPath || "dashboard";
+
+  return PLANNER_TAB_ID_BY_PATH[normalizedPath] || "home";
+}
+
+function getPlannerTabPath(tabId) {
+  return PLANNER_TAB_PATH_BY_ID[tabId] || PLANNER_TAB_PATH_BY_ID.home;
+}
+
+function buildPlannerTabPath(tabId) {
+  if (typeof window === "undefined") {
+    return `/${getPlannerTabPath(tabId)}`;
+  }
+
+  const tabPath = getPlannerTabPath(tabId);
+  return isLocalHostname(window.location.hostname)
+    ? `${LOCAL_PLANNER_ROUTE}/${tabPath}`
+    : `/${tabPath}`;
+}
+
+function isPlannerTabUrlSyncEnabled() {
+  if (typeof window === "undefined") {
+    return false;
+  }
+
+  const hostname = window.location.hostname;
+  const pathname = window.location.pathname.replace(/\/+$/, "") || "/";
+  return isPlannerHostname(hostname) || (isLocalHostname(hostname) && pathname.startsWith(LOCAL_PLANNER_ROUTE));
+}
 
 function parseDateStr(str) {
   const [day = "", month = "", year = ""] = (str || "").split(" ");
@@ -95,7 +151,7 @@ export default function PlannerShell() {
   const queryClient = useQueryClient();
   const marketingHomeUrl = getMarketingUrl("/");
   const [screen, setScreen] = useState("login");
-  const [tab, setTab] = useState("home");
+  const [tab, setTab] = useState(getPlannerTabFromLocation);
   const [vendorsView, setVendorsView] = useState(() => {
     if (typeof window === "undefined") {
       return "directory";
@@ -1135,16 +1191,37 @@ export default function PlannerShell() {
     getBrowserNotificationSupport()
       .then((support) => setNotificationSupport(support))
       .catch(() => setNotificationSupport({ supported: false, configured: false, permission: "default" }));
+  }, []);
 
+  useEffect(() => {
     if (typeof window === "undefined") {
+      return undefined;
+    }
+
+    const handlePopState = () => {
+      setTab(getPlannerTabFromLocation());
+    };
+
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, []);
+
+  useEffect(() => {
+    if (screen !== "app" || !isPlannerTabUrlSyncEnabled()) {
       return;
     }
 
-    const requestedTab = new URLSearchParams(window.location.search).get("tab");
-    if (requestedTab && NAV_ITEMS.some((item) => item.id === requestedTab)) {
-      setTab(requestedTab);
+    const nextPath = buildPlannerTabPath(tab);
+    const nextSearchParams = new URLSearchParams(window.location.search);
+    nextSearchParams.delete("tab");
+    const nextSearch = nextSearchParams.toString();
+    const nextUrl = `${nextPath}${nextSearch ? `?${nextSearch}` : ""}${window.location.hash || ""}`;
+    const currentUrl = `${window.location.pathname}${window.location.search}${window.location.hash || ""}`;
+
+    if (currentUrl !== nextUrl) {
+      window.history.pushState({}, "", nextUrl);
     }
-  }, []);
+  }, [screen, tab]);
 
   useEffect(() => {
     const scrollHost = contentAreaRef.current;

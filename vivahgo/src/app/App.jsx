@@ -31,6 +31,7 @@ const AdminPortalPage = lazy(() => import("../features/admin/pages/AdminPortalPa
 const ClerkSsoCallbackPage = lazy(() => import("../pages/ClerkSsoCallbackPage.jsx"));
 const QUERY_PAGE_BY_SLUG = Object.fromEntries(queryPages.map((page) => [page.slug, page]));
 const ROUTE_COMPONENTS = [
+  { when: (routeInfo) => routeInfo.isPlannerRoute, render: () => <PlannerPage /> },
   { when: (routeInfo) => routeInfo.isVendorRoute, render: () => <VendorPortalPage /> },
   { when: (routeInfo) => routeInfo.isAdminRoute, render: () => <AdminPortalPage /> },
   { when: (routeInfo) => routeInfo.isClerkSsoCallbackRoute, render: () => <ClerkSsoCallbackPage /> },
@@ -134,10 +135,9 @@ export default function App() {
             }
             : routeInfo.isVendorRoute
               ? {
-                title: "VivahGo | Vendor Portal",
-                description: "Manage your VivahGo vendor profile, portfolio, and approvals from one place.",
-                path: "/vendor",
-                noindex: true,
+                title: "VivahGo Vendor Login | Manage Your Wedding Vendor Profile",
+                description: "Log in to the VivahGo vendor portal to manage your wedding vendor profile, portfolio, availability, and approvals.",
+                canonicalUrl: getMarketingUrl("/vendor"),
               }
               : routeInfo.isAdminRoute
                 ? {

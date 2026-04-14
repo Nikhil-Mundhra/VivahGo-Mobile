@@ -139,6 +139,24 @@ describe("App route analytics", () => {
     });
     expect(setSentryRoute).toHaveBeenLastCalledWith("/vendor", { bodyRoute: "vendor" });
     expect(document.body.dataset.route).toBe("vendor");
+
+    await act(async () => {
+      currentRoutePath = "/planner/guests";
+      window.history.pushState({}, "", "/planner/guests");
+      routeListeners.forEach((listener) => listener());
+    });
+
+    await waitFor(() => {
+      expect(setPostHogRouteContext).toHaveBeenLastCalledWith("/planner/guests", { bodyRoute: "app" });
+    });
+    expect(setClarityRouteContext).toHaveBeenLastCalledWith("/planner/guests", { bodyRoute: "app" });
+    expect(capturePostHogEvent).toHaveBeenLastCalledWith("$pageview", {
+      route: "/planner/guests",
+      pathname: "/planner/guests",
+      body_route: "app",
+    });
+    expect(setSentryRoute).toHaveBeenLastCalledWith("/planner/guests", { bodyRoute: "app" });
+    expect(document.body.dataset.route).toBe("app");
   });
 
   it("shows the smoke panel from the app route and triggers both smoke actions", async () => {

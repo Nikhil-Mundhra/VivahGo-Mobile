@@ -42,6 +42,20 @@ function buildGuideDescription(guide) {
   return `${guide.summary} ${guide.seoDescription}`.trim();
 }
 
+function getImageMimeType(imageUrl = '') {
+  const pathname = String(imageUrl).split('?')[0].toLowerCase();
+  if (pathname.endsWith('.png')) {
+    return 'image/png';
+  }
+  if (pathname.endsWith('.webp')) {
+    return 'image/webp';
+  }
+  if (pathname.endsWith('.gif')) {
+    return 'image/gif';
+  }
+  return 'image/jpeg';
+}
+
 function loadPublicAssetMap() {
   if (!fs.existsSync(PUBLIC_ASSET_MAP_PATH)) {
     return {};
@@ -78,6 +92,8 @@ function buildGuidesFeed(guides, options = {}) {
     const imageUrl = guide.coverImage
       ? (publicAssetMap[guide.coverImage] || `${siteUrl}${guide.coverImage}`)
       : '';
+    const imageMimeType = getImageMimeType(imageUrl);
+    const imageAlt = guide.coverAlt || guide.title;
 
     return [
       '  <item>',
@@ -88,10 +104,16 @@ function buildGuidesFeed(guides, options = {}) {
       `    <pubDate>${escapeXml(pubDate)}</pubDate>`,
       `    <category>${escapeXml('Guides')}</category>`,
       `    <dc:creator>${escapeXml('VivahGo')}</dc:creator>`,
-      `    <content:encoded><![CDATA[<p>${escapeXml(guide.summary)}</p><p>${escapeXml(guide.seoDescription)}</p>${imageUrl ? `<p><img src="${escapeXml(imageUrl)}" alt="${escapeXml(guide.coverAlt || guide.title)}" /></p>` : ''}<p>Read the full guide at <a href="${escapeXml(guideUrl)}">${escapeXml(guideUrl)}</a>.</p>]]></content:encoded>`,
+      imageUrl ? `    <enclosure url="${escapeXml(imageUrl)}" type="${escapeXml(imageMimeType)}" length="0" />` : '',
+      imageUrl ? `    <media:content url="${escapeXml(imageUrl)}" medium="image" type="${escapeXml(imageMimeType)}">` : '',
+      imageUrl ? `      <media:title>${escapeXml(guide.title)}</media:title>` : '',
+      imageUrl ? `      <media:description>${escapeXml(imageAlt)}</media:description>` : '',
+      imageUrl ? `      <media:thumbnail url="${escapeXml(imageUrl)}" />` : '',
+      imageUrl ? '    </media:content>' : '',
+      `    <content:encoded><![CDATA[<p>${escapeXml(guide.summary)}</p><p>${escapeXml(guide.seoDescription)}</p>${imageUrl ? `<p><img src="${escapeXml(imageUrl)}" alt="${escapeXml(imageAlt)}" /></p>` : ''}<p>Read the full guide at <a href="${escapeXml(guideUrl)}">${escapeXml(guideUrl)}</a>.</p>]]></content:encoded>`,
       `    <dc:date>${escapeXml(updatedDate)}</dc:date>`,
       '  </item>',
-    ].join('\n');
+    ].filter(Boolean).join('\n');
   }).join('\n');
 
   return [
@@ -100,6 +122,7 @@ function buildGuidesFeed(guides, options = {}) {
     '  xmlns:atom="http://www.w3.org/2005/Atom"',
     '  xmlns:content="http://purl.org/rss/1.0/modules/content/"',
     '  xmlns:dc="http://purl.org/dc/elements/1.1/"',
+    '  xmlns:media="http://search.yahoo.com/mrss/"',
     '>',
     '  <channel>',
     `    <title>${escapeXml('VivahGo Guides')}</title>`,

@@ -22,10 +22,15 @@ describe('guides RSS feed', function () {
 
     assert.match(xml, /<title>VivahGo Guides<\/title>/);
     assert.match(xml, /<atom:link href="https:\/\/vivahgo\.com\/guides\/feed\.xml" rel="self" type="application\/rss\+xml" \/>/);
+    assert.match(xml, /xmlns:media="http:\/\/search\.yahoo\.com\/mrss\/"/);
 
     for (const guide of guides) {
+      const escapedImagePath = guide.coverImage.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
       assert.match(xml, new RegExp(`<link>https://vivahgo\\.com/guides/${guide.slug}</link>`));
       assert.match(xml, new RegExp(`<pubDate>${new Date(`${guide.publishedAt}T00:00:00.000Z`).toUTCString().replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}</pubDate>`));
+      assert.match(xml, new RegExp(`<enclosure url="https://[^"]+${escapedImagePath.split('/').pop()}" type="image/(png|jpeg)" length="0" />`));
+      assert.match(xml, new RegExp(`<media:content url="https://[^"]+${escapedImagePath.split('/').pop()}" medium="image" type="image/(png|jpeg)">`));
+      assert.match(xml, new RegExp(`<media:thumbnail url="https://[^"]+${escapedImagePath.split('/').pop()}" />`));
     }
   });
 });

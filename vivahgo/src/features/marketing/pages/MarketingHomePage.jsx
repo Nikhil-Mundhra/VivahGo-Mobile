@@ -175,6 +175,13 @@ const coverageTopics = [
 ];
 const MARKETING_HOME_URL = getMarketingUrl("/");
 const PLANNER_HOME_URL = getPlannerUrl("/");
+const siteNavigationLinks = [
+  { name: "Planner Login", url: PLANNER_HOME_URL },
+  { name: "Vendor Login", url: getMarketingUrl("/vendor") },
+  { name: "Wedding Guides", url: getMarketingUrl("/guides") },
+  { name: "Pricing", url: getMarketingUrl("/pricing") },
+  { name: "Careers", url: getMarketingUrl("/careers") },
+];
 
 function formatDisplayLabel(value = "") {
   return String(value)
@@ -252,6 +259,12 @@ const homeStructuredData = [
     description: "Wedding planner app for Indian weddings with shared checklists, budgets, guests, vendors, timelines, and event management.",
     inLanguage: "en-IN",
     keywords: structuredDataKeywords.join(", "),
+  },
+  {
+    "@context": "https://schema.org",
+    "@type": "SiteNavigationElement",
+    name: siteNavigationLinks.map((link) => link.name),
+    url: siteNavigationLinks.map((link) => link.url),
   },
   {
     "@context": "https://schema.org",
@@ -988,6 +1001,11 @@ export default function MarketingHomePage({ page = "home" }) {
             <p className="marketing-summary">
               Ditch the chaos, master your wedding plan from Roka to Vidaai.
             </p>
+            <nav className="marketing-sitelinks" aria-label="Popular VivahGo pages">
+              {siteNavigationLinks.map((link) => (
+                <a href={link.url} key={link.name}>{link.name}</a>
+              ))}
+            </nav>
 
             <div className="marketing-hero-actions">
               <a className="marketing-primary-action" href={PLANNER_HOME_URL}>

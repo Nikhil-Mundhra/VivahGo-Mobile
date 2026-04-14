@@ -12,6 +12,17 @@ export const QUERY_CAPTURE_PAGE_SLUGS = [
   "for-wedding-planners",
 ];
 
+export const PLANNER_TAB_PATHS = {
+  dashboard: "home",
+  events: "events",
+  budget: "budget",
+  guests: "guests",
+  vendors: "vendors",
+  tasks: "tasks",
+};
+
+export const PLANNER_TAB_IDS = Object.values(PLANNER_TAB_PATHS);
+
 export function normalizePathname(pathname = "/") {
   return pathname.replace(/\/+$/, "") || "/";
 }
@@ -21,6 +32,13 @@ export function getRouteInfo(pathname = "/", options = {}) {
   const normalizedHostname = normalizeHostname(options.hostname || "");
   const isRootMarketingHomeRoute = normalizedPathname === "/" && shouldRenderMarketingHomeAtRoot(normalizedHostname);
   const isLocalPlannerRoute = isLocalHostname(normalizedHostname) && normalizedPathname === "/planner";
+  const localPlannerTabMatch = isLocalHostname(normalizedHostname) ? normalizedPathname.match(/^\/planner\/([^/]+)$/) : null;
+  const plannerHostTabMatch = isPlannerHostname(normalizedHostname) ? normalizedPathname.match(/^\/([^/]+)$/) : null;
+  const plannerTabPath = decodeURIComponent((localPlannerTabMatch?.[1] || plannerHostTabMatch?.[1] || "")).toLowerCase();
+  const plannerTab = PLANNER_TAB_PATHS[plannerTabPath] || "";
+  const isPlannerRoute = isPlannerHostname(normalizedHostname)
+    ? normalizedPathname === "/" || Boolean(plannerTab)
+    : isLocalPlannerRoute || Boolean(plannerTab);
   const isMarketingHomeAliasRoute = normalizedPathname === "/home" && !isPlannerHostname(normalizedHostname);
   const isMarketingHomeRoute = isRootMarketingHomeRoute || isMarketingHomeAliasRoute;
   const isPricingRoute = normalizedPathname === "/pricing";
@@ -44,6 +62,7 @@ export function getRouteInfo(pathname = "/", options = {}) {
   const publicWeddingSlugMatch = normalizedPathname.match(/^\/([^/.][^/]*)$/);
   const publicWeddingSlug = publicWeddingSlugMatch
     && !queryPageSlug
+    && !isPlannerHostname(normalizedHostname)
     && !["home", "planner", "pricing", "terms", "privacy-policy", "data-deletion-instructions", "guides", "rsvp", "vendor", "wedding", "admin", "careers"].includes(publicWeddingSlugMatch[1].toLowerCase())
     ? decodeURIComponent(publicWeddingSlugMatch[1])
     : "";
@@ -63,6 +82,8 @@ export function getRouteInfo(pathname = "/", options = {}) {
     normalizedHostname,
     isRootMarketingHomeRoute,
     isLocalPlannerRoute,
+    isPlannerRoute,
+    plannerTab,
     isMarketingHomeRoute,
     isPricingRoute,
     isTermsRoute,

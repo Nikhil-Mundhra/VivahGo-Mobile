@@ -106,6 +106,13 @@ const HOME_SNAPSHOT_AUDIENCES = [
   'Families who need visibility into guests, budgets, events, and approvals without confusion.',
   'Wedding planners and studios managing multi-event Indian weddings with several vendors and stakeholders.',
 ];
+const HOME_SITELINK_TARGETS = [
+  { name: 'Planner Login', url: 'https://planner.vivahgo.com/' },
+  { name: 'Vendor Login', url: buildMarketingUrl('/vendor') },
+  { name: 'Wedding Guides', url: buildMarketingUrl('/guides') },
+  { name: 'Pricing', url: buildMarketingUrl('/pricing') },
+  { name: 'Careers', url: buildMarketingUrl('/careers') },
+];
 const PRICING_SNAPSHOT_PLANS = [
   {
     name: 'Starter',
@@ -525,6 +532,8 @@ function injectRootMarkupIntoHtml(html, rootMarkup = '') {
 }
 
 function buildHomeSnapshot() {
+  const sitelinkMarkup = HOME_SITELINK_TARGETS.map((link) => `
+              <a href="${escapeAttribute(link.url)}">${escapeHtml(link.name)}</a>`).join('');
   const capabilityMarkup = HOME_SNAPSHOT_CAPABILITY_BUCKETS.map((bucket) => `
             <article class="marketing-feature-card marketing-feature-card-left marketing-capability-bucket-card">
               <div class="marketing-capability-bucket-head">
@@ -568,6 +577,8 @@ function buildHomeSnapshot() {
             <p class="marketing-kicker">Wedding planner app for Indian weddings</p>
             <h1>One platform. Every wedding. Total control.</h1>
             <p class="marketing-summary">Ditch the chaos, master your wedding plan from Roka to Vidaai.</p>
+            <nav class="marketing-sitelinks" aria-label="Popular VivahGo pages">${sitelinkMarkup}
+            </nav>
             ${renderSnapshotActions([
               { href: 'https://planner.vivahgo.com/', label: 'Start Planning Free', className: 'marketing-primary-action' },
               { href: '/pricing', label: 'See Pricing', className: 'marketing-secondary-action marketing-secondary-action-gold' },
@@ -1249,6 +1260,25 @@ function buildCareersSnapshot() {
     </div>`;
 }
 
+function buildVendorSnapshot() {
+  return `
+    <div class="marketing-home-shell" data-seo-snapshot="vendor">
+      <main class="marketing-main">
+        <section class="marketing-section marketing-pricing-page-intro">
+          <div class="marketing-section-heading">
+            <p class="marketing-section-kicker">VivahGo Vendor Login</p>
+            <h1>Manage your wedding vendor profile on VivahGo.</h1>
+            <p>Log in to update your portfolio, availability, verification documents, pricing, and wedding service details.</p>
+          </div>
+          ${renderSnapshotActions([
+            { href: '/vendor', label: 'Open Vendor Login', className: 'marketing-primary-action' },
+            { href: '/', label: 'Explore VivahGo', className: 'marketing-secondary-action' },
+          ])}
+        </section>
+      </main>
+    </div>`;
+}
+
 function buildRouteSnapshot(routeData) {
   const route = routeData?.route || '';
   if (route === 'pricing') {
@@ -1269,6 +1299,10 @@ function buildRouteSnapshot(routeData) {
 
   if (route === 'careers') {
     return buildCareersSnapshot();
+  }
+
+  if (route === 'vendor') {
+    return buildVendorSnapshot();
   }
 
   if (!route || route === 'home') {
@@ -1412,6 +1446,23 @@ function buildMarketingMetadata(req, page) {
     };
   }
 
+  if (page === 'vendor') {
+    return {
+      title: 'VivahGo Vendor Login | Manage Your Wedding Vendor Profile',
+      description: 'Log in to the VivahGo vendor portal to manage your wedding vendor profile, portfolio, availability, verification documents, and approvals.',
+      canonicalUrl: buildMarketingUrl('/vendor'),
+      robots: 'index, follow',
+      structuredData: {
+        '@context': 'https://schema.org',
+        '@type': 'WebPage',
+        name: 'VivahGo Vendor Login',
+        url: buildMarketingUrl('/vendor'),
+        description: 'Vendor portal login for wedding vendors managing their VivahGo profile, portfolio, availability, and verification.',
+        keywords: STRUCTURED_DATA_KEYWORDS,
+      },
+    };
+  }
+
   if (page === 'guides') {
     return {
       title: 'VivahGo Guides | Indian Wedding Planning Resources',
@@ -1490,6 +1541,12 @@ function buildMarketingMetadata(req, page) {
         description: 'Wedding planner app for Indian weddings with shared checklists, budgets, guests, vendors, timelines, and event management.',
         inLanguage: 'en-IN',
         keywords: STRUCTURED_DATA_KEYWORDS,
+      },
+      {
+        '@context': 'https://schema.org',
+        '@type': 'SiteNavigationElement',
+        name: HOME_SITELINK_TARGETS.map((link) => link.name),
+        url: HOME_SITELINK_TARGETS.map((link) => link.url),
       },
       {
         '@context': 'https://schema.org',

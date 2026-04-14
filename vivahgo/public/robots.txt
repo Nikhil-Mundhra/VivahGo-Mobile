@@ -1,7 +1,6 @@
 User-agent: *
 Allow: /
 Disallow: /admin
-Disallow: /vendor
 Disallow: /rsvp/
 
 Sitemap: https://vivahgo.com/sitemap.xml
