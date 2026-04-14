@@ -10,6 +10,7 @@ import {
 let browserSentryInitialized = false;
 let navigationInstrumentationInstalled = false;
 let lastNavigationPath = "";
+const mirroredPostHogSentryEventIds = new Set();
 
 function getRuntimeEnv() {
   if (typeof import.meta !== "undefined" && import.meta && import.meta.env) {
@@ -43,6 +44,70 @@ function buildSentrySearchUrl(eventId, env = getRuntimeEnv()) {
   }
 
   return `${projectUrl}/issues/?query=${encodeURIComponent(eventId)}`;
+}
+
+function getEventExceptionValue(event) {
+  const values = Array.isArray(event?.exception?.values) ? event.exception.values : [];
+  return values.length > 0 ? values[values.length - 1] : null;
+}
+
+function getErrorName(error, event) {
+  if (typeof error?.name === "string" && error.name) {
+    return error.name;
+  }
+
+  const exceptionValue = getEventExceptionValue(event);
+  return typeof exceptionValue?.type === "string" && exceptionValue.type
+    ? exceptionValue.type
+    : "Error";
+}
+
+function getErrorMessage(error, event) {
+  if (typeof error?.message === "string" && error.message) {
+    return error.message;
+  }
+
+  const exceptionValue = getEventExceptionValue(event);
+  if (typeof exceptionValue?.value === "string" && exceptionValue.value) {
+    return exceptionValue.value;
+  }
+
+  if (typeof event?.message === "string" && event.message) {
+    return event.message;
+  }
+
+  return "Unknown error";
+}
+
+function getOriginalException(hint = {}) {
+  return hint.originalException instanceof Error ? hint.originalException : null;
+}
+
+function mirrorSentryEventToPostHog(eventId, error, event = {}) {
+  if (!eventId || mirroredPostHogSentryEventIds.has(eventId)) {
+    return;
+  }
+
+  mirroredPostHogSentryEventIds.add(eventId);
+
+  const observabilityContext = getObservabilityContext();
+  const sentrySearchUrl = buildSentrySearchUrl(eventId);
+  setObservabilityLastSentryEventId(eventId);
+  setPostHogPersonProperties({
+    ...getObservabilityPersonProperties(),
+    last_sentry_error_url: sentrySearchUrl || undefined,
+  });
+  capturePostHogEvent("exception_occurred", {
+    sentry_event_id: eventId,
+    sentry_url: sentrySearchUrl || undefined,
+    error_name: getErrorName(error, event),
+    error_message: getErrorMessage(error, event),
+    route: observabilityContext.route || event?.tags?.route || undefined,
+    posthog_distinct_id: observabilityContext.posthogDistinctId || undefined,
+    axiom_trace_id: observabilityContext.axiomTraceId || undefined,
+    clarity_link: observabilityContext.clarityReplayUrl || undefined,
+    sentry_mechanism: getEventExceptionValue(event)?.mechanism?.type || undefined,
+  });
 }
 
 function getCurrentRoutePath(win = typeof window !== "undefined" ? window : undefined) {
@@ -141,6 +206,10 @@ export function initSentry(options = {}) {
       }),
     ],
     tracesSampleRate: resolveTraceSampleRate(env),
+    beforeSend(event, hint) {
+      mirrorSentryEventToPostHog(event?.event_id || "", getOriginalException(hint), event);
+      return event;
+    },
   });
 
   installNavigationInstrumentation();
@@ -255,27 +324,7 @@ export function captureException(error, context = {}) {
     scope.setContext("observability", observabilityContext);
 
     const eventId = Sentry.captureException(error);
-    if (!eventId) {
-      return eventId;
-    }
-
-    const sentrySearchUrl = buildSentrySearchUrl(eventId);
-    setObservabilityLastSentryEventId(eventId);
-    setPostHogPersonProperties({
-      ...getObservabilityPersonProperties(),
-      last_sentry_error_url: sentrySearchUrl || undefined,
-    });
-    capturePostHogEvent("exception_occurred", {
-      sentry_event_id: eventId,
-      sentry_url: sentrySearchUrl || undefined,
-      error_name: typeof error?.name === "string" ? error.name : "Error",
-      error_message: typeof error?.message === "string" ? error.message : "Unknown error",
-      route: observabilityContext.route || undefined,
-      posthog_distinct_id: observabilityContext.posthogDistinctId || undefined,
-      axiom_trace_id: observabilityContext.axiomTraceId || undefined,
-      clarity_link: observabilityContext.clarityReplayUrl || undefined,
-    });
-
+    mirrorSentryEventToPostHog(eventId, error);
     return eventId;
   });
 }

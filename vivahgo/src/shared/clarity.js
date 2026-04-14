@@ -236,6 +236,7 @@ function syncClarityContext(win = typeof window !== "undefined" ? window : undef
   setClarityTag("body_route", routeContext.bodyRoute, win);
   setClarityTag("clarity_custom_session_id", sessionId, win);
   setClarityTag("clarity_custom_page_id", pageId, win);
+  syncClarityIdsToPostHog(null, sessionId, pageId);
 
   if (!isAuthenticatedSession(session) || !session.user) {
     setClarityTag("auth_mode", session?.mode || "anonymous", win);
@@ -259,8 +260,6 @@ function syncClarityContext(win = typeof window !== "undefined" ? window : undef
     pageId,
     getFriendlyName(session.user)
   );
-
-  syncClarityIdsToPostHog(null, sessionId, pageId);
 
   if (identifyResult && typeof identifyResult.then === "function") {
     identifyResult

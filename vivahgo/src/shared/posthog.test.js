@@ -142,4 +142,39 @@ describe("shared posthog helper", () => {
     });
     expect(sentryMock.setTag).toHaveBeenCalledWith("posthog_id", "ph_anon_2");
   });
+
+  it("adds current observability links to captured events", async () => {
+    vi.stubEnv("VITE_POSTHOG_KEY", "phc_test_key");
+    vi.stubEnv("VITE_POSTHOG_HOST", "https://us.i.posthog.com");
+    const { capturePostHogEvent, initPostHog } = await loadModule();
+    const { setObservabilityClarityContext, setObservabilityLastSentryEventId } = await import("./observability.js");
+
+    initPostHog();
+    setObservabilityClarityContext({
+      projectId: "clarity_project_123",
+      sessionId: "clarity_session_123",
+      pageId: "app:/planner",
+      userIdHash: "clarity_user_hash",
+      replayUrl: "https://clarity.microsoft.com/projects/clarity_project_123/sessions/clarity_session_123",
+    });
+    setObservabilityLastSentryEventId("event_123");
+
+    capturePostHogEvent("planner_action", {
+      route: "/planner",
+    });
+
+    expect(posthogMock.capture).toHaveBeenCalledWith(
+      "planner_action",
+      expect.objectContaining({
+        route: "/planner",
+        axiom_trace_id: expect.stringMatching(/^axiom_/),
+        ms_clarity_project_id: "clarity_project_123",
+        ms_clarity_custom_session_id: "clarity_session_123",
+        ms_clarity_custom_page_id: "app:/planner",
+        ms_clarity_user_id_hash: "clarity_user_hash",
+        ms_clarity_link: "https://clarity.microsoft.com/projects/clarity_project_123/sessions/clarity_session_123",
+        last_sentry_error: "event_123",
+      })
+    );
+  });
 });
