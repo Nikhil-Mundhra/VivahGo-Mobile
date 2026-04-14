@@ -138,7 +138,8 @@ describe('api/page.js', function () {
       },
     });
 
-    assert.match(homeSnapshot, /The wedding planner app that keeps your entire wedding in one place/);
+    assert.match(homeSnapshot, /One platform\. Every wedding\. Total control/);
+    assert.match(homeSnapshot, /Ditch the chaos, master your wedding plan from Roka to Vidaai/);
     assert.match(homeSnapshot, /wedding checklist app/i);
     assert.match(guideSnapshot, /Indian Wedding Budget Planning Guide/);
     assert.match(guideSnapshot, /Watch pending balances/);
@@ -216,7 +217,8 @@ describe('api/page.js', function () {
 
     assert.equal(res.statusCode, 200);
     assert.match(res.body, /Wedding Planner App for Indian Weddings/);
-    assert.match(res.body, /The wedding planner app that keeps your entire wedding in one place/);
+    assert.match(res.body, /One platform\. Every wedding\. Total control/);
+    assert.match(res.body, /Ditch the chaos, master your wedding plan from Roka to Vidaai/);
     assert.match(res.body, /wedding checklist app/i);
     assert.match(res.body, /https:\/\/vivahgo\.com\/guides\/indian-wedding-checklist/);
   });

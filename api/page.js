@@ -566,9 +566,8 @@ function buildHomeSnapshot() {
         <section class="marketing-hero">
           <div class="marketing-hero-copy">
             <p class="marketing-kicker">Wedding planner app for Indian weddings</p>
-            <h1>The wedding planner app that keeps your entire wedding in one place.</h1>
-            <p class="marketing-summary">VivahGo helps couples, families, and planners manage guests, budgets, vendors, RSVPs, timelines, and family coordination together in a single shared workspace.</p>
-            <p class="marketing-summary">Use it as your wedding checklist app, budget planner, guest list manager, RSVP tracker, and vendor coordination system across every ceremony.</p>
+            <h1>One platform. Every wedding. Total control.</h1>
+            <p class="marketing-summary">Ditch the chaos, master your wedding plan from Roka to Vidaai.</p>
             ${renderSnapshotActions([
               { href: 'https://planner.vivahgo.com/', label: 'Start Planning Free', className: 'marketing-primary-action' },
               { href: '/pricing', label: 'See Pricing', className: 'marketing-secondary-action marketing-secondary-action-gold' },

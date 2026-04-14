@@ -164,7 +164,7 @@ const faqs = [
 
 const socialLinks = [
   { name: "Instagram", href: "https://www.instagram.com/vivah.go/", label: "Follow VivahGo on Instagram" },
-  { name: "YouTube", href: "https://www.youtube.com/", label: "Watch VivahGo on YouTube" },
+  { name: "YouTube", href: "https://www.youtube.com/@VivahGo", label: "Watch VivahGo on YouTube" },
   { name: "LinkedIn", href: "https://www.linkedin.com/company/vivahgo/", label: "Connect with VivahGo on LinkedIn" },
 ];
 
@@ -984,12 +984,9 @@ export default function MarketingHomePage({ page = "home" }) {
               <div className="marketing-hero-visual-badge marketing-hero-visual-badge-left">Before: scattered planning</div>
               <div className="marketing-hero-visual-badge marketing-hero-visual-badge-right">After: one shared workspace</div>
             </figure>
-            <h1>The wedding planner app that keeps your entire wedding in one place.</h1>
+            <h1>One platform. Every wedding. Total control.</h1>
             <p className="marketing-summary">
-              VivahGo helps couples, families, and planners manage guests, budgets, vendors, RSVPs, timelines, and family coordination together in a single shared workspace.
-            </p>
-            <p className="marketing-summary">
-              Use it as your wedding checklist app, budget planner, guest list manager, RSVP tracker, and vendor coordination system across every ceremony.
+              Ditch the chaos, master your wedding plan from Roka to Vidaai.
             </p>
 
             <div className="marketing-hero-actions">
