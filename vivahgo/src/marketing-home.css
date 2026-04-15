@@ -466,35 +466,6 @@ body[data-route='home'] #root {
   line-height: 1.6;
 }
 
-.marketing-sitelinks {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 10px;
-  margin-top: 20px;
-}
-
-.marketing-sitelinks a {
-  display: inline-flex;
-  align-items: center;
-  min-height: 38px;
-  padding: 0 14px;
-  border: 1px solid rgba(87, 50, 38, 0.14);
-  border-radius: 8px;
-  color: var(--marketing-text);
-  background: rgba(255, 255, 255, 0.62);
-  font-size: 0.94rem;
-  font-weight: 700;
-  text-decoration: none;
-}
-
-.marketing-sitelinks a:hover,
-.marketing-sitelinks a:focus-visible {
-  border-color: rgba(122, 27, 27, 0.34);
-  color: var(--marketing-primary);
-  background: rgba(255, 255, 255, 0.9);
-}
-
 .marketing-primary-action,
 .marketing-secondary-action,
 .marketing-price-action {

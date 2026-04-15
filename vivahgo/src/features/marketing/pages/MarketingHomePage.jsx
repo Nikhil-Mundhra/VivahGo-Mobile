@@ -1001,11 +1001,6 @@ export default function MarketingHomePage({ page = "home" }) {
             <p className="marketing-summary">
               Ditch the chaos, master your wedding plan from Roka to Vidaai.
             </p>
-            <nav className="marketing-sitelinks" aria-label="Popular VivahGo pages">
-              {siteNavigationLinks.map((link) => (
-                <a href={link.url} key={link.name}>{link.name}</a>
-              ))}
-            </nav>
 
             <div className="marketing-hero-actions">
               <a className="marketing-primary-action" href={PLANNER_HOME_URL}>

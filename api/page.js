@@ -532,8 +532,6 @@ function injectRootMarkupIntoHtml(html, rootMarkup = '') {
 }
 
 function buildHomeSnapshot() {
-  const sitelinkMarkup = HOME_SITELINK_TARGETS.map((link) => `
-              <a href="${escapeAttribute(link.url)}">${escapeHtml(link.name)}</a>`).join('');
   const capabilityMarkup = HOME_SNAPSHOT_CAPABILITY_BUCKETS.map((bucket) => `
             <article class="marketing-feature-card marketing-feature-card-left marketing-capability-bucket-card">
               <div class="marketing-capability-bucket-head">
@@ -577,8 +575,6 @@ function buildHomeSnapshot() {
             <p class="marketing-kicker">Wedding planner app for Indian weddings</p>
             <h1>One platform. Every wedding. Total control.</h1>
             <p class="marketing-summary">Ditch the chaos, master your wedding plan from Roka to Vidaai.</p>
-            <nav class="marketing-sitelinks" aria-label="Popular VivahGo pages">${sitelinkMarkup}
-            </nav>
             ${renderSnapshotActions([
               { href: 'https://planner.vivahgo.com/', label: 'Start Planning Free', className: 'marketing-primary-action' },
               { href: '/pricing', label: 'See Pricing', className: 'marketing-secondary-action marketing-secondary-action-gold' },

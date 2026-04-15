@@ -140,8 +140,6 @@ describe('api/page.js', function () {
 
     assert.match(homeSnapshot, /One platform\. Every wedding\. Total control/);
     assert.match(homeSnapshot, /Ditch the chaos, master your wedding plan from Roka to Vidaai/);
-    assert.match(homeSnapshot, /Planner Login/);
-    assert.match(homeSnapshot, /Vendor Login/);
     assert.match(homeSnapshot, /wedding checklist app/i);
     assert.match(guideSnapshot, /Indian Wedding Budget Planning Guide/);
     assert.match(guideSnapshot, /Watch pending balances/);
