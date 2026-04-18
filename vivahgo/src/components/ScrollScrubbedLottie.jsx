@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import lottie from "lottie-web";
+import lottie from "lottie-web/build/player/lottie_light";
 import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { Suspense, lazy, useEffect, useState } from "react";
 import "../../../styles.css";
 import "../../../marketing-home.css";
 import FeedbackModal from "../../../components/FeedbackModal";
@@ -6,7 +6,6 @@ import LegalFooter from "../../../components/LegalFooter";
 import MarketingSiteHeader from "../../../components/MarketingSiteHeader.jsx";
 import GoogleLoginButton from "../../../components/GoogleLoginButton";
 import LoadingBar from "../../../components/LoadingBar";
-import ScrollScrubbedLottie from "../../../components/ScrollScrubbedLottie.jsx";
 import SubscriptionCheckoutSheet from "../../../components/SubscriptionCheckoutSheet";
 import SubscriptionCheckoutPage from "../../../components/SubscriptionCheckoutPage";
 import { persistAuthSession, readAuthSession } from "../../../authStorage";
@@ -16,6 +15,8 @@ import { DEFAULT_SITE_URL, usePageSeo } from "../../../seo.js";
 import { getMarketingUrl, getPlannerUrl } from "../../../siteUrls.js";
 import { resolvePublicAssetUrl } from "../../../publicAssetUrls.js";
 import seoKeywordLibrary from "../../../generated/seo-keywords.json";
+
+const ScrollScrubbedLottie = lazy(() => import("../../../components/ScrollScrubbedLottie.jsx"));
 
 const trustSignals = [
   "Used by early couples and planners across India",
@@ -1113,12 +1114,24 @@ export default function MarketingHomePage({ page = "home" }) {
 
           {!isMobileProductTour ? (
             <div className="marketing-product-tour-desktop">
-              <ScrollScrubbedLottie
-                animationPath="/animations/homepage-product-tour.json?v=20260412-3"
-                endFrame={560}
-                scrubEasingPower={1}
-                ariaLabel="Animated product tour of VivahGo planning views including dashboard, events, vendors, tasks, budget, and guests."
-              />
+              <Suspense
+                fallback={(
+                  <div className="marketing-product-tour-scroll" aria-hidden="true">
+                    <div className="marketing-product-tour-sticky">
+                      <div className="marketing-product-tour-frame">
+                        <div className="marketing-product-tour-animation" />
+                      </div>
+                    </div>
+                  </div>
+                )}
+              >
+                <ScrollScrubbedLottie
+                  animationPath="/animations/homepage-product-tour.json?v=20260412-3"
+                  endFrame={560}
+                  scrubEasingPower={1}
+                  ariaLabel="Animated product tour of VivahGo planning views including dashboard, events, vendors, tasks, budget, and guests."
+                />
+              </Suspense>
             </div>
           ) : (
             <div className="marketing-product-tour-mobile" aria-label="VivahGo product screenshot carousel">
