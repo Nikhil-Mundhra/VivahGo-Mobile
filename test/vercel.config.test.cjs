@@ -15,4 +15,17 @@ describe('vercel.json', function () {
     assert.equal(rewritesBySource.get('/api/auth/logout'), '/api/auth?route=logout');
     assert.equal(rewritesBySource.get('/api/auth/me'), '/api/auth?route=me');
   });
+
+  it('serves planner root through the SEO page handler and leaves preview assets static', function () {
+    const config = JSON.parse(readText('vercel.json'));
+    const plannerRootRewrite = config.rewrites.find((rewrite) => (
+      rewrite.source === '/' &&
+      rewrite.has?.some((condition) => condition.type === 'host' && condition.value === 'planner.vivahgo.com')
+    ));
+    const dynamicWebsiteRewrite = config.rewrites.find((rewrite) => rewrite.destination === '/api/page?route=website&slug=:slug');
+
+    assert.equal(plannerRootRewrite.destination, '/api/page?route=planner');
+    assert.match(dynamicWebsiteRewrite.source, /social-preview\\\.png/);
+    assert.match(dynamicWebsiteRewrite.source, /planner-social-preview\\\.png/);
+  });
 });

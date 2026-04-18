@@ -5,6 +5,7 @@ const queryPages = require('../vivahgo/src/shared/content/query-pages.json');
 const {
   buildGuideMetadata,
   buildMarketingMetadata,
+  buildPlannerMetadata,
   buildQueryPageMetadata,
   buildRsvpMetadata,
   buildRouteSnapshot,
@@ -12,6 +13,7 @@ const {
   createPageHandler,
   injectMetadataIntoHtml,
   injectRootMarkupIntoHtml,
+  resolveConfiguredSocialPreview,
 } = require('../api/page');
 
 function escapeRegex(value) {
@@ -34,6 +36,11 @@ describe('api/page.js', function () {
     assert.match(html, /Asha &amp; Rohan \| Wedding Website/);
     assert.match(html, /meta name="robots" content="noindex, nofollow"/);
     assert.match(html, /meta property="og:url" content="https:\/\/vivahgo\.com\/asha-rohan-1"/);
+    assert.match(html, /meta property="og:image" content="https:\/\/vivahgo\.com\/social-preview\.png"/);
+    assert.match(html, /meta property="og:image:secure_url" content="https:\/\/vivahgo\.com\/social-preview\.png"/);
+    assert.match(html, /meta property="og:image:type" content="image\/png"/);
+    assert.match(html, /meta property="og:image:width" content="2176"/);
+    assert.match(html, /meta property="og:image:height" content="1588"/);
     assert.doesNotMatch(html, /<title>Old<\/title>/);
   });
 
@@ -56,6 +63,42 @@ describe('api/page.js', function () {
     assert.equal(buildMarketingMetadata(req, 'careers').canonicalUrl, 'https://vivahgo.com/careers');
     assert.equal(buildMarketingMetadata(plannerReq, 'home').canonicalUrl, 'https://vivahgo.com/');
     assert.equal(buildMarketingMetadata(plannerReq, 'pricing').canonicalUrl, 'https://vivahgo.com/pricing');
+  });
+
+  it('builds planner metadata with the planner social preview image', function () {
+    const plannerMeta = buildPlannerMetadata();
+
+    assert.equal(plannerMeta.canonicalUrl, 'https://planner.vivahgo.com/');
+    assert.equal(plannerMeta.previewKey, 'planner');
+    assert.equal(plannerMeta.robots, 'noindex, nofollow');
+  });
+
+  it('resolves social preview images from host and explicit preview keys', function () {
+    assert.deepEqual(resolveConfiguredSocialPreview({
+      hostname: 'vivahgo.com',
+      pathname: '/pricing',
+    }), {
+      key: 'marketing',
+      path: '/social-preview.png',
+      type: 'image/png',
+      width: '2176',
+      height: '1588',
+      alt: 'VivahGo wedding planner app homepage preview',
+    });
+
+    assert.deepEqual(resolveConfiguredSocialPreview({
+      hostname: 'planner.vivahgo.com',
+      pathname: '/',
+    }), {
+      key: 'planner',
+      path: '/planner-social-preview.png',
+      type: 'image/png',
+      width: '2000',
+      height: '2000',
+      alt: 'VivahGo wedding planning preview',
+    });
+
+    assert.equal(resolveConfiguredSocialPreview({ previewKey: 'planner' }).path, '/planner-social-preview.png');
   });
 
   it('builds guide metadata for a valid guide slug and noindexes missing guides', function () {
@@ -224,6 +267,29 @@ describe('api/page.js', function () {
     assert.match(res.body, /Vendor Login/);
     assert.match(res.body, /wedding checklist app/i);
     assert.match(res.body, /https:\/\/vivahgo\.com\/guides\/indian-wedding-checklist/);
+  });
+
+  it('renders planner html with the planner preview image through the page handler', async function () {
+    const handler = createPageHandler({
+      loadHtmlTemplate: async () => '<!doctype html><html><head><script type="module" src="/assets/app.js"></script></head><body><div id="root"></div></body></html>',
+      plannerHandlers: {},
+    });
+    const req = {
+      method: 'GET',
+      headers: { host: 'planner.vivahgo.com', 'x-forwarded-proto': 'https' },
+      query: { route: 'planner' },
+    };
+    const res = createRes();
+
+    await handler(req, res);
+
+    assert.equal(res.statusCode, 200);
+    assert.match(res.body, /VivahGo Planner \| Shared Wedding Workspace/);
+    assert.match(res.body, /<link rel="canonical" href="https:\/\/planner\.vivahgo\.com\/"/);
+    assert.match(res.body, /meta property="og:image" content="https:\/\/planner\.vivahgo\.com\/planner-social-preview\.png"/);
+    assert.match(res.body, /meta name="twitter:image" content="https:\/\/planner\.vivahgo\.com\/planner-social-preview\.png"/);
+    assert.match(res.body, /meta property="og:image:width" content="2000"/);
+    assert.match(res.body, /meta property="og:image:height" content="2000"/);
   });
 
   it('renders crawlable vendor login html through the page handler', async function () {

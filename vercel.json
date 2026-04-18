@@ -50,7 +50,7 @@
       "has": [
         { "type": "host", "value": "planner.vivahgo.com" }
       ],
-      "destination": "/index.html"
+      "destination": "/api/page?route=planner"
     },
     { "source": "/", "destination": "/api/page?route=home" },
     { "source": "/home", "destination": "/api/page?route=home" },
@@ -70,7 +70,7 @@
     { "source": "/vendor", "destination": "/api/page?route=vendor" },
     { "source": "/wedding", "destination": "/api/page?route=wedding" },
     { "source": "/rsvp/:token", "destination": "/api/page?route=rsvp&token=:token" },
-    { "source": "/:slug((?!api|home|pricing|guides|wedding|vendor|admin|careers|rsvp|robots\\.txt|sitemap\\.xml|logo\\.svg|icons\\.svg|Thumbnail\\.png).+)", "destination": "/api/page?route=website&slug=:slug" },
+    { "source": "/:slug((?!api|home|pricing|guides|wedding|vendor|admin|careers|rsvp|robots\\.txt|sitemap\\.xml|logo\\.svg|icons\\.svg|Thumbnail\\.png|social-preview\\.png|planner-social-preview\\.png).+)", "destination": "/api/page?route=website&slug=:slug" },
     { "source": "/((?!api/).*)", "destination": "/index.html" }
   ]
 }

@@ -164,6 +164,7 @@ export default function App() {
                     title: "VivahGo Planner | Shared Wedding Workspace",
                     description: "Manage your wedding checklist, guests, budget, events, and vendors from one workspace.",
                     canonicalUrl: getPlannerUrl("/"),
+                    previewKey: "planner",
                     noindex: true,
                   };
 
