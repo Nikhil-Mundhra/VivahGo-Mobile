@@ -85,11 +85,11 @@ describe('VivahGo/src/seo.js', function () {
     );
     assert.equal(
       dom.window.document.querySelector('meta[property="og:image:width"]').getAttribute('content'),
-      '2176'
+      '640'
     );
     assert.equal(
       dom.window.document.querySelector('meta[property="og:image:height"]').getAttribute('content'),
-      '1588'
+      '467'
     );
     assert.equal(
       dom.window.document.querySelector('link[rel="canonical"]').getAttribute('href'),

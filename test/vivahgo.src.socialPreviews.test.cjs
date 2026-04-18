@@ -16,11 +16,11 @@ describe('VivahGo/src/socialPreviews.js', function () {
     );
     assert.equal(
       mod.resolveSocialPreview({ hostname: 'planner.vivahgo.com', pathname: '/' }).path,
-      '/planner-social-preview.png'
+      '/planner-social-preview.jpeg'
     );
     assert.equal(
       mod.resolveSocialPreview({ previewKey: 'planner', hostname: 'localhost', pathname: '/planner' }).path,
-      '/planner-social-preview.png'
+      '/planner-social-preview.jpeg'
     );
   });
 });

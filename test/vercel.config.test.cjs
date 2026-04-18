@@ -26,6 +26,6 @@ describe('vercel.json', function () {
 
     assert.equal(plannerRootRewrite.destination, '/api/page?route=planner');
     assert.match(dynamicWebsiteRewrite.source, /social-preview\\\.png/);
-    assert.match(dynamicWebsiteRewrite.source, /planner-social-preview\\\.png/);
+    assert.match(dynamicWebsiteRewrite.source, /planner-social-preview\\\.jpeg/);
   });
 });

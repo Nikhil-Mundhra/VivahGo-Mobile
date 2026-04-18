@@ -4,15 +4,15 @@
     "marketing": {
       "path": "/social-preview.png",
       "type": "image/png",
-      "width": "2176",
-      "height": "1588",
+      "width": "640",
+      "height": "467",
       "alt": "VivahGo wedding planner app homepage preview"
     },
     "planner": {
-      "path": "/planner-social-preview.png",
-      "type": "image/png",
-      "width": "2000",
-      "height": "2000",
+      "path": "/planner-social-preview.jpeg",
+      "type": "image/jpeg",
+      "width": "640",
+      "height": "640",
       "alt": "VivahGo wedding planning preview"
     }
   },
