@@ -1,8 +1,18 @@
 import { useEffect, useMemo } from "react";
+import { getSocialPreview, resolveSocialPreview } from "./socialPreviews.js";
 import { MARKETING_SITE_URL } from "./siteUrls.js";
 
+const defaultSocialPreview = getSocialPreview();
+const plannerSocialPreview = getSocialPreview("planner");
+
 export const DEFAULT_SITE_URL = MARKETING_SITE_URL;
-export const DEFAULT_SEO_IMAGE_PATH = "/social-preview.jpg";
+export const DEFAULT_SEO_IMAGE_PATH = defaultSocialPreview.path;
+export const DEFAULT_SEO_IMAGE_TYPE = defaultSocialPreview.type;
+export const DEFAULT_SEO_IMAGE_WIDTH = defaultSocialPreview.width;
+export const DEFAULT_SEO_IMAGE_HEIGHT = defaultSocialPreview.height;
+export const PLANNER_SEO_IMAGE_PATH = plannerSocialPreview.path;
+export const PLANNER_SEO_IMAGE_WIDTH = plannerSocialPreview.width;
+export const PLANNER_SEO_IMAGE_HEIGHT = plannerSocialPreview.height;
 const LOCAL_HOST_PATTERN = /^(localhost|127(?:\.\d{1,3}){3})$/;
 
 function getRuntimeEnv() {
@@ -156,11 +166,19 @@ export function applySeoMetadata(config = {}, options = {}) {
     config.description || "VivahGo helps couples manage tasks, budgets, events, guests, and vendors in one place."
   ).trim();
   const type = String(config.type || "website").trim();
-  const imagePath = config.image || DEFAULT_SEO_IMAGE_PATH;
+  const preview = resolveSocialPreview({
+    previewKey: config.previewKey,
+    hostname: win?.location?.hostname,
+    pathname: config.path || win?.location?.pathname || "/",
+  });
+  const imagePath = config.image || preview.path;
+  const imageType = String(config.imageType || preview.type).trim();
+  const imageWidth = String(config.imageWidth || preview.width).trim();
+  const imageHeight = String(config.imageHeight || preview.height).trim();
   const imageUrl = buildAbsoluteUrl(imagePath, { siteUrl });
   const canonicalUrl = buildAbsoluteUrl(config.canonicalUrl || config.path || "/", { siteUrl });
   const robots = config.noindex ? "noindex, nofollow" : "index, follow";
-  const imageAlt = String(config.imageAlt || "VivahGo wedding planning preview").trim();
+  const imageAlt = String(config.imageAlt || preview.alt).trim();
   const locale = String(config.locale || "en_IN").trim();
   const themeColor = String(config.themeColor || "#6b0f0f").trim();
   const alternateLinks = Array.isArray(config.alternateLinks) ? config.alternateLinks : [];
@@ -189,6 +207,10 @@ export function applySeoMetadata(config = {}, options = {}) {
   upsertMeta(doc, "property", "og:description", description);
   upsertMeta(doc, "property", "og:url", canonicalUrl);
   upsertMeta(doc, "property", "og:image", imageUrl);
+  upsertMeta(doc, "property", "og:image:secure_url", imageUrl);
+  upsertMeta(doc, "property", "og:image:type", imageType);
+  upsertMeta(doc, "property", "og:image:width", imageWidth);
+  upsertMeta(doc, "property", "og:image:height", imageHeight);
   upsertMeta(doc, "property", "og:image:alt", imageAlt);
   upsertMeta(doc, "name", "twitter:card", imageUrl ? "summary_large_image" : "summary");
   upsertMeta(doc, "name", "twitter:title", title);
@@ -215,8 +237,12 @@ export function usePageSeo(config) {
   const description = config?.description;
   const image = config?.image;
   const imageAlt = config?.imageAlt;
+  const imageHeight = config?.imageHeight;
+  const imageType = config?.imageType;
+  const imageWidth = config?.imageWidth;
   const noindex = config?.noindex;
   const path = config?.path;
+  const previewKey = config?.previewKey;
   const themeColor = config?.themeColor;
   const title = config?.title;
   const type = config?.type;
@@ -231,8 +257,12 @@ export function usePageSeo(config) {
       description,
       image,
       imageAlt,
+      imageHeight,
+      imageType,
+      imageWidth,
       noindex,
       path,
+      previewKey,
       alternateLinks,
       structuredData,
       themeColor,
@@ -244,8 +274,12 @@ export function usePageSeo(config) {
     description,
     image,
     imageAlt,
+    imageHeight,
+    imageType,
+    imageWidth,
     noindex,
     path,
+    previewKey,
     alternateLinksKey,
     alternateLinks,
     structuredDataKey,

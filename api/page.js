@@ -6,9 +6,15 @@ const plannerModule = require('./planner');
 const keywordLibrary = require('../vivahgo/src/generated/seo-keywords.json');
 const guides = require('../vivahgo/src/shared/content/guides.json');
 const queryPages = require('../vivahgo/src/shared/content/query-pages.json');
+const socialPreviewConfig = require('../vivahgo/src/shared/content/social-previews.json');
 
 const DEFAULT_SITE_URL = 'https://vivahgo.com';
-const DEFAULT_IMAGE_PATH = '/social-preview.jpg';
+const PLANNER_SITE_URL = 'https://planner.vivahgo.com';
+const DEFAULT_SOCIAL_PREVIEW = getSocialPreview();
+const DEFAULT_IMAGE_PATH = DEFAULT_SOCIAL_PREVIEW.path;
+const DEFAULT_IMAGE_TYPE = DEFAULT_SOCIAL_PREVIEW.type;
+const DEFAULT_IMAGE_WIDTH = DEFAULT_SOCIAL_PREVIEW.width;
+const DEFAULT_IMAGE_HEIGHT = DEFAULT_SOCIAL_PREVIEW.height;
 const STRUCTURED_DATA_KEYWORDS = keywordLibrary.clusters.primary.slice(0, 24).join(', ');
 const COVERAGE_TOPICS = [
   ...keywordLibrary.clusters.primary.slice(0, 8),
@@ -408,6 +414,30 @@ function getRequestSiteUrl(req) {
   return DEFAULT_SITE_URL;
 }
 
+function getRequestHostname(req) {
+  const forwardedHost = typeof req.headers?.['x-forwarded-host'] === 'string'
+    ? req.headers['x-forwarded-host'].split(',')[0].trim()
+    : '';
+  const host = forwardedHost || req.headers?.host || '';
+  return normalizePreviewHostname(host);
+}
+
+function getPreviewPathname(meta = {}, req = {}) {
+  if (meta.canonicalPath) {
+    return normalizePreviewPathname(meta.canonicalPath);
+  }
+
+  if (meta.canonicalUrl) {
+    return normalizePreviewPathname(meta.canonicalUrl);
+  }
+
+  if (typeof req.url === 'string') {
+    return normalizePreviewPathname(req.url);
+  }
+
+  return '/';
+}
+
 function buildAbsoluteUrl(req, value) {
   const normalized = String(value || '').trim();
   if (!normalized) {
@@ -425,6 +455,80 @@ function buildAbsoluteUrl(req, value) {
 
 function buildMarketingUrl(pathname = '/') {
   return new URL(pathname, `${DEFAULT_SITE_URL}/`).href;
+}
+
+function buildPlannerUrl(pathname = '/') {
+  return new URL(pathname, `${PLANNER_SITE_URL}/`).href;
+}
+
+function normalizePreviewHostname(hostname = '') {
+  return String(hostname || '').trim().toLowerCase().replace(/:\d+$/, '');
+}
+
+function normalizePreviewPathname(pathname = '/') {
+  const value = String(pathname || '/').trim();
+  if (!value) {
+    return '/';
+  }
+
+  try {
+    const parsed = new URL(value, DEFAULT_SITE_URL);
+    return parsed.pathname || '/';
+  } catch {
+    return value.startsWith('/') ? value : `/${value}`;
+  }
+}
+
+function previewHostMatches(pattern = '', hostname = '') {
+  const normalizedPattern = normalizePreviewHostname(pattern);
+  const normalizedHostname = normalizePreviewHostname(hostname);
+  if (!normalizedPattern || !normalizedHostname) {
+    return false;
+  }
+
+  if (normalizedPattern.startsWith('*.')) {
+    const suffix = normalizedPattern.slice(1);
+    return normalizedHostname.endsWith(suffix) && normalizedHostname !== normalizedPattern.slice(2);
+  }
+
+  return normalizedPattern === normalizedHostname;
+}
+
+function previewPathMatches(prefix = '/', pathname = '/') {
+  const normalizedPrefix = normalizePreviewPathname(prefix);
+  const normalizedPathname = normalizePreviewPathname(pathname);
+  return normalizedPrefix === '/' ||
+    normalizedPathname === normalizedPrefix ||
+    normalizedPathname.startsWith(`${normalizedPrefix.replace(/\/$/, '')}/`);
+}
+
+function getSocialPreview(previewKey = socialPreviewConfig.defaultPreview) {
+  const key = socialPreviewConfig.previews?.[previewKey] ? previewKey : socialPreviewConfig.defaultPreview;
+  const preview = socialPreviewConfig.previews?.[key];
+  return {
+    key,
+    path: preview?.path || '/social-preview.png',
+    type: preview?.type || 'image/png',
+    width: String(preview?.width || '1200'),
+    height: String(preview?.height || '630'),
+    alt: preview?.alt || 'VivahGo wedding planning preview',
+  };
+}
+
+function resolveConfiguredSocialPreview(options = {}) {
+  if (options.previewKey) {
+    return getSocialPreview(options.previewKey);
+  }
+
+  const hostname = normalizePreviewHostname(options.hostname);
+  const pathname = normalizePreviewPathname(options.pathname);
+  const matchedRule = (socialPreviewConfig.rules || []).find((rule) => {
+    const hostMatched = !rule.hosts?.length || rule.hosts.some((host) => previewHostMatches(host, hostname));
+    const pathMatched = !rule.pathPrefixes?.length || rule.pathPrefixes.some((prefix) => previewPathMatches(prefix, pathname));
+    return hostMatched && pathMatched;
+  });
+
+  return getSocialPreview(matchedRule?.preview || socialPreviewConfig.defaultPreview);
 }
 
 function readBuiltHtmlTemplate() {
@@ -462,12 +566,20 @@ function stripManagedSeo(html) {
 }
 
 function buildSeoMarkup(meta, req) {
+  const preview = resolveConfiguredSocialPreview({
+    previewKey: meta.previewKey,
+    hostname: getRequestHostname(req),
+    pathname: getPreviewPathname(meta, req),
+  });
   const title = escapeHtml(meta.title);
   const description = escapeAttribute(meta.description);
   const robots = escapeAttribute(meta.robots || 'index, follow');
   const canonicalUrl = escapeAttribute(buildAbsoluteUrl(req, meta.canonicalUrl || meta.canonicalPath || '/'));
-  const imageUrl = escapeAttribute(buildAbsoluteUrl(req, meta.image || DEFAULT_IMAGE_PATH));
-  const imageAlt = escapeAttribute(meta.imageAlt || 'VivahGo wedding planning preview');
+  const imageUrl = escapeAttribute(buildAbsoluteUrl(req, meta.image || preview.path || DEFAULT_IMAGE_PATH));
+  const imageType = escapeAttribute(meta.imageType || preview.type || DEFAULT_IMAGE_TYPE);
+  const imageWidth = escapeAttribute(meta.imageWidth || preview.width || DEFAULT_IMAGE_WIDTH);
+  const imageHeight = escapeAttribute(meta.imageHeight || preview.height || DEFAULT_IMAGE_HEIGHT);
+  const imageAlt = escapeAttribute(meta.imageAlt || preview.alt || 'VivahGo wedding planning preview');
   const type = escapeAttribute(meta.type || 'website');
   const themeColor = escapeAttribute(meta.themeColor || '#6b0f0f');
   const locale = escapeAttribute(meta.locale || 'en_IN');
@@ -488,9 +600,10 @@ function buildSeoMarkup(meta, req) {
     `    <meta property="og:description" content="${description}" />`,
     `    <meta property="og:url" content="${canonicalUrl}" />`,
     `    <meta property="og:image" content="${imageUrl}" />`,
-    `    <meta property="og:image:type" content="image/jpeg" />`,
-    `    <meta property="og:image:width" content="1200" />`,
-    `    <meta property="og:image:height" content="630" />`,
+    `    <meta property="og:image:secure_url" content="${imageUrl}" />`,
+    `    <meta property="og:image:type" content="${imageType}" />`,
+    `    <meta property="og:image:width" content="${imageWidth}" />`,
+    `    <meta property="og:image:height" content="${imageHeight}" />`,
     `    <meta property="og:image:alt" content="${imageAlt}" />`,
     `    <meta name="twitter:card" content="summary_large_image" />`,
     `    <meta name="twitter:title" content="${escapeAttribute(meta.title)}" />`,
@@ -1334,6 +1447,10 @@ function createJsonCaptureResponse() {
 
 async function getRouteData(req, plannerHandlers = plannerModule) {
   const route = String(req.query?.route || '').trim().toLowerCase();
+  if (route === 'planner') {
+    return { route, statusCode: 200, payload: null };
+  }
+
   if (route === 'guide') {
     const slug = String(req.query?.slug || '').trim();
     const guide = GUIDE_BY_SLUG.get(slug) || null;
@@ -1392,6 +1509,16 @@ async function getRouteData(req, plannerHandlers = plannerModule) {
   }
 
   return { route, statusCode: 200, payload: null };
+}
+
+function buildPlannerMetadata() {
+  return {
+    title: 'VivahGo Planner | Shared Wedding Workspace',
+    description: 'Manage your wedding checklist, guests, budget, events, and vendors from one workspace.',
+    canonicalUrl: buildPlannerUrl('/'),
+    previewKey: 'planner',
+    robots: 'noindex, nofollow',
+  };
 }
 
 function buildMarketingMetadata(req, page) {
@@ -1822,6 +1949,10 @@ function buildRsvpMetadata(req, token, payload, statusCode) {
 
 function resolveMetadata(req, routeData) {
   const route = routeData?.route || String(req.query?.route || '').trim().toLowerCase();
+  if (route === 'planner') {
+    return buildPlannerMetadata();
+  }
+
   if (route === 'guide') {
     return buildGuideMetadata(req, req.query?.slug || '', routeData?.payload, routeData?.statusCode);
   }
@@ -1952,12 +2083,15 @@ function createPageHandler(options = {}) {
 module.exports = createPageHandler();
 module.exports.buildGuideMetadata = buildGuideMetadata;
 module.exports.buildMarketingMetadata = buildMarketingMetadata;
+module.exports.buildPlannerMetadata = buildPlannerMetadata;
 module.exports.buildQueryPageMetadata = buildQueryPageMetadata;
 module.exports.buildRsvpMetadata = buildRsvpMetadata;
 module.exports.buildRouteSnapshot = buildRouteSnapshot;
 module.exports.buildWebsiteMetadata = buildWebsiteMetadata;
 module.exports.createPageHandler = createPageHandler;
 module.exports.getRequestSiteUrl = getRequestSiteUrl;
+module.exports.getSocialPreview = getSocialPreview;
 module.exports.injectMetadataIntoHtml = injectMetadataIntoHtml;
 module.exports.injectRootMarkupIntoHtml = injectRootMarkupIntoHtml;
 module.exports.resolveMetadata = resolveMetadata;
+module.exports.resolveConfiguredSocialPreview = resolveConfiguredSocialPreview;

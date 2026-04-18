@@ -1,0 +1,31 @@
+{
+  "defaultPreview": "marketing",
+  "previews": {
+    "marketing": {
+      "path": "/social-preview.png",
+      "type": "image/png",
+      "width": "2176",
+      "height": "1588",
+      "alt": "VivahGo wedding planner app homepage preview"
+    },
+    "planner": {
+      "path": "/planner-social-preview.png",
+      "type": "image/png",
+      "width": "2000",
+      "height": "2000",
+      "alt": "VivahGo wedding planning preview"
+    }
+  },
+  "rules": [
+    {
+      "preview": "planner",
+      "hosts": ["planner.vivahgo.com"],
+      "pathPrefixes": ["/"]
+    },
+    {
+      "preview": "marketing",
+      "hosts": ["vivahgo.com", "www.vivahgo.com"],
+      "pathPrefixes": ["/"]
+    }
+  ]
+}
