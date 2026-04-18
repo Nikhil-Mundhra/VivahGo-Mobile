@@ -79,6 +79,10 @@ const plannerSchema = new mongoose.Schema(
       type: String,
       default: null,
     },
+    onboardingCompleted: {
+      type: Boolean,
+      default: false,
+    },
     plannerRevision: {
       type: Number,
       default: 0,

@@ -609,6 +609,7 @@ export function buildEmptyPlanner(options = {}) {
       },
     ],
     activePlanId: planId,
+    onboardingCompleted: false,
     customTemplates: [],
     wedding: { ...emptyWedding },
     events: [],
@@ -888,6 +889,7 @@ export function sanitizePlanner(payload = {}, options = {}) {
   return {
     marriages,
     activePlanId,
+    onboardingCompleted: Boolean(payload.onboardingCompleted),
     customTemplates: sanitizeCustomTemplates(payload.customTemplates),
     wedding,
     events: sanitizePlanScopedCollection(payload.events, validPlanIds, activePlanId),

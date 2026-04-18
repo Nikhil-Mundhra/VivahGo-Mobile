@@ -1,6 +1,7 @@
 const PLANNER_SECTION_KEYS = [
   "marriages",
   "activePlanId",
+  "onboardingCompleted",
   "customTemplates",
   "wedding",
   "events",

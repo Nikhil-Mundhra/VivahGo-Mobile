@@ -54,6 +54,7 @@ describe('core helpers', function () {
 
       assert.ok(result.activePlanId);
       assert.equal(result.marriages.length, 1);
+      assert.equal(result.onboardingCompleted, false);
       assert.deepEqual(result.wedding, {
         bride: 'Asha',
         groom: '',
@@ -76,6 +77,7 @@ describe('core helpers', function () {
     it('returns defaults for missing payload', function () {
       const result = sanitizePlanner();
 
+      assert.equal(result.onboardingCompleted, false);
       assert.deepEqual(result.wedding, {
         bride: '',
         groom: '',
@@ -590,6 +592,7 @@ describe('core helpers', function () {
     it('returns a planner with empty wedding fields and empty arrays', function () {
       const result = buildEmptyPlanner();
 
+      assert.equal(result.onboardingCompleted, false);
       assert.deepEqual(result.wedding, {
         bride: '',
         groom: '',

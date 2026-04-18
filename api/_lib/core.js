@@ -1111,6 +1111,10 @@ function getPlannerModel() {
         type: String,
         default: null,
       },
+      onboardingCompleted: {
+        type: Boolean,
+        default: false,
+      },
       plannerRevision: {
         type: Number,
         default: 0,
@@ -1267,6 +1271,7 @@ function buildEmptyPlanner(options = {}) {
       },
     ],
     activePlanId: planId,
+    onboardingCompleted: false,
     customTemplates: [],
     wedding: { ...emptyWedding },
     events: [],
@@ -1609,6 +1614,7 @@ function sanitizePlanner(payload = {}, options = {}) {
   return {
     marriages,
     activePlanId,
+    onboardingCompleted: Boolean(payload.onboardingCompleted),
     customTemplates: sanitizeCustomTemplates(payload.customTemplates),
     wedding,
     events: sanitizePlanScopedCollection(payload.events, validPlanIds, activePlanId),

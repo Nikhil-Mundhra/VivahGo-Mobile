@@ -10,6 +10,7 @@ function makePlanner(overrides = {}) {
   return {
     marriages: [{ id: 'plan_1', bride: 'Asha', groom: 'Rohan' }],
     activePlanId: 'plan_1',
+    onboardingCompleted: false,
     customTemplates: [],
     wedding: { bride: 'Asha', groom: 'Rohan', date: '', venue: '', guests: '', budget: '' },
     events: [],
@@ -101,5 +102,27 @@ describe('VivahGo planner mutation manager', function () {
 
     assert.equal(journal.latestAcknowledgedRevision, 5);
     assert.equal(journal.pendingMutations.size, 0);
+  });
+
+  it('rolls back onboarding completion with planner sections', async function () {
+    const mod = await load();
+    const journal = mod.createPlannerMutationJournal(1);
+    const previousPlanner = makePlanner({ onboardingCompleted: false });
+    const nextPlanner = makePlanner({ onboardingCompleted: true });
+
+    const mutation = mod.enqueueMutation(journal, {
+      correlationId: 'onboarding',
+      baseRevision: 1,
+      previousPlanner,
+      nextPlanner,
+    });
+    const failed = mod.failMutation(journal, { correlationId: mutation.correlationId });
+    const decision = mod.maybeRollback(journal, {
+      mutation: failed,
+      currentPlanner: nextPlanner,
+    });
+
+    assert.equal(decision.shouldRollback, true);
+    assert.equal(decision.rollbackPlanner.onboardingCompleted, false);
   });
 });

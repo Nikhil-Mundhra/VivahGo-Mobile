@@ -9,6 +9,7 @@ describe('VivahGo/server/models/Planner.js', function () {
 
     assert.equal(typeof Planner, 'function');
     assert.ok(Planner.schema.path('googleId'));
+    assert.ok(Planner.schema.path('onboardingCompleted'));
     assert.ok(Planner.schema.path('customTemplates'));
     assert.ok(Planner.schema.path('wedding'));
     assert.ok(Planner.schema.path('events'));
@@ -27,6 +28,7 @@ describe('VivahGo/server/models/Planner.js', function () {
 
     assert.equal(err, undefined);
     assert.deepEqual(doc.wedding, {});
+    assert.equal(doc.onboardingCompleted, false);
     assert.deepEqual(doc.customTemplates, []);
     assert.deepEqual(doc.events, []);
     assert.deepEqual(doc.expenses, []);

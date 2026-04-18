@@ -897,6 +897,7 @@ export function createBlankPlanner() {
   return {
     marriages: [createBlankMarriagePlan(planId)],
     activePlanId: planId,
+    onboardingCompleted: false,
     customTemplates: [],
     wedding: { ...EMPTY_WEDDING },
     events: [],
@@ -915,6 +916,7 @@ export function createDemoPlanner() {
   return {
     marriages: [demoMarriage],
     activePlanId: planId,
+    onboardingCompleted: true,
     customTemplates: [],
     wedding: { ...DEMO_WEDDING_PROFILE },
     events: createDemoEvents(planId),
@@ -1037,6 +1039,7 @@ export function normalizePlanner(planner) {
   return {
     marriages,
     activePlanId,
+    onboardingCompleted: Boolean(planner.onboardingCompleted),
     customTemplates: normalizeCustomTemplates(planner.customTemplates),
     wedding,
     events: normalizedEventsWithVisibility,

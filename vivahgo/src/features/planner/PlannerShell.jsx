@@ -47,6 +47,13 @@ import { LOCAL_PLANNER_ROUTE, getMarketingUrl, isLocalHostname, isPlannerHostnam
 import { getBrowserNotificationSupport, removeBrowserPushToken, requestBrowserPushToken, subscribeToForegroundMessages } from "../../firebaseMessaging.js";
 import { ackMutation, createPlannerMutationJournal, enqueueMutation, failMutation, maybeRollback } from "./lib/plannerMutationManager.js";
 import { DEFAULT_FRAMEWORK_PROGRESS, normalizePlannerFrameworkProgress } from "./lib/plannerFramework.js";
+import {
+  buildPlannerTabSyncMessage,
+  createPlannerTabId,
+  publishPlannerTabSyncMessage,
+  shouldAcceptPlannerTabSyncMessage,
+  subscribeToPlannerTabSyncMessages,
+} from "./lib/plannerTabSync.js";
 
 const DEMO_PLANNER_STORAGE_KEY = "vivahgo.demoPlanner";
 const VENDORS_VIEW_SESSION_KEY = "vivahgo.vendorsView";
@@ -182,7 +189,7 @@ export default function PlannerShell() {
   const [isLoggingIn, setIsLoggingIn] = useState(false);
   const [loginError, setLoginError] = useState("");
   const [saveState, setSaveState] = useState("idle");
-  const [, setPlannerRevision] = useState(0);
+  const [plannerRevision, setPlannerRevision] = useState(0);
   const [showWeddingDetailsEditor, setShowWeddingDetailsEditor] = useState(false);
   const [weddingDetailsForm, setWeddingDetailsForm] = useState({ bride: "", groom: "", date: "", country: "", state: "", city: "", budget: "", guests: "" });
   const [extraLocationDraft, setExtraLocationDraft] = useState({ country: "", state: "", city: "" });
@@ -208,6 +215,7 @@ export default function PlannerShell() {
   const [accessibleWorkspaces, setAccessibleWorkspaces] = useState([]);
   const [isSwitchingWorkspace, setIsSwitchingWorkspace] = useState(false);
   const [customTemplates, setCustomTemplates] = useState([]);
+  const [onboardingCompleted, setOnboardingCompleted] = useState(false);
   const [requiresOnboarding, setRequiresOnboarding] = useState(false);
   // Subscription
   const [subscription, setSubscription] = useState({ tier: "starter", status: "active", currentPeriodEnd: null });
@@ -227,6 +235,10 @@ export default function PlannerShell() {
   const saveTimerRef = useRef(null);
   const contentAreaRef = useRef(null);
   const previousScrollTopRef = useRef(0);
+  const plannerTabIdRef = useRef("");
+  const suppressNextPlannerBroadcastRef = useRef(false);
+  const suppressNextPlannerSaveRef = useRef(false);
+  const pendingPlannerSaveRef = useRef(false);
   const currentPlannerRef = useRef(createBlankPlanner());
   const lastSyncedPlannerRef = useRef(createBlankPlanner());
   const lastDispatchedPlannerRef = useRef(createBlankPlanner());
@@ -237,6 +249,10 @@ export default function PlannerShell() {
     wedding.venue,
     ...extraVenueOptions,
   ].filter(Boolean)));
+
+  if (!plannerTabIdRef.current) {
+    plannerTabIdRef.current = createPlannerTabId();
+  }
 
   function applyWeddingToActivePlan(nextWedding, nextPlanOverrides = {}) {
     setWedding(nextWedding);
@@ -346,13 +362,15 @@ export default function PlannerShell() {
   }
 
   function shouldShowOnboarding(nextPlanner) {
-    return !hasWeddingProfile(normalizePlanner(nextPlanner).wedding);
+    const normalizedPlanner = normalizePlanner(nextPlanner);
+    return !normalizedPlanner.onboardingCompleted && !hasWeddingProfile(normalizedPlanner.wedding);
   }
 
   const applyPlanner = useCallback((nextPlanner, nextAccess) => {
     const planner = normalizePlanner(nextPlanner);
     setMarriages(planner.marriages || []);
     setActivePlanId(planner.activePlanId);
+    setOnboardingCompleted(Boolean(planner.onboardingCompleted));
     setCustomTemplates(planner.customTemplates || []);
     setWedding(planner.wedding);
     setEvents(planner.events);
@@ -422,6 +440,7 @@ export default function PlannerShell() {
     return {
       marriages,
       activePlanId,
+      onboardingCompleted,
       customTemplates,
       wedding,
       events,
@@ -430,7 +449,7 @@ export default function PlannerShell() {
       vendors,
       tasks,
     };
-  }, [activePlanId, customTemplates, events, expenses, guests, marriages, tasks, vendors, wedding]);
+  }, [activePlanId, customTemplates, events, expenses, guests, marriages, onboardingCompleted, tasks, vendors, wedding]);
 
   const syncPlannerAuthority = useCallback((nextPlanner, nextPlannerRevision, options = {}) => {
     const normalizedPlanner = normalizePlanner(nextPlanner);
@@ -463,6 +482,7 @@ export default function PlannerShell() {
       { resetJournal: options.resetJournal !== false }
     );
 
+    suppressNextPlannerSaveRef.current = true;
     applyPlanner(normalizedPlanner, response?.access);
     setRequiresOnboarding(shouldShowOnboarding(normalizedPlanner));
     setPlannerOwnerId(response?.plannerOwnerId || options.fallbackPlannerOwnerId || "");
@@ -473,6 +493,37 @@ export default function PlannerShell() {
   }, [applyPlanner, syncPlannerAuthority]);
 
   const effectivePlannerOwnerId = plannerOwnerId || user?.id || "";
+
+  const hydratePlannerFromTabSync = useCallback((message) => {
+    if (!shouldAcceptPlannerTabSyncMessage(message, {
+      tabId: plannerTabIdRef.current,
+      authMode,
+      plannerOwnerId: effectivePlannerOwnerId,
+    })) {
+      return;
+    }
+
+    if (pendingPlannerSaveRef.current || plannerMutationJournalRef.current.pendingMutations.size > 0) {
+      return;
+    }
+
+    suppressNextPlannerBroadcastRef.current = true;
+    suppressNextPlannerSaveRef.current = true;
+    const normalizedPlanner = syncPlannerAuthority(
+      message.planner,
+      message.plannerRevision,
+      { resetJournal: false }
+    );
+    applyPlanner(normalizedPlanner);
+    setRequiresOnboarding(shouldShowOnboarding(normalizedPlanner));
+    queryClient.setQueryData(plannerQueryKey(effectivePlannerOwnerId), (current) => ({
+      ...(current || {}),
+      planner: normalizedPlanner,
+      plannerRevision: Math.max(0, Number(message.plannerRevision) || 0),
+      plannerOwnerId: message.plannerOwnerId || effectivePlannerOwnerId,
+    }));
+  }, [applyPlanner, authMode, effectivePlannerOwnerId, queryClient, syncPlannerAuthority]);
+
   const plannerQueryEnabled = (authMode === "google" || authMode === "clerk") && Boolean(authToken) && Boolean(effectivePlannerOwnerId);
 
   const plannerQuery = useQuery({
@@ -534,6 +585,7 @@ export default function PlannerShell() {
       ]);
 
       setSaveState(plannerMutationJournalRef.current.pendingMutations.size === 0 ? "saved" : "saving");
+      pendingPlannerSaveRef.current = plannerMutationJournalRef.current.pendingMutations.size > 0;
     },
     onError: async (error, { nextPlannerOwnerId }) => {
       const failedMutation = failMutation(plannerMutationJournalRef.current, {
@@ -555,6 +607,7 @@ export default function PlannerShell() {
           console.error("Failed to refresh planner after conflict:", conflictError);
         }
         setSaveState(plannerMutationJournalRef.current.pendingMutations.size === 0 ? "error" : "saving");
+        pendingPlannerSaveRef.current = plannerMutationJournalRef.current.pendingMutations.size > 0;
         return;
       }
 
@@ -581,6 +634,7 @@ export default function PlannerShell() {
       }
 
       setSaveState(plannerMutationJournalRef.current.pendingMutations.size === 0 ? "error" : "saving");
+      pendingPlannerSaveRef.current = plannerMutationJournalRef.current.pendingMutations.size > 0;
     },
   });
 
@@ -1264,6 +1318,43 @@ export default function PlannerShell() {
   }, [screen]);
 
   useEffect(() => {
+    return subscribeToPlannerTabSyncMessages(hydratePlannerFromTabSync);
+  }, [hydratePlannerFromTabSync]);
+
+  useEffect(() => {
+    if (isBootstrapping || !authMode || !effectivePlannerOwnerId) {
+      return;
+    }
+
+    if ((authMode === "google" || authMode === "clerk") && !authToken) {
+      return;
+    }
+
+    if (suppressNextPlannerBroadcastRef.current) {
+      suppressNextPlannerBroadcastRef.current = false;
+      return;
+    }
+
+    const planner = buildPlannerSnapshotFromState();
+    publishPlannerTabSyncMessage(buildPlannerTabSyncMessage({
+      tabId: plannerTabIdRef.current,
+      authMode,
+      plannerOwnerId: effectivePlannerOwnerId,
+      activePlanId,
+      plannerRevision,
+      planner,
+    }));
+  }, [
+    activePlanId,
+    authMode,
+    authToken,
+    buildPlannerSnapshotFromState,
+    effectivePlannerOwnerId,
+    isBootstrapping,
+    plannerRevision,
+  ]);
+
+  useEffect(() => {
     if (!activePlanId) {
       return;
     }
@@ -1401,6 +1492,7 @@ export default function PlannerShell() {
     const planner = {
       marriages,
       activePlanId,
+      onboardingCompleted,
       customTemplates,
       wedding,
       events,
@@ -1409,6 +1501,12 @@ export default function PlannerShell() {
       vendors,
       tasks,
     };
+
+    if (suppressNextPlannerSaveRef.current) {
+      suppressNextPlannerSaveRef.current = false;
+      pendingPlannerSaveRef.current = plannerMutationJournalRef.current.pendingMutations.size > 0;
+      return undefined;
+    }
 
     if (authMode === "demo") {
       localStorage.setItem(DEMO_PLANNER_STORAGE_KEY, JSON.stringify(planner));
@@ -1423,6 +1521,7 @@ export default function PlannerShell() {
       return undefined;
     }
 
+    pendingPlannerSaveRef.current = true;
     clearTimeout(saveTimerRef.current);
     saveTimerRef.current = setTimeout(async () => {
       try {
@@ -1439,7 +1538,7 @@ export default function PlannerShell() {
     return () => {
       clearTimeout(saveTimerRef.current);
     };
-  }, [activePlanId, authMode, authToken, customTemplates, expenses, events, guests, isBootstrapping, marriages, planAccess.canEdit, plannerOwnerId, runPlannerSaveMutation, tasks, vendors, wedding]);
+  }, [activePlanId, authMode, authToken, customTemplates, expenses, events, guests, isBootstrapping, marriages, onboardingCompleted, planAccess.canEdit, plannerOwnerId, runPlannerSaveMutation, tasks, vendors, wedding]);
 
   function handleDemoLogin() {
     const demoUser = {
@@ -1450,6 +1549,9 @@ export default function PlannerShell() {
     };
     const demoPlanner = createDemoPlanner();
 
+    pendingPlannerSaveRef.current = false;
+    suppressNextPlannerSaveRef.current = false;
+    suppressNextPlannerBroadcastRef.current = false;
     setAuthMode("demo");
     setAuthToken("");
     setUser(demoUser);
@@ -1559,6 +1661,9 @@ export default function PlannerShell() {
       await revokeClerkSession();
     }
     clearStoredSession();
+    pendingPlannerSaveRef.current = false;
+    suppressNextPlannerSaveRef.current = false;
+    suppressNextPlannerBroadcastRef.current = false;
     setUser(null);
     setAuthMode(null);
     setAuthToken("");
@@ -1580,6 +1685,9 @@ export default function PlannerShell() {
     }
     await revokeGoogleIdTokenConsent(user?.email);
     clearStoredSession();
+    pendingPlannerSaveRef.current = false;
+    suppressNextPlannerSaveRef.current = false;
+    suppressNextPlannerBroadcastRef.current = false;
     setUser(null);
     setAuthMode(null);
     setAuthToken("");
@@ -1615,12 +1723,14 @@ export default function PlannerShell() {
     setTasks(current => mergeActivePlanCollection(current, seededCollections.tasks, activePlanId));
 
     applyWeddingToActivePlan(nextWedding);
+    setOnboardingCompleted(true);
     setRequiresOnboarding(false);
     setScreen("app");
   }
 
   function handleSkipOnboarding() {
     applyWeddingToActivePlan({ ...EMPTY_WEDDING });
+    setOnboardingCompleted(true);
     setRequiresOnboarding(false);
     setScreen("app");
   }
@@ -1698,6 +1808,9 @@ export default function PlannerShell() {
   function handleExitDemoToLogin() {
     closeAccountSettings();
     clearStoredSession();
+    pendingPlannerSaveRef.current = false;
+    suppressNextPlannerSaveRef.current = false;
+    suppressNextPlannerBroadcastRef.current = false;
     setUser(null);
     setAuthMode(null);
     setAuthToken("");

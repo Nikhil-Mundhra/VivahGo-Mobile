@@ -11,9 +11,10 @@ describe('VivahGo/src/plannerDefaults.js', function () {
     const mod = await loadModule();
     const planner = mod.createBlankPlanner();
 
-    assert.deepEqual(Object.keys(planner).sort(), ['activePlanId', 'customTemplates', 'events', 'expenses', 'guests', 'marriages', 'tasks', 'vendors', 'wedding']);
+    assert.deepEqual(Object.keys(planner).sort(), ['activePlanId', 'customTemplates', 'events', 'expenses', 'guests', 'marriages', 'onboardingCompleted', 'tasks', 'vendors', 'wedding']);
     assert.ok(planner.activePlanId, 'activePlanId should exist');
     assert.ok(planner.activePlanId.startsWith('plan_'), 'activePlanId should start with plan_');
+    assert.equal(planner.onboardingCompleted, false);
     assert.deepEqual(planner.marriages.length, 1, 'should have one marriage plan');
     assert.equal(planner.marriages[0].id, planner.activePlanId, 'marriage id should match activePlanId');
     assert.deepEqual(planner.marriages[0].frameworkProgress, { completedStepIds: [], answers: {}, encouragements: {} });
@@ -41,6 +42,7 @@ describe('VivahGo/src/plannerDefaults.js', function () {
 
     assert.equal(demoA.wedding.bride, 'Aarohi');
     assert.equal(demoA.wedding.groom, 'Pranav');
+    assert.equal(demoA.onboardingCompleted, true);
     assert.ok(Array.isArray(demoA.events));
     assert.ok(Array.isArray(demoA.tasks));
     assert.ok(demoA.events.length >= 15);
@@ -81,6 +83,7 @@ describe('VivahGo/src/plannerDefaults.js', function () {
     });
 
     assert.equal(normalized.wedding.bride, 'Aarohi');
+    assert.equal(normalized.onboardingCompleted, false);
     assert.equal(normalized.wedding.groom, '');
     assert.equal(normalized.events.length, 1);
     assert.equal(normalized.events[0].id, 1);
@@ -102,6 +105,13 @@ describe('VivahGo/src/plannerDefaults.js', function () {
     assert.equal(normalized.vendors.length, 1);
     assert.equal(normalized.vendors[0].id, 1);
     assert.ok(normalized.vendors[0].planId, 'vendors should have planId after migration');
+
+    const completed = mod.normalizePlanner({
+      onboardingCompleted: true,
+      marriages: [{ id: 'plan_done' }],
+      activePlanId: 'plan_done',
+    });
+    assert.equal(completed.onboardingCompleted, true);
   });
 
   it('normalizes website settings on marriages', async function () {
