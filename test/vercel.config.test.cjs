@@ -22,9 +22,14 @@ describe('vercel.json', function () {
       rewrite.source === '/' &&
       rewrite.has?.some((condition) => condition.type === 'host' && condition.value === 'planner.vivahgo.com')
     ));
+    const plannerFallbackRewrite = config.rewrites.find((rewrite) => (
+      rewrite.source === '/((?!api/).*)' &&
+      rewrite.has?.some((condition) => condition.type === 'host' && condition.value === 'planner.vivahgo.com')
+    ));
     const dynamicWebsiteRewrite = config.rewrites.find((rewrite) => rewrite.destination === '/api/page?route=website&slug=:slug');
 
     assert.equal(plannerRootRewrite.destination, '/api/page?route=planner');
+    assert.equal(plannerFallbackRewrite.destination, '/api/page?route=planner');
     assert.match(dynamicWebsiteRewrite.source, /social-preview\\\.png/);
     assert.match(dynamicWebsiteRewrite.source, /planner-social-preview\\\.jpeg/);
   });

@@ -52,6 +52,13 @@
       ],
       "destination": "/api/page?route=planner"
     },
+    {
+      "source": "/((?!api/).*)",
+      "has": [
+        { "type": "host", "value": "planner.vivahgo.com" }
+      ],
+      "destination": "/api/page?route=planner"
+    },
     { "source": "/", "destination": "/api/page?route=home" },
     { "source": "/home", "destination": "/api/page?route=home" },
     { "source": "/pricing", "destination": "/api/page?route=pricing" },
