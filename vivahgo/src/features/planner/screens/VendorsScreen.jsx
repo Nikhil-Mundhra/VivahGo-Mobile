@@ -287,6 +287,35 @@ function MyVendorCard({ vendor, events, onClick }) {
   );
 }
 
+function VendorDirectorySkeleton() {
+  return (
+    <div className="vendor-directory-skeleton-list" aria-live="polite" aria-label="Loading vendors">
+      {Array.from({ length: 4 }).map((_, index) => (
+        <div className="vendor-card vendor-directory-skeleton-card" key={`vendor-skeleton-${index}`}>
+          <div className="vendor-top">
+            <div className="vendor-skeleton vendor-skeleton-avatar" />
+            <div className="vendor-info">
+              <div className="vendor-skeleton vendor-skeleton-line vendor-skeleton-line-name" />
+              <div className="vendor-skeleton vendor-skeleton-line vendor-skeleton-line-meta" />
+              <div className="vendor-skeleton vendor-skeleton-line vendor-skeleton-line-facts" />
+            </div>
+          </div>
+          <div className="vendor-bottom">
+            <div className="vendor-price-wrap">
+              <div className="vendor-skeleton vendor-skeleton-line vendor-skeleton-line-price" />
+              <div className="vendor-skeleton vendor-skeleton-line vendor-skeleton-line-caption" />
+            </div>
+            <div className="vendor-card-actions">
+              <div className="vendor-skeleton vendor-skeleton-action" />
+              <div className="vendor-skeleton vendor-skeleton-line vendor-skeleton-line-link" />
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function VendorsScreen({
   vendors,
   setVendors,
@@ -310,6 +339,7 @@ function VendorsScreen({
   const [selectedVendorId, setSelectedVendorId] = useState(null);
   const [vendorReviews, setVendorReviews] = useState({});
   const [dbVendors, setDbVendors] = useState([]);
+  const [isDirectoryLoading, setIsDirectoryLoading] = useState(true);
   const [showMobileFilters, setShowMobileFilters] = useState(false);
   const [isMobileView, setIsMobileView] = useState(() =>
     typeof window !== "undefined" ? window.matchMedia("(max-width: 767px)").matches : false
@@ -360,9 +390,27 @@ function VendorsScreen({
   }, [activeTab, availabilityEndDate, availabilityStartDate, budgetFilter, bundledServiceFilter, locationFilter, priceSort, ratingFilter, subtypeFilter]);
 
   useEffect(() => {
+    let isMounted = true;
     fetchApprovedVendors()
-      .then(data => { setDbVendors(Array.isArray(data?.vendors) ? data.vendors : []); })
-      .catch(() => { setDbVendors([]); });
+      .then(data => {
+        if (isMounted) {
+          setDbVendors(Array.isArray(data?.vendors) ? data.vendors : []);
+        }
+      })
+      .catch(() => {
+        if (isMounted) {
+          setDbVendors([]);
+        }
+      })
+      .finally(() => {
+        if (isMounted) {
+          setIsDirectoryLoading(false);
+        }
+      });
+
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   function closeVendorEditor() {
@@ -536,6 +584,7 @@ function VendorsScreen({
     availabilityStartDate,
     availabilityEndDate,
   ].filter(value => value !== "all" && value !== "none" && value !== "").length;
+  const vendorResultsLabel = isDirectoryLoading ? "Loading vendors" : `${filtered.length} vendors shown`;
 
   const linkedSpendTotal = vendorForm.contractLineItems.reduce((sum, item) => sum + Number(item.amount || 0), 0);
   const canAddLinkedSpend = Boolean(vendorForm.linkedSpendDraft.label.trim() && coerceAmount(vendorForm.linkedSpendDraft.amount));
@@ -750,7 +799,7 @@ function VendorsScreen({
         </select>
         <div className="vendor-filter-summary">
           <span>{wishlistedVendorCount} wishlisted</span>
-          <span>{filtered.length} vendors shown</span>
+          <span>{vendorResultsLabel}</span>
         </div>
       </div>
     </>
@@ -1036,7 +1085,7 @@ function VendorsScreen({
               </button>
               <div className="vendor-filter-summary vendor-filter-summary-mobile">
                 <span>{wishlistedVendorCount} wishlisted</span>
-                <span>{filtered.length} vendors shown</span>
+                <span>{vendorResultsLabel}</span>
               </div>
             </div>
           ) : filterControls}
@@ -1052,12 +1101,14 @@ function VendorsScreen({
               </div>
             </div>
           )}
-          {filtered.length === 0 && (
+          {isDirectoryLoading ? (
+            <VendorDirectorySkeleton />
+          ) : filtered.length === 0 ? (
             <div style={{textAlign:"center",padding:"8px 16px 14px",color:"var(--color-light-text)",fontSize:13}}>
               No vendors found for selected filters.
             </div>
-          )}
-          {filtered.map(v => {
+          ) : null}
+          {!isDirectoryLoading && filtered.map(v => {
             const quickFacts = getVendorQuickFacts(v);
             const availabilityMessage = (availabilityStartDate || availabilityEndDate) && v.availabilityMatch?.matchingDays?.length
               ? v.availabilityMatch.matchingDays.length === 1

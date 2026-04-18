@@ -13,9 +13,11 @@ import { initClarity } from "../shared/clarity.js";
 import { initPostHog } from "../shared/posthog.js";
 import { queryClient } from "../shared/queryClient.js";
 import { initSentry } from "../shared/sentry.js";
+import { shouldEnableClerkRuntime } from "../clerkRuntime.js";
 
 const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
 const clerkPublishableKey = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY;
+const isClerkRuntimeEnabled = shouldEnableClerkRuntime({ publishableKey: clerkPublishableKey });
 const initialSession = readAuthSession();
 const appErrorFallback = <div className="app-page-fallback" role="alert">Something went wrong. Please refresh and try again.</div>;
 
@@ -56,6 +58,10 @@ initPostHog({ session: initialSession });
 initSentry({ session: initialSession });
 initClarity({ session: initialSession });
 
+if (clerkPublishableKey && !isClerkRuntimeEnabled && typeof window !== "undefined") {
+  window.__VIVAHGO_CLERK_UNAVAILABLE__ = true;
+}
+
 const app = (
   <StrictMode>
     <QueryClientProvider client={queryClient}>
@@ -75,7 +81,7 @@ if (clientId) {
   wrappedApp = <GoogleOAuthProvider clientId={clientId}>{wrappedApp}</GoogleOAuthProvider>;
 }
 
-if (clerkPublishableKey) {
+if (isClerkRuntimeEnabled) {
   const appWithoutClerk = wrappedApp;
   wrappedApp = (
     <ClerkProviderBoundary fallback={appWithoutClerk}>

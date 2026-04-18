@@ -45,6 +45,15 @@ describe("EmailOtpLogin", () => {
     expect(screen.getByText("Email login took too long to initialize. Refresh the page and try again.")).toBeInTheDocument();
   });
 
+  it("does not render email login on localhost with a production Clerk key", async () => {
+    vi.stubEnv("VITE_CLERK_PUBLISHABLE_KEY", "pk_live_example");
+    const { default: EmailOtpLogin } = await import("./EmailOtpLogin.jsx");
+
+    const { container } = render(<EmailOtpLogin onLoginSuccess={vi.fn()} />);
+
+    expect(container).toBeEmptyDOMElement();
+  });
+
   it("keeps retry available after timeout instead of trapping the user in a disabled state", async () => {
     const { default: EmailOtpLogin } = await import("./EmailOtpLogin.jsx");
 

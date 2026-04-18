@@ -42,6 +42,7 @@ import { getSubscriptionStatus } from "../marketing/api.js";
 import { DEFAULT_REMINDER_SETTINGS, DEFAULT_WEBSITE_SETTINGS, EMPTY_WEDDING, EXPECTED_GUEST_OPTIONS, buildWeddingWebsitePath, createBlankPlanner, createDemoPlanner, hasWeddingProfile, normalizePlanner, generatePlanId, createTemplatePlanCollections, normalizeCustomTemplates } from "../../plannerDefaults";
 import { useSwipeDown } from "../../shared/hooks/useSwipeDown.js";
 import { buildLoginAuthOptions } from "../../loginAuthOptions.js";
+import { shouldEnableClerkRuntime } from "../../clerkRuntime.js";
 import { LOCAL_PLANNER_ROUTE, getMarketingUrl, isLocalHostname, isPlannerHostname } from "../../siteUrls.js";
 import { getBrowserNotificationSupport, removeBrowserPushToken, requestBrowserPushToken, subscribeToForegroundMessages } from "../../firebaseMessaging.js";
 import { ackMutation, createPlannerMutationJournal, enqueueMutation, failMutation, maybeRollback } from "./lib/plannerMutationManager.js";
@@ -1777,9 +1778,12 @@ export default function PlannerShell() {
   const accountName = (user?.name || "Account").trim() || "Account";
   const accountFirstName = accountName.split(/\s+/)[0] || accountName;
   const showOauthHelp = /invalid_client|no registered origin|origin.*not.*allowed|idpiframe/i.test(loginError);
+  const isConfiguredClerkRuntimeAvailable = shouldEnableClerkRuntime({
+    publishableKey: import.meta.env.VITE_CLERK_PUBLISHABLE_KEY,
+  });
   const isClerkRuntimeAvailable = typeof window === "undefined"
-    ? Boolean(import.meta.env.VITE_CLERK_PUBLISHABLE_KEY)
-    : Boolean(import.meta.env.VITE_CLERK_PUBLISHABLE_KEY) && window.__VIVAHGO_CLERK_UNAVAILABLE__ !== true;
+    ? isConfiguredClerkRuntimeAvailable
+    : isConfiguredClerkRuntimeAvailable && window.__VIVAHGO_CLERK_UNAVAILABLE__ !== true;
   const authOptions = buildLoginAuthOptions(
     {
       onGoogleLogin: handleGoogleLoginSuccess,

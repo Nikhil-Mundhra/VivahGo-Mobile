@@ -1435,6 +1435,73 @@
 .vendor-card-clickable { cursor: pointer; transition: box-shadow 0.15s, transform 0.1s; }
 .vendor-card-clickable:active { transform: scale(0.985); }
 .vendor-view-arrow { font-size: 12px; font-weight: 600; color: var(--color-crimson); }
+.vendor-directory-skeleton-list {
+  padding-bottom: 2px;
+}
+.vendor-directory-skeleton-card {
+  pointer-events: none;
+}
+.vendor-skeleton {
+  position: relative;
+  overflow: hidden;
+  background: rgba(139, 26, 26, 0.08);
+}
+.vendor-skeleton::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.55), transparent);
+  animation: vendorSkeletonShimmer 1.35s ease-in-out infinite;
+}
+.vendor-skeleton-avatar {
+  width: 56px;
+  height: 56px;
+  border-radius: 14px;
+  flex-shrink: 0;
+}
+.vendor-skeleton-line {
+  height: 10px;
+  border-radius: 999px;
+}
+.vendor-skeleton-line-name {
+  width: min(220px, 72%);
+  height: 14px;
+}
+.vendor-skeleton-line-meta {
+  width: min(300px, 88%);
+  margin-top: 8px;
+}
+.vendor-skeleton-line-facts {
+  width: min(260px, 78%);
+  margin-top: 8px;
+}
+.vendor-skeleton-line-price {
+  width: 92px;
+  height: 16px;
+}
+.vendor-skeleton-line-caption {
+  width: 138px;
+  margin-top: 8px;
+}
+.vendor-skeleton-action {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+}
+.vendor-skeleton-line-link {
+  width: 82px;
+}
+@keyframes vendorSkeletonShimmer {
+  100% {
+    transform: translateX(100%);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .vendor-skeleton::after {
+    animation: none;
+  }
+}
 .vendor-inline-reset-btn {
   background: none;
   border: none;

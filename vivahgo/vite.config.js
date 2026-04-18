@@ -51,10 +51,23 @@ function ensureLocalHttpsConfig() {
 
 const https = ensureLocalHttpsConfig()
 
+function stripDevContentSecurityPolicy() {
+  return {
+    name: 'vivahgo-strip-dev-csp',
+    apply: 'serve',
+    transformIndexHtml(html) {
+      return html.replace(
+        /\s*<meta\s+http-equiv="Content-Security-Policy"\s+content="[^"]*"\s*\/?>/i,
+        ''
+      )
+    },
+  }
+}
+
 // https://vite.dev/config/
 export default defineConfig({
   envPrefix: ['VITE_', 'NEXT_PUBLIC_'],
-  plugins: [react()],
+  plugins: [stripDevContentSecurityPolicy(), react()],
   test: {
     environment: "jsdom",
     globals: true,

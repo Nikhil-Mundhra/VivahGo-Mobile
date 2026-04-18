@@ -1,5 +1,6 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { useClerk, useSignIn, useSignUp } from '@clerk/react';
+import { shouldEnableClerkRuntime } from '../clerkRuntime.js';
 
 function getErrorPayload(err) {
   if (!err) {
@@ -53,8 +54,7 @@ function getCreatedSessionId(resource, fallbackResource) {
     || '';
 }
 
-function EmailOtpLogin({ onLoginSuccess, onLoginError }) {
-  const clerkPublishableKey = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY;
+function EmailOtpLoginInner({ onLoginSuccess, onLoginError }) {
   const clerk = useClerk();
   const { signIn } = useSignIn();
   const { signUp } = useSignUp();
@@ -401,10 +401,6 @@ function EmailOtpLogin({ onLoginSuccess, onLoginError }) {
     }
   }, [code, email, signIn, signUp, onLoginSuccess, onLoginError, getClerkErrorMessage, completeWithActiveClerkSession, finalizeClerkFlow]);
 
-  if (!clerkPublishableKey) {
-    return null;
-  }
-
   return (
     <div className="email-otp-login">
       {!codeSent ? (
@@ -477,6 +473,15 @@ function EmailOtpLogin({ onLoginSuccess, onLoginError }) {
       )}
     </div>
   );
+}
+
+function EmailOtpLogin(props) {
+  const clerkPublishableKey = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY;
+  if (!shouldEnableClerkRuntime({ publishableKey: clerkPublishableKey })) {
+    return null;
+  }
+
+  return <EmailOtpLoginInner {...props} />;
 }
 
 function normalizedEmailFromState(value) {

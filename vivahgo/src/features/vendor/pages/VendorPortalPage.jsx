@@ -28,6 +28,7 @@ import {
   vendorProfileQueryKey,
 } from '../api.js';
 import { buildLoginAuthOptions } from '../../../loginAuthOptions.js';
+import { shouldEnableClerkRuntime } from '../../../clerkRuntime.js';
 import { getMarketingUrl, getPlannerUrl } from '../../../siteUrls.js';
 import {
   ackMutation,
@@ -74,7 +75,9 @@ function sortVendorMediaItems(media) {
 
 export default function VendorPortalPage() {
   const queryClient = useQueryClient();
-  const isClerkEnabled = Boolean(import.meta.env.VITE_CLERK_PUBLISHABLE_KEY);
+  const isClerkEnabled = shouldEnableClerkRuntime({
+    publishableKey: import.meta.env.VITE_CLERK_PUBLISHABLE_KEY,
+  });
   const [session, setSession] = useState(() => readAuthSession());
   const [loginError, setLoginError] = useState('');
   const [vendor, setVendor] = useState(null);
