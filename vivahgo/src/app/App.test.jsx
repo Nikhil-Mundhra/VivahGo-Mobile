@@ -11,6 +11,7 @@ const getObservabilityHeaders = vi.fn(() => ({
   "X-PostHog-Distinct-Id": "ph_user_123",
 }));
 const request = vi.fn();
+const readAuthSession = vi.fn(() => null);
 const setClarityRouteContext = vi.fn();
 const setPostHogRouteContext = vi.fn((path, options = {}) => ({
   route: path,
@@ -35,6 +36,11 @@ vi.mock("../components/ChatbaseChatbot.jsx", () => ({
 
 vi.mock("../seo.js", () => ({
   usePageSeo: () => {},
+}));
+
+vi.mock("../authStorage.js", () => ({
+  isAuthenticatedSession: (session) => Boolean(session && (session.mode === "google" || session.mode === "clerk") && session.user),
+  readAuthSession,
 }));
 
 vi.mock("../shared/clarity.js", () => ({
@@ -98,6 +104,8 @@ describe("App route analytics", () => {
     captureException.mockClear();
     getObservabilityHeaders.mockClear();
     request.mockClear();
+    readAuthSession.mockReset();
+    readAuthSession.mockReturnValue(null);
     setClarityRouteContext.mockClear();
     setPostHogRouteContext.mockClear();
     setSentryRoute.mockClear();
@@ -157,6 +165,77 @@ describe("App route analytics", () => {
     });
     expect(setSentryRoute).toHaveBeenLastCalledWith("/planner/guests", { bodyRoute: "app" });
     expect(document.body.dataset.route).toBe("app");
+  });
+
+  it("normalizes planner host vendor paths back to the planner login route", async () => {
+    currentRoutePath = "/vendor";
+    const originalLocation = window.location;
+    try {
+      Object.defineProperty(window, "location", {
+        configurable: true,
+        value: new URL("https://planner.vivahgo.com/vendor"),
+      });
+
+      const { default: App } = await import("./App.jsx");
+
+      render(<App />);
+
+      await waitFor(() => {
+        expect(setPostHogRouteContext).toHaveBeenCalledWith("/", { bodyRoute: "app" });
+      });
+      expect(setClarityRouteContext).toHaveBeenCalledWith("/", { bodyRoute: "app" });
+      expect(setSentryRoute).toHaveBeenCalledWith("/", { bodyRoute: "app" });
+      expect(capturePostHogEvent).toHaveBeenCalledWith("$pageview", {
+        route: "/",
+        pathname: "/",
+        body_route: "app",
+      });
+      expect(document.body.dataset.route).toBe("app");
+    } finally {
+      Object.defineProperty(window, "location", {
+        configurable: true,
+        value: originalLocation,
+      });
+    }
+  });
+
+  it("keeps planner host vendor paths on the vendor route when an auth session exists", async () => {
+    currentRoutePath = "/vendor";
+    readAuthSession.mockReturnValue({
+      mode: "google",
+      user: {
+        id: "user_1",
+      },
+      token: "__cookie_session__",
+    });
+    const originalLocation = window.location;
+    try {
+      Object.defineProperty(window, "location", {
+        configurable: true,
+        value: new URL("https://planner.vivahgo.com/vendor"),
+      });
+
+      const { default: App } = await import("./App.jsx");
+
+      render(<App />);
+
+      await waitFor(() => {
+        expect(setPostHogRouteContext).toHaveBeenCalledWith("/vendor", { bodyRoute: "vendor" });
+      });
+      expect(setClarityRouteContext).toHaveBeenCalledWith("/vendor", { bodyRoute: "vendor" });
+      expect(setSentryRoute).toHaveBeenCalledWith("/vendor", { bodyRoute: "vendor" });
+      expect(capturePostHogEvent).toHaveBeenCalledWith("$pageview", {
+        route: "/vendor",
+        pathname: "/vendor",
+        body_route: "vendor",
+      });
+      expect(document.body.dataset.route).toBe("vendor");
+    } finally {
+      Object.defineProperty(window, "location", {
+        configurable: true,
+        value: originalLocation,
+      });
+    }
   });
 
   it("shows the smoke panel from the app route and triggers both smoke actions", async () => {

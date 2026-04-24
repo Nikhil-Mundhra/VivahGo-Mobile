@@ -1,9 +1,13 @@
 const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const os = require('node:os');
+const path = require('node:path');
 
 const { createRes } = require('./helpers/testUtils.cjs');
 const queryPages = require('../vivahgo/src/shared/content/query-pages.json');
 const {
   buildGuideMetadata,
+  canUseSourceHtmlFallback,
   buildMarketingMetadata,
   buildPlannerMetadata,
   buildQueryPageMetadata,
@@ -13,6 +17,8 @@ const {
   createPageHandler,
   injectMetadataIntoHtml,
   injectRootMarkupIntoHtml,
+  readBuiltHtmlTemplate,
+  resetHtmlTemplateCache,
   resolveConfiguredSocialPreview,
 } = require('../api/page');
 
@@ -21,6 +27,53 @@ function escapeRegex(value) {
 }
 
 describe('api/page.js', function () {
+  afterEach(function () {
+    resetHtmlTemplateCache();
+  });
+
+  it('uses the source html fallback only outside production-like environments', function () {
+    assert.equal(canUseSourceHtmlFallback({ NODE_ENV: 'development', VERCEL_ENV: 'preview' }), true);
+    assert.equal(canUseSourceHtmlFallback({ NODE_ENV: 'production' }), false);
+    assert.equal(canUseSourceHtmlFallback({ VERCEL_ENV: 'production' }), false);
+  });
+
+  it('does not read source html when production cannot find a built shell', function () {
+    const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'api-page-prod-'));
+    const sourceHtmlPath = path.join(tempRoot, 'vivahgo', 'index.html');
+
+    try {
+      fs.mkdirSync(path.dirname(sourceHtmlPath), { recursive: true });
+      fs.writeFileSync(sourceHtmlPath, '<!doctype html><html><head><script type="module" src="/src/main.jsx"></script></head><body><div id="root"></div></body></html>');
+
+      assert.throws(() => readBuiltHtmlTemplate({
+        rootDir: tempRoot,
+        env: { NODE_ENV: 'production' },
+        useCache: false,
+      }), /Could not locate the built app shell/);
+    } finally {
+      fs.rmSync(tempRoot, { recursive: true, force: true });
+    }
+  });
+
+  it('can still use the source html fallback during local development', function () {
+    const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'api-page-dev-'));
+    const sourceHtmlPath = path.join(tempRoot, 'vivahgo', 'index.html');
+    const sourceHtml = '<!doctype html><html><head><script type="module" src="/src/main.jsx"></script></head><body><div id="root"></div></body></html>';
+
+    try {
+      fs.mkdirSync(path.dirname(sourceHtmlPath), { recursive: true });
+      fs.writeFileSync(sourceHtmlPath, sourceHtml);
+
+      assert.equal(readBuiltHtmlTemplate({
+        rootDir: tempRoot,
+        env: { NODE_ENV: 'development' },
+        useCache: false,
+      }), sourceHtml);
+    } finally {
+      fs.rmSync(tempRoot, { recursive: true, force: true });
+    }
+  });
+
   it('injects fresh metadata into the built app shell', function () {
     const html = injectMetadataIntoHtml(
       '<!doctype html><html><head><title>Old</title><meta name="description" content="Old" /><script type="module" src="/assets/app.js"></script></head><body><div id="root"></div></body></html>',

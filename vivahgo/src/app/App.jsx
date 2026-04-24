@@ -14,6 +14,7 @@ import {
   subscribeToPostHogRouteChanges,
 } from "../shared/posthog.js";
 import { setSentryRoute } from "../shared/sentry.js";
+import { isAuthenticatedSession, readAuthSession } from "../authStorage.js";
 
 const PlannerPage = lazy(() => import("../pages/PlannerPage.jsx"));
 const MarketingHomePage = lazy(() => import("../features/marketing/pages/MarketingHomePage.jsx"));
@@ -53,6 +54,12 @@ function PageFallback() {
   return <div className="app-page-fallback" aria-hidden="true" />;
 }
 
+function buildCanonicalRoutePath(routePath, routeInfo) {
+  const searchIndex = routePath.indexOf("?");
+  const search = searchIndex >= 0 ? routePath.slice(searchIndex) : "";
+  return `${routeInfo.canonicalPathname || routeInfo.normalizedPathname || "/"}${search}`;
+}
+
 export default function App() {
   const routePath = useSyncExternalStore(
     subscribeToPostHogRouteChanges,
@@ -61,7 +68,12 @@ export default function App() {
   );
   const pathname = routePath.split("?")[0] || "/";
   const hostname = typeof window !== "undefined" ? window.location.hostname : "";
-  const routeInfo = getRouteInfo(pathname, { hostname });
+  const authSession = readAuthSession();
+  const routeInfo = getRouteInfo(pathname, {
+    hostname,
+    isAuthenticated: isAuthenticatedSession(authSession),
+  });
+  const canonicalRoutePath = buildCanonicalRoutePath(routePath, routeInfo);
   const lastTrackedRouteRef = useRef("");
   const shouldShowChatbase = shouldShowChatbaseForRoute(routeInfo);
   const queryPage = routeInfo.queryPageSlug ? QUERY_PAGE_BY_SLUG[routeInfo.queryPageSlug] : null;
@@ -175,17 +187,29 @@ export default function App() {
   }, [routeInfo.bodyRoute]);
 
   useEffect(() => {
-    setClarityRouteContext(routePath, { bodyRoute: routeInfo.bodyRoute });
-    const routeProperties = setPostHogRouteContext(routePath, { bodyRoute: routeInfo.bodyRoute });
-    setSentryRoute(routePath, { bodyRoute: routeInfo.bodyRoute });
-
-    if (lastTrackedRouteRef.current === routePath) {
+    if (typeof window === "undefined" || !routeInfo.redirectPath) {
       return;
     }
 
-    lastTrackedRouteRef.current = routePath;
+    const nextUrl = `${routeInfo.redirectPath}${window.location.search || ""}${window.location.hash || ""}`;
+    const currentUrl = `${window.location.pathname}${window.location.search}${window.location.hash || ""}`;
+    if (nextUrl !== currentUrl) {
+      window.history.replaceState(window.history.state, "", nextUrl);
+    }
+  }, [routeInfo.redirectPath]);
+
+  useEffect(() => {
+    setClarityRouteContext(canonicalRoutePath, { bodyRoute: routeInfo.bodyRoute });
+    const routeProperties = setPostHogRouteContext(canonicalRoutePath, { bodyRoute: routeInfo.bodyRoute });
+    setSentryRoute(canonicalRoutePath, { bodyRoute: routeInfo.bodyRoute });
+
+    if (lastTrackedRouteRef.current === canonicalRoutePath) {
+      return;
+    }
+
+    lastTrackedRouteRef.current = canonicalRoutePath;
     capturePostHogEvent("$pageview", routeProperties);
-  }, [routeInfo.bodyRoute, routePath]);
+  }, [canonicalRoutePath, routeInfo.bodyRoute]);
 
   usePageSeo(fallbackSeo);
 
@@ -196,7 +220,7 @@ export default function App() {
     <>
       <ChatbaseChatbot enabled={shouldShowChatbase} />
       <Suspense fallback={<PageFallback />}>{page}</Suspense>
-      <ObservabilitySmokePanel routePath={routePath} bodyRoute={routeInfo.bodyRoute} />
+      <ObservabilitySmokePanel routePath={canonicalRoutePath} bodyRoute={routeInfo.bodyRoute} />
     </>
   );
 }

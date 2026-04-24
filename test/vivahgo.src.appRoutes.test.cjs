@@ -59,6 +59,31 @@ describe('VivahGo/src/appRoutes.js', function () {
     assert.equal(mod.getRouteInfo('/guests', { hostname: 'planner.vivahgo.com' }).publicWeddingSlug, '');
     assert.equal(mod.getRouteInfo('/home', { hostname: 'planner.vivahgo.com' }).bodyRoute, 'app');
     assert.equal(mod.getRouteInfo('/home', { hostname: 'planner.vivahgo.com' }).isMarketingHomeRoute, false);
+    assert.equal(mod.getRouteInfo('/vendor', { hostname: 'planner.vivahgo.com' }).bodyRoute, 'app');
+    assert.equal(mod.getRouteInfo('/vendor', { hostname: 'planner.vivahgo.com' }).isPlannerRoute, true);
+    assert.equal(mod.getRouteInfo('/vendor', { hostname: 'planner.vivahgo.com' }).isVendorRoute, false);
+    assert.equal(mod.getRouteInfo('/vendor', { hostname: 'planner.vivahgo.com' }).redirectPath, '/');
+    assert.equal(mod.getRouteInfo('/vendor', { hostname: 'planner.vivahgo.com' }).canonicalPathname, '/');
+    assert.equal(mod.getRouteInfo('/vendor', {
+      hostname: 'planner.vivahgo.com',
+      isAuthenticated: true,
+    }).bodyRoute, 'vendor');
+    assert.equal(mod.getRouteInfo('/vendor', {
+      hostname: 'planner.vivahgo.com',
+      isAuthenticated: true,
+    }).isPlannerRoute, false);
+    assert.equal(mod.getRouteInfo('/vendor', {
+      hostname: 'planner.vivahgo.com',
+      isAuthenticated: true,
+    }).isVendorRoute, true);
+    assert.equal(mod.getRouteInfo('/vendor', {
+      hostname: 'planner.vivahgo.com',
+      isAuthenticated: true,
+    }).redirectPath, '');
+    assert.equal(mod.getRouteInfo('/vendor', {
+      hostname: 'planner.vivahgo.com',
+      isAuthenticated: true,
+    }).canonicalPathname, '/vendor');
 
     assert.equal(mod.getRouteInfo('/', { hostname: 'localhost' }).bodyRoute, 'home');
     assert.equal(mod.getRouteInfo('/', { hostname: 'localhost' }).isMarketingHomeRoute, true);

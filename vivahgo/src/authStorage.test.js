@@ -85,6 +85,15 @@ describe("authStorage", () => {
     });
   });
 
+  it("detects authenticated sessions consistently", async () => {
+    const { isAuthenticatedSession } = await import("./authStorage.js");
+
+    expect(isAuthenticatedSession(null)).toBe(false);
+    expect(isAuthenticatedSession({ mode: "demo" })).toBe(false);
+    expect(isAuthenticatedSession({ mode: "google", user: { id: "user_1" } })).toBe(true);
+    expect(isAuthenticatedSession({ mode: "clerk", user: { id: "user_2" } })).toBe(true);
+  });
+
   it("persists authenticated sessions and syncs Sentry and PostHog identity", async () => {
     const { authStorageKeys, persistAuthSession } = await import("./authStorage.js");
     const localStorageRef = createStorage();

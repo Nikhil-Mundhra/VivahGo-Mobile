@@ -43,6 +43,15 @@ function hydrateSession(session) {
   return session;
 }
 
+export function isAuthenticatedSession(session) {
+  return Boolean(
+    session
+    && typeof session === 'object'
+    && (session.mode === 'google' || session.mode === 'clerk')
+    && session.user
+  );
+}
+
 export function readAuthSession(options = {}) {
   const localStorageRef = options.localStorageRef ?? (typeof window !== 'undefined' ? window.localStorage : null);
   if (!localStorageRef || typeof localStorageRef.getItem !== 'function') {

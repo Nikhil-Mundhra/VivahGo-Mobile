@@ -157,6 +157,12 @@ const PRICING_SNAPSHOT_PLANS = [
 
 let cachedHtmlTemplate = null;
 
+function canUseSourceHtmlFallback(env = process.env) {
+  const nodeEnv = String(env?.NODE_ENV || '').toLowerCase();
+  const vercelEnv = String(env?.VERCEL_ENV || '').toLowerCase();
+  return nodeEnv !== 'production' && vercelEnv !== 'production';
+}
+
 function getCanonicalQueryPageSlug(slug = '') {
   return QUERY_PAGE_ALIASES[slug] || slug;
 }
@@ -531,26 +537,37 @@ function resolveConfiguredSocialPreview(options = {}) {
   return getSocialPreview(matchedRule?.preview || socialPreviewConfig.defaultPreview);
 }
 
-function readBuiltHtmlTemplate() {
-  if (cachedHtmlTemplate) {
+function readBuiltHtmlTemplate(options = {}) {
+  const useCache = options.useCache !== false;
+  if (useCache && cachedHtmlTemplate) {
     return cachedHtmlTemplate;
   }
 
-  const rootDir = process.cwd();
+  const rootDir = options.rootDir || process.cwd();
   const candidates = [
     path.join(rootDir, 'vivahgo', 'dist', 'index.html'),
     path.join(rootDir, 'VivahGo', 'dist', 'index.html'),
-    path.join(rootDir, 'vivahgo', 'index.html'),
   ];
+
+  if (canUseSourceHtmlFallback(options.env)) {
+    candidates.push(path.join(rootDir, 'vivahgo', 'index.html'));
+  }
 
   for (const candidate of candidates) {
     if (fs.existsSync(candidate)) {
-      cachedHtmlTemplate = fs.readFileSync(candidate, 'utf8');
-      return cachedHtmlTemplate;
+      const htmlTemplate = fs.readFileSync(candidate, 'utf8');
+      if (useCache) {
+        cachedHtmlTemplate = htmlTemplate;
+      }
+      return htmlTemplate;
     }
   }
 
   throw new Error('Could not locate the built app shell.');
+}
+
+function resetHtmlTemplateCache() {
+  cachedHtmlTemplate = null;
 }
 
 function stripManagedSeo(html) {
@@ -2088,10 +2105,13 @@ module.exports.buildQueryPageMetadata = buildQueryPageMetadata;
 module.exports.buildRsvpMetadata = buildRsvpMetadata;
 module.exports.buildRouteSnapshot = buildRouteSnapshot;
 module.exports.buildWebsiteMetadata = buildWebsiteMetadata;
+module.exports.canUseSourceHtmlFallback = canUseSourceHtmlFallback;
 module.exports.createPageHandler = createPageHandler;
 module.exports.getRequestSiteUrl = getRequestSiteUrl;
 module.exports.getSocialPreview = getSocialPreview;
 module.exports.injectMetadataIntoHtml = injectMetadataIntoHtml;
 module.exports.injectRootMarkupIntoHtml = injectRootMarkupIntoHtml;
+module.exports.readBuiltHtmlTemplate = readBuiltHtmlTemplate;
+module.exports.resetHtmlTemplateCache = resetHtmlTemplateCache;
 module.exports.resolveMetadata = resolveMetadata;
 module.exports.resolveConfiguredSocialPreview = resolveConfiguredSocialPreview;

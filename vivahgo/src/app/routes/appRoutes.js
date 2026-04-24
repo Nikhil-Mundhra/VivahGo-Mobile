@@ -30,36 +30,41 @@ export function normalizePathname(pathname = "/") {
 export function getRouteInfo(pathname = "/", options = {}) {
   const normalizedPathname = normalizePathname(pathname);
   const normalizedHostname = normalizeHostname(options.hostname || "");
-  const isRootMarketingHomeRoute = normalizedPathname === "/" && shouldRenderMarketingHomeAtRoot(normalizedHostname);
-  const isLocalPlannerRoute = isLocalHostname(normalizedHostname) && normalizedPathname === "/planner";
-  const localPlannerTabMatch = isLocalHostname(normalizedHostname) ? normalizedPathname.match(/^\/planner\/([^/]+)$/) : null;
-  const plannerHostTabMatch = isPlannerHostname(normalizedHostname) ? normalizedPathname.match(/^\/([^/]+)$/) : null;
+  const isAuthenticated = options.isAuthenticated === true;
+  const redirectPath = isPlannerHostname(normalizedHostname) && normalizedPathname === "/vendor" && !isAuthenticated
+    ? "/"
+    : "";
+  const canonicalPathname = redirectPath || normalizedPathname;
+  const isRootMarketingHomeRoute = canonicalPathname === "/" && shouldRenderMarketingHomeAtRoot(normalizedHostname);
+  const isLocalPlannerRoute = isLocalHostname(normalizedHostname) && canonicalPathname === "/planner";
+  const localPlannerTabMatch = isLocalHostname(normalizedHostname) ? canonicalPathname.match(/^\/planner\/([^/]+)$/) : null;
+  const plannerHostTabMatch = isPlannerHostname(normalizedHostname) ? canonicalPathname.match(/^\/([^/]+)$/) : null;
   const plannerTabPath = decodeURIComponent((localPlannerTabMatch?.[1] || plannerHostTabMatch?.[1] || "")).toLowerCase();
   const plannerTab = PLANNER_TAB_PATHS[plannerTabPath] || "";
   const isPlannerRoute = isPlannerHostname(normalizedHostname)
-    ? normalizedPathname === "/" || Boolean(plannerTab)
+    ? canonicalPathname === "/" || Boolean(plannerTab)
     : isLocalPlannerRoute || Boolean(plannerTab);
-  const isMarketingHomeAliasRoute = normalizedPathname === "/home" && !isPlannerHostname(normalizedHostname);
+  const isMarketingHomeAliasRoute = canonicalPathname === "/home" && !isPlannerHostname(normalizedHostname);
   const isMarketingHomeRoute = isRootMarketingHomeRoute || isMarketingHomeAliasRoute;
-  const isPricingRoute = normalizedPathname === "/pricing";
-  const isTermsRoute = normalizedPathname === "/terms";
-  const isPrivacyRoute = normalizedPathname === "/privacy-policy";
-  const isDataDeletionRoute = normalizedPathname === "/data-deletion-instructions";
-  const isGuidesRoute = normalizedPathname === "/guides";
-  const guideMatch = normalizedPathname.match(/^\/guides\/([^/]+)$/);
+  const isPricingRoute = canonicalPathname === "/pricing";
+  const isTermsRoute = canonicalPathname === "/terms";
+  const isPrivacyRoute = canonicalPathname === "/privacy-policy";
+  const isDataDeletionRoute = canonicalPathname === "/data-deletion-instructions";
+  const isGuidesRoute = canonicalPathname === "/guides";
+  const guideMatch = canonicalPathname.match(/^\/guides\/([^/]+)$/);
   const guideSlug = guideMatch ? decodeURIComponent(guideMatch[1]) : "";
-  const queryPageMatch = normalizedPathname.match(/^\/([^/]+)$/);
+  const queryPageMatch = canonicalPathname.match(/^\/([^/]+)$/);
   const queryPageSlug = queryPageMatch && QUERY_CAPTURE_PAGE_SLUGS.includes(queryPageMatch[1])
     ? decodeURIComponent(queryPageMatch[1])
     : "";
-  const isCareersRoute = normalizedPathname === "/careers";
-  const isWeddingWebsiteRoute = normalizedPathname === "/wedding";
-  const rsvpMatch = normalizedPathname.match(/^\/rsvp\/([^/]+)$/);
+  const isCareersRoute = canonicalPathname === "/careers";
+  const isWeddingWebsiteRoute = canonicalPathname === "/wedding";
+  const rsvpMatch = canonicalPathname.match(/^\/rsvp\/([^/]+)$/);
   const rsvpToken = rsvpMatch ? decodeURIComponent(rsvpMatch[1]) : "";
-  const isVendorRoute = normalizedPathname === "/vendor";
-  const isAdminRoute = normalizedPathname === "/admin" || normalizedPathname.startsWith("/admin/");
-  const isClerkSsoCallbackRoute = normalizedPathname === "/auth/sso-callback";
-  const publicWeddingSlugMatch = normalizedPathname.match(/^\/([^/.][^/]*)$/);
+  const isVendorRoute = canonicalPathname === "/vendor";
+  const isAdminRoute = canonicalPathname === "/admin" || canonicalPathname.startsWith("/admin/");
+  const isClerkSsoCallbackRoute = canonicalPathname === "/auth/sso-callback";
+  const publicWeddingSlugMatch = canonicalPathname.match(/^\/([^/.][^/]*)$/);
   const publicWeddingSlug = publicWeddingSlugMatch
     && !queryPageSlug
     && !isPlannerHostname(normalizedHostname)
@@ -79,7 +84,9 @@ export function getRouteInfo(pathname = "/", options = {}) {
 
   return {
     normalizedPathname,
+    canonicalPathname,
     normalizedHostname,
+    redirectPath,
     isRootMarketingHomeRoute,
     isLocalPlannerRoute,
     isPlannerRoute,
