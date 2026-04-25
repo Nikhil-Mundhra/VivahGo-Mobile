@@ -84,7 +84,9 @@ function ChecklistView({ tasks, setTasks, events, planId }) {
     setShowAdd(false);
   }
 
-  useBackButtonClose(showAdd, cancelAdd);
+  useBackButtonClose(showAdd, cancelAdd, {
+    debugLabel: "planner-tasks-add",
+  });
 
   return (
     <div>
@@ -358,9 +360,12 @@ function FrameworkOverview({
     }
   }, [previewStepId]);
 
-  useBackButtonClose(Boolean(activeStep), () => setActiveStepId(""));
+  useBackButtonClose(Boolean(activeStep), () => setActiveStepId(""), {
+    debugLabel: "planner-framework-step",
+  });
   useBackButtonClose(Boolean(previewStep), () => setPreviewStepId(""), {
     shouldSkipHistoryBack: shouldSkipPreviewHistoryBack,
+    debugLabel: "planner-framework-preview",
   });
 
   if (activeStep) {

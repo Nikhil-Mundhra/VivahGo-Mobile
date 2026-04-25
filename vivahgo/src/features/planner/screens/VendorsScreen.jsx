@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { BUNDLED_SERVICE_OPTIONS, VENDOR_SUBTYPE_OPTIONS, VENDOR_TYPES } from "../../../constants";
 import { fmt } from "../../../shared/lib/core.js";
 import { FallbackImage, FallbackVideo } from "../../../components/MediaWithFallback.jsx";
@@ -419,8 +419,18 @@ function VendorsScreen({
     setVendorForm(createVendorForm(events));
   }
 
-  useBackButtonClose(showMobileFilters, () => setShowMobileFilters(false));
-  useBackButtonClose(showVendorEditor, closeVendorEditor);
+  const shouldSkipMobileFiltersHistoryBack = useCallback(
+    () => showVendorEditor,
+    [showVendorEditor]
+  );
+
+  useBackButtonClose(showMobileFilters, () => setShowMobileFilters(false), {
+    shouldSkipHistoryBack: shouldSkipMobileFiltersHistoryBack,
+    debugLabel: "planner-vendors-mobile-filters",
+  });
+  useBackButtonClose(showVendorEditor, closeVendorEditor, {
+    debugLabel: "planner-vendors-editor",
+  });
 
   const directoryVendorById = useMemo(() => new Map(dbVendors.map(vendor => [String(vendor.id), vendor])), [dbVendors]);
 

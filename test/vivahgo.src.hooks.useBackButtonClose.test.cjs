@@ -59,6 +59,7 @@ describe('VivahGo/src/hooks/useBackButtonClose.js', function () {
       root.render(React.createElement(Test, { isOpen: true }));
     });
 
+    window.history.replaceState({}, '');
     window.dispatchEvent(new window.PopStateEvent('popstate'));
     assert.equal(closeCalls, 1);
 
@@ -91,9 +92,62 @@ describe('VivahGo/src/hooks/useBackButtonClose.js', function () {
       root.render(React.createElement(Test, { onClose: () => { second += 1; } }));
     });
 
+    window.history.replaceState({}, '');
     window.dispatchEvent(new window.PopStateEvent('popstate'));
 
     assert.equal(first, 0);
     assert.equal(second, 1);
+  });
+
+  it('keeps the parent modal open when history returns from a child modal entry', async function () {
+    dom = setupDom();
+    const mod = await loadHookModule();
+
+    let parentCloseCalls = 0;
+    let childCloseCalls = 0;
+    let parentState = null;
+
+    function Child() {
+      mod.useBackButtonClose(true, () => {
+        childCloseCalls += 1;
+      });
+
+      return React.createElement('div');
+    }
+
+    function Test({ showChild }) {
+      mod.useBackButtonClose(true, () => {
+        parentCloseCalls += 1;
+      });
+
+      React.useEffect(() => {
+        if (!showChild) {
+          parentState = window.history.state;
+        }
+      }, [showChild]);
+
+      return React.createElement('div', null, showChild ? React.createElement(Child) : null);
+    }
+
+    const root = createRoot(document.getElementById('root'));
+    await act(async () => {
+      root.render(React.createElement(Test, { showChild: false }));
+    });
+
+    assert.ok(parentState);
+
+    await act(async () => {
+      root.render(React.createElement(Test, { showChild: true }));
+    });
+
+    window.history.replaceState(parentState, '');
+    window.dispatchEvent(new window.PopStateEvent('popstate'));
+
+    assert.equal(parentCloseCalls, 0);
+    assert.equal(childCloseCalls, 1);
+
+    await act(async () => {
+      root.unmount();
+    });
   });
 });
