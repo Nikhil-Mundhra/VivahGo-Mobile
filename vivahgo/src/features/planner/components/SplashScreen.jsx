@@ -68,7 +68,7 @@ function SplashScreen({ onStart, onSkip, showSkip = false }) {
               <span>{isSetupFlow ? "About 2 minutes" : "Planner ready now"}</span>
             </div>
             <div className="splash-actions">
-              <button className="btn-primary splash-primary-btn" onClick={onStart}>
+              <button type="button" className="btn-primary splash-primary-btn" onClick={onStart}>
                 {ctaLabel}
               </button>
               {showSkip && (

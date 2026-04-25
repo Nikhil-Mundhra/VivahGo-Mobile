@@ -13,6 +13,7 @@ import { getSubscriptionStatus } from "../../marketing/api.js";
 import {
   DEFAULT_NOTIFICATION_PREFERENCES,
   DEMO_PLANNER_STORAGE_KEY,
+  resolvePlannerScreen,
   shouldShowOnboarding,
 } from "../lib/plannerShellState.js";
 
@@ -101,7 +102,7 @@ export function usePlannerSession({
     store.setNotificationPreferences(DEFAULT_NOTIFICATION_PREFERENCES);
     store.setRequiresOnboarding(false);
     store.setTab("home");
-    store.setScreen("splash");
+    store.setScreen(resolvePlannerScreen(demoPlanner));
   }
 
   async function handleClerkLoginSuccess(clerkUser, clerkBackendToken) {
@@ -140,7 +141,7 @@ export function usePlannerSession({
       await fetchAndApplyNotificationSettings(nextSession?.token);
       store.setTab("home");
       store.setSaveState("idle");
-      store.setScreen("splash");
+      store.setScreen(resolvePlannerScreen(loginResponse.planner));
     } catch (error) {
       console.error("Clerk login failed:", error);
       store.setLoginError(error.message || "Clerk login failed.");
@@ -185,7 +186,7 @@ export function usePlannerSession({
       await fetchAndApplyNotificationSettings(nextSession?.token);
       store.setTab("home");
       store.setSaveState("idle");
-      store.setScreen("splash");
+      store.setScreen(resolvePlannerScreen(loginResponse.planner));
     } catch (error) {
       console.error("Login failed:", error);
       store.setLoginError(error.message || "Google login failed.");
@@ -245,13 +246,15 @@ export function usePlannerSession({
       try {
         if (session.mode === "demo") {
           const savedPlanner = JSON.parse(localStorage.getItem(DEMO_PLANNER_STORAGE_KEY) || "null");
+          const resolvedDemoPlanner = savedPlanner || createDemoPlanner();
+          const demoRequiresOnboarding = shouldShowOnboarding(resolvedDemoPlanner);
           if (!cancelled) {
             store.setAuthMode("demo");
             store.setUser(session.user || null);
-            applyPlanner(savedPlanner || createDemoPlanner());
+            applyPlanner(resolvedDemoPlanner);
             store.setNotificationPreferences(DEFAULT_NOTIFICATION_PREFERENCES);
-            store.setRequiresOnboarding(false);
-            store.setScreen("splash");
+            store.setRequiresOnboarding(demoRequiresOnboarding);
+            store.setScreen(resolvePlannerScreen(resolvedDemoPlanner));
           }
           return;
         }
@@ -272,7 +275,7 @@ export function usePlannerSession({
             await refreshAccessibleWorkspaces(session.token);
             await fetchAndApplySubscription(session.token);
             await fetchAndApplyNotificationSettings(session.token);
-            store.setScreen(shouldShowOnboarding(cachedPlanner?.planner) ? "splash" : "app");
+            store.setScreen(resolvePlannerScreen(cachedPlanner?.planner));
           }
         }
       } catch (error) {

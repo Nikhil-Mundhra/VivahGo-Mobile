@@ -185,3 +185,13 @@ export function shouldShowOnboarding(nextPlanner) {
   const normalizedPlanner = normalizePlanner(nextPlanner);
   return !normalizedPlanner.onboardingCompleted && !hasWeddingProfile(normalizedPlanner.wedding);
 }
+
+export function resolvePlannerScreen(nextPlanner, options = {}) {
+  const requiresOnboarding = shouldShowOnboarding(nextPlanner);
+
+  if (options.forceOnboarding === true) {
+    return "onboard";
+  }
+
+  return requiresOnboarding ? "splash" : "app";
+}

@@ -20,6 +20,7 @@
 .splash svg {
   opacity: 0.12;
   animation: rotateSlow 40s linear infinite;
+  pointer-events: none;
 }
 .splash-glow {
   position: absolute;
@@ -61,6 +62,8 @@
   grid-template-columns: minmax(0, 1.06fr) minmax(0, 0.94fr);
   gap: 24px;
   align-items: stretch;
+  position: relative;
+  z-index: 1;
 }
 .splash-hero-card,
 .splash-preview-card {
