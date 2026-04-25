@@ -500,6 +500,13 @@ export function usePlannerPersistence({ store, queryClient }) {
     suppressNextPlannerBroadcastRef,
   ]);
 
+  const weddingBride = wedding?.bride || "";
+  const weddingGroom = wedding?.groom || "";
+  const weddingDate = wedding?.date || "";
+  const weddingVenue = wedding?.venue || "";
+  const weddingGuests = wedding?.guests || "";
+  const weddingBudget = wedding?.budget || "";
+
   useEffect(() => {
     if (!activePlanId) {
       return;
@@ -514,12 +521,12 @@ export function usePlannerPersistence({ store, queryClient }) {
 
         const nextPlan = {
           ...plan,
-          bride: wedding.bride || "",
-          groom: wedding.groom || "",
-          date: wedding.date || "",
-          venue: wedding.venue || "",
-          guests: wedding.guests || "",
-          budget: wedding.budget || "",
+          bride: weddingBride,
+          groom: weddingGroom,
+          date: weddingDate,
+          venue: weddingVenue,
+          guests: weddingGuests,
+          budget: weddingBudget,
         };
 
         if (
@@ -539,7 +546,7 @@ export function usePlannerPersistence({ store, queryClient }) {
 
       return didChange ? updated : current;
     });
-  }, [activePlanId, setMarriages, wedding]);
+  }, [activePlanId, setMarriages, weddingBride, weddingBudget, weddingDate, weddingGuests, weddingGroom, weddingVenue]);
 
   useEffect(() => {
     if (isBootstrapping || !authToken) {
