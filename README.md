@@ -97,15 +97,40 @@ cd vivahgo
 npm install
 ```
 
-## Configuration
+## Easy Configuration
 
-Create a local environment file:
+This project uses **Infisical** to manage environment variables securely. To protect our sensitive API keys and credentials, we do not use local `.env` files.
 
+### 1. Request Access
+Ask the project lead to invite your email to the **VivahGo-mobile** project on Infisical. Ensure you have access to the **Development** environment.
+
+### 2. Install the Infisical CLI
+The CLI is required to fetch and inject secrets into your local development environment.
+
+* **macOS (Homebrew):** `brew install infisical/get-cli/infisical`
+* **Windows (Scoop):** `scoop bucket add infisical https://github.com/Infisical/scoop-infisical.git`
+    `scoop install infisical`
+* **NPM (Global):** `npm install -g @infisical/cli`
+
+### 3. Authentication
+Once installed, log in to sync your permissions:
 ```bash
-cp vivahgo/.env.example vivahgo/.env
+infisical login
 ```
 
-### Core required variables
+### 4. Running the Project locally
+Instead of using a .env file, wrap your execution command with Infisical. This pulls the latest development keys directly into your app's memory:
+
+To start the development server
+```bash
+infisical run -- npm run dev
+```
+To run tests
+```bash
+infisical run -- npm test
+```
+
+## Self Deployment (Optional)
 
 - `VITE_GOOGLE_CLIENT_ID`
 - `GOOGLE_CLIENT_ID`
