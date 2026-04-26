@@ -21,7 +21,7 @@
     "@axiomhq/js": "^1.4.0",
     "@axiomhq/logging": "^0.2.0",
     "@capacitor/core": "^8.3.0",
-    "@capacitor/ios": "^8.3.0",
+    "@capacitor/ios": "^8.3.1",
     "@clerk/react": "^6.4.2",
     "@react-oauth/google": "^0.13.4",
     "@sentry/node": "^10.47.0",
