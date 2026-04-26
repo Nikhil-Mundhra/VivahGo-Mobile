@@ -15,7 +15,7 @@
     "@aws-sdk/s3-request-presigner": "3.1036.0",
     "@axiomhq/js": "^1.6.0",
     "@capacitor/core": "^8.3.0",
-    "@capacitor/ios": "^8.2.0",
+    "@capacitor/ios": "^8.3.1",
     "@clerk/nextjs": "^7.0.8",
     "@sentry/react": "^10.47.0",
     "@vercel/blob": "^2.3.3",
