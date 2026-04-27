@@ -112,6 +112,8 @@ VivahGo uses **Infisical** as the source of truth for secrets. Most local work s
 
 Ask the project lead to invite your email to the **VivahGo-mobile** project and give you access to the environment you need, usually `Development`.
 
+*You can skip this section by using `make build`, since make build already takes care of the environment (through infiscal) and all dependencies*
+
 ### Local env files
 
 Most runtime commands do not need a checked-in local `.env` file because `make run`, `make build`, and `make test` inject secrets directly from Infisical.
