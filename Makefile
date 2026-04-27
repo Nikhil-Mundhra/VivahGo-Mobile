@@ -6,6 +6,7 @@ APP_ENV_FILE := $(APP_DIR)/.env
 VERCEL_PREVIEW_ENV_FILE := $(ROOT_DIR)/.vercel/.env.preview.local
 
 INFISICAL ?= infisical
+INFISICAL_INSTALL_CMD ?= brew install infisical/get-cli/infisical
 INFISICAL_ENV ?= dev
 VERCEL_PREVIEW_INFISICAL_ENV ?= $(INFISICAL_ENV)
 INFISICAL_PATH ?= /
@@ -26,69 +27,82 @@ INFISICAL_EXPORT_ARGS += --projectId=$(INFISICAL_PROJECT_ID)
 endif
 
 .PHONY: build build_frontend build_backend test test_coverage coverage_check clean run dev run_local \
-	check-secrets test-db infisical-init infisical-login setup sync-app-env sync-preview-env sync-envs
+	check-secrets test-db infisical-init infisical-login ensure-infisical setup sync-app-env sync-preview-env sync-envs
 
-build: build_frontend build_backend
+build: setup build_frontend build_backend
 
-build_frontend:
+build_frontend: ensure-infisical
 	cd "$(APP_DIR)" && $(INFISICAL) run $(INFISICAL_RUN_ARGS) -- npm run build
 
 build_backend:
 	@echo "No backend build step is configured; skipping backend build."
 
-test:
+test: ensure-infisical
 	$(MAKE) test_coverage
 	$(MAKE) coverage_check
 
-test_coverage:
+test_coverage: ensure-infisical
 	$(INFISICAL) run $(INFISICAL_RUN_ARGS) -- npm run test:coverage
 
-coverage_check:
+coverage_check: ensure-infisical
 	$(INFISICAL) run $(INFISICAL_RUN_ARGS) -- npm run coverage:check
 
 clean:
 	rm -rf coverage .nyc_output vivahgo/dist
 
-run:
+run: ensure-infisical
 	cd "$(APP_DIR)" && $(INFISICAL) run $(INFISICAL_RUN_ARGS) -- npm run dev
 
 dev: run
 
-run_local: test build
+run_local: ensure-infisical test build
 	cd "$(APP_DIR)" && $(INFISICAL) run $(INFISICAL_RUN_ARGS) --command 'npm run dev:server & SERVER_PID=$$!; trap "kill $$SERVER_PID" EXIT INT TERM; npm run dev:client -- --host'
 
-check-secrets:
+check-secrets: ensure-infisical
 	@echo "Listing secret names from Infisical ($(INFISICAL_ENV))..."
 	@$(INFISICAL) run $(INFISICAL_RUN_ARGS) -- printenv | cut -d= -f1 | sort
 
-test-db:
+test-db: ensure-infisical
 	@echo "Verifying MongoDB Atlas connection with secrets from Infisical..."
 	cd "$(APP_DIR)" && $(INFISICAL) run $(INFISICAL_RUN_ARGS) -- mongosh "$$MONGODB_URI"
 
-infisical-init:
+infisical-init: ensure-infisical
 	cd "$(INFISICAL_CONFIG_DIR)" && $(INFISICAL) init
 
-infisical-login:
+infisical-login: ensure-infisical
 	$(INFISICAL) login
 
-setup:
+ensure-infisical:
 	@if ! command -v "$(INFISICAL)" >/dev/null 2>&1; then \
-		echo "Infisical CLI is not installed. Install it with brew install infisical/get-cli/infisical or npm install -g @infisical/cli."; \
+		echo "Infisical CLI not found. Installing with: $(INFISICAL_INSTALL_CMD)"; \
+		$(INFISICAL_INSTALL_CMD); \
+	fi
+
+setup: ensure-infisical
+	@if ! command -v "$(INFISICAL)" >/dev/null 2>&1; then \
+		echo "Infisical CLI is still unavailable after installation attempt."; \
 		exit 1; \
 	fi
-	$(MAKE) infisical-login
 	@if [ ! -f "$(INFISICAL_CONFIG_DIR)/.infisical.json" ]; then \
+		echo "Infisical project config not found. Logging in and linking this repo..."; \
+		$(MAKE) infisical-login; \
 		$(MAKE) infisical-init; \
 	fi
-	npm install
-	npm install --prefix vivahgo
+	@if [ ! -d "$(ROOT_DIR)/node_modules" ]; then \
+		echo "Installing root dependencies..."; \
+		npm install; \
+	fi
+	@if [ ! -d "$(APP_DIR)/node_modules" ]; then \
+		echo "Installing app dependencies..."; \
+		npm install --prefix vivahgo; \
+	fi
 
-sync-app-env:
+sync-app-env: ensure-infisical
 	@mkdir -p "$(dir $(APP_ENV_FILE))"
 	cd "$(INFISICAL_CONFIG_DIR)" && $(INFISICAL) export $(INFISICAL_EXPORT_ARGS) --env=$(INFISICAL_ENV) --output-file="$(APP_ENV_FILE)"
 	@echo "Wrote $(APP_ENV_FILE) from Infisical environment '$(INFISICAL_ENV)'."
 
-sync-preview-env:
+sync-preview-env: ensure-infisical
 	@mkdir -p "$(dir $(VERCEL_PREVIEW_ENV_FILE))"
 	cd "$(INFISICAL_CONFIG_DIR)" && $(INFISICAL) export $(INFISICAL_EXPORT_ARGS) --env=$(VERCEL_PREVIEW_INFISICAL_ENV) --output-file="$(VERCEL_PREVIEW_ENV_FILE)"
 	@echo "Wrote $(VERCEL_PREVIEW_ENV_FILE) from Infisical environment '$(VERCEL_PREVIEW_INFISICAL_ENV)'."

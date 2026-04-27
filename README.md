@@ -79,33 +79,19 @@ VivahGo is a wedding planning platform built for Indian weddings. It combines a 
 
 - Node.js 20+
 - npm 10+
-- Infisical CLI access to the `VivahGo-mobile` project
+- Access to the `VivahGo-mobile` project in Infisical
 
 ### Quick Start
 
-1. Install dependencies and the Infisical CLI:
-
-```bash
-npm install
-npm install --prefix vivahgo
-brew install infisical/get-cli/infisical
-```
-
-2. Log in to Infisical:
-
-```bash
-infisical login
-```
-
-3. Build the app:
+1. Build the app:
 
 ```bash
 make build
 ```
 
-`make build` is the main build command. It already runs the frontend build through Infisical.
+`make build` is the main build command. On a fresh machine it also handles the first-time setup flow: ensuring Infisical exists, linking the repo if needed, and installing missing dependencies.
 
-4. Start local development:
+2. Start local development:
 
 ```bash
 make run
