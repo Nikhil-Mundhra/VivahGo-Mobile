@@ -2,15 +2,23 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const initClarity = vi.fn();
 const initPostHog = vi.fn();
+const capturePostHogEvent = vi.fn();
 const initSentry = vi.fn();
+const captureException = vi.fn();
 const readAuthSession = vi.fn();
 const renderRoot = vi.fn();
 const createRoot = vi.fn(() => ({
   render: renderRoot,
 }));
+const installVitePreloadErrorHandler = vi.fn();
 
 vi.mock("./App.jsx", () => ({
   default: () => null,
+}));
+
+vi.mock("./bootRecovery.js", () => ({
+  installVitePreloadErrorHandler,
+  renderPreloadFailureFallback: vi.fn(),
 }));
 
 vi.mock("../authStorage.js", () => ({
@@ -23,6 +31,7 @@ vi.mock("../shared/clarity.js", () => ({
 
 vi.mock("../shared/posthog.js", () => ({
   initPostHog,
+  capturePostHogEvent,
 }));
 
 vi.mock("../shared/queryClient.js", () => ({
@@ -31,6 +40,7 @@ vi.mock("../shared/queryClient.js", () => ({
 
 vi.mock("../shared/sentry.js", () => ({
   initSentry,
+  captureException,
 }));
 
 vi.mock("@sentry/react", () => ({
@@ -100,6 +110,7 @@ describe("main bootstrap", () => {
     });
     expect(createRoot).toHaveBeenCalledWith(document.getElementById("root"));
     expect(renderRoot).toHaveBeenCalledTimes(1);
+    expect(installVitePreloadErrorHandler).toHaveBeenCalledTimes(1);
     expect(initPostHog.mock.invocationCallOrder[0]).toBeLessThan(initSentry.mock.invocationCallOrder[0]);
     expect(initSentry.mock.invocationCallOrder[0]).toBeLessThan(initClarity.mock.invocationCallOrder[0]);
     expect(initClarity.mock.invocationCallOrder[0]).toBeLessThan(renderRoot.mock.invocationCallOrder[0]);

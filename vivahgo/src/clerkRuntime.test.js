@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
+  getClerkRuntimeDiagnostics,
   isLocalHostname,
   isProductionClerkPublishableKey,
+  resolveClerkFrontendApiHost,
   shouldEnableClerkRuntime,
 } from "./clerkRuntime.js";
 
@@ -33,5 +35,33 @@ describe("clerkRuntime", () => {
       publishableKey: "pk_live_example",
       hostname: "vivahgo.com",
     })).toBe(true);
+  });
+
+  it("decodes the Clerk frontend api host from the publishable key", () => {
+    expect(resolveClerkFrontendApiHost("pk_live_Y2xlcmsudml2YWhnby5jb20k")).toBe("clerk.vivahgo.com");
+  });
+
+  it("builds consistent Clerk runtime diagnostics", () => {
+    expect(getClerkRuntimeDiagnostics({
+      publishableKey: "pk_live_Y2xlcmsudml2YWhnby5jb20k",
+      hostname: "vivahgo.com",
+      routePath: "/planner",
+      clerkUnavailable: true,
+      error: {
+        name: "ClerkRuntimeError",
+        message: "Failed to load Clerk JS",
+        code: "failed_to_load_clerk_js",
+      },
+    })).toEqual(expect.objectContaining({
+      publishableKeyPresent: true,
+      publishableKeyType: "live",
+      frontendApiHost: "clerk.vivahgo.com",
+      hostname: "vivahgo.com",
+      routePath: "/planner",
+      clerkUnavailable: true,
+      runtimeEnabled: true,
+      errorName: "ClerkRuntimeError",
+      errorCode: "failed_to_load_clerk_js",
+    }));
   });
 });
