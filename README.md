@@ -79,58 +79,80 @@ VivahGo is a wedding planning platform built for Indian weddings. It combines a 
 
 - Node.js 20+
 - npm 10+
-- MongoDB instance
-- Google Cloud OAuth Web client credentials
+- Infisical CLI access to the `VivahGo-mobile` project
 
-### Install Dependencies
+### Quick Start
 
-Repository root:
+1. Install dependencies and the Infisical CLI:
 
 ```bash
 npm install
+npm install --prefix vivahgo
+brew install infisical/get-cli/infisical
 ```
 
-App workspace:
+2. Log in to Infisical:
 
-```bash
-cd vivahgo
-npm install
-```
-
-## Easy Configuration
-
-This project uses **Infisical** to manage environment variables securely. To protect our sensitive API keys and credentials, we do not use local `.env` files.
-
-### 1. Request Access
-Ask the project lead to invite your email to the **VivahGo-mobile** project on Infisical. Ensure you have access to the **Development** environment.
-
-### 2. Install the Infisical CLI
-The CLI is required to fetch and inject secrets into your local development environment.
-
-* **macOS (Homebrew):** `brew install infisical/get-cli/infisical`
-* **Windows (Scoop):** `scoop bucket add infisical https://github.com/Infisical/scoop-infisical.git`
-    `scoop install infisical`
-* **NPM (Global):** `npm install -g @infisical/cli`
-
-### 3. Authentication
-Once installed, log in to sync your permissions:
 ```bash
 infisical login
 ```
 
-### 4. Running the Project locally
-Instead of using a .env file, wrap your execution command with Infisical. This pulls the latest development keys directly into your app's memory:
+3. Build the app:
 
-To start the development server
 ```bash
-infisical run -- npm run dev
-```
-To run tests
-```bash
-infisical run -- npm test
+make build
 ```
 
-## Self Deployment (Optional)
+`make build` is the main build command. It already runs the frontend build through Infisical.
+
+4. Start local development:
+
+```bash
+make run
+```
+
+That starts the Vite frontend on `http://localhost:5173` and the local Express API on `http://localhost:4000`.
+
+Useful follow-ups:
+
+```bash
+make test
+make sync-envs
+```
+
+## Configuration
+
+VivahGo uses **Infisical** as the source of truth for secrets. Most local work should use the Makefile targets, which already run the app and test commands through `infisical run`.
+
+Ask the project lead to invite your email to the **VivahGo-mobile** project and give you access to the environment you need, usually `Development`.
+
+### Local env files
+
+Most runtime commands do not need a checked-in local `.env` file because `make run`, `make build`, and `make test` inject secrets directly from Infisical.
+
+There are still two local env files that matter for specific workflows:
+
+- [vivahgo/.env](/Users/nikhil/Documents/VivahGo-mobile/vivahgo/.env): useful when a tool explicitly reads a file from disk, or when intentionally refreshing the public asset map from a local Blob token fallback.
+- [/.vercel/.env.preview.local](/Users/nikhil/Documents/VivahGo-mobile/.vercel/.env.preview.local): useful for local Vercel CLI preview flows.
+
+Sync them from Infisical when needed:
+
+```bash
+make sync-app-env
+make sync-preview-env
+make sync-envs
+```
+
+By default these use `INFISICAL_ENV=dev`. Override the environment like this:
+
+```bash
+make sync-preview-env VERCEL_PREVIEW_INFISICAL_ENV=preview
+make test INFISICAL_ENV=staging
+```
+
+Use [vivahgo/.env.example](/Users/nikhil/Documents/VivahGo-mobile/vivahgo/.env.example) as the shape reference for local env-based workflows.
+
+### Required variables
 
 - `VITE_GOOGLE_CLIENT_ID`
 - `GOOGLE_CLIENT_ID`
@@ -187,8 +209,6 @@ infisical run -- npm test
   - `PUBLIC_ASSET_MAP_USE_DOTENV_BLOB_TOKEN=true` to allow the asset-map generator to read `BLOB_READ_WRITE_TOKEN` from `.env` during an intentional local refresh
   - `PUBLIC_ASSET_MAP_BLOB_TIMEOUT_MS` to override the Blob listing timeout
 
-Use [vivahgo/.env.example](/Users/nikhil/Documents/VivahGo-mobile/vivahgo/.env.example) as the source of truth for local setup.
-
 ### Planner encryption
 
 Planner data is encrypted server-side before it is stored in MongoDB when `PLANNER_ENCRYPTION_KEY` is configured. The encryption layer protects private planner content such as wedding details, events, budgets, guests, vendors, tasks, website settings, framework answers, and custom templates. Lookup and access-control fields that the app still needs to query remain plaintext, including `googleId`, plan/item IDs, `planId`, public `websiteSlug`, and collaborator emails/roles.
@@ -214,11 +234,10 @@ Production requires a real `PLANNER_ENCRYPTION_KEY`; placeholder values are reje
 
 ## Run Locally
 
-From the app directory:
+Recommended:
 
 ```bash
-cd vivahgo
-npm run dev
+make run
 ```
 
 This starts:
@@ -226,13 +245,14 @@ This starts:
 - Vite frontend on `http://localhost:5173`
 - Express API server on `http://localhost:4000`
 
-From repository root you can also use:
+Run tests and build through Infisical:
 
 ```bash
-npm run dev
+make test
+make build
 ```
 
-Or:
+For the explicit split frontend/server flow from repository root:
 
 ```bash
 make run_local
@@ -346,29 +366,18 @@ To use the Vercel deployment workflow, configure these GitHub repository secrets
 
 ## Testing and Linting
 
-Run the full test suite from the repository root:
+Recommended checks:
 
 ```bash
-npm test
+make test
+cd vivahgo && npm run lint
 ```
 
-Run coverage:
+Equivalent underlying commands:
 
 ```bash
 npm run test:coverage
-```
-
-Check the coverage threshold:
-
-```bash
 npm run coverage:check
-```
-
-Run app linting:
-
-```bash
-cd vivahgo
-npm run lint
 ```
 
 ## Deployment Notes
@@ -377,7 +386,9 @@ npm run lint
 - The local Express server in [vivahgo/server/index.js](/Users/nikhil/Documents/VivahGo-mobile/vivahgo/server/index.js) mirrors the main API behavior for development.
 - In local development, the frontend defaults to `http://localhost:4000/api` unless `VITE_USE_REMOTE_API=true`.
 - Production can usually use relative `/api` requests without setting `VITE_API_BASE_URL`.
-- `npm run build --prefix vivahgo` refreshes the public asset map before Vite builds. Local builds fall back to the checked-in generated map unless `BLOB_READ_WRITE_TOKEN` is present in the real environment. To intentionally refresh from a token stored in `.env`, set `PUBLIC_ASSET_MAP_USE_DOTENV_BLOB_TOKEN=true`.
+- `make build` runs the frontend build through Infisical. Under the hood, `npm run build --prefix vivahgo` refreshes the public asset map before Vite builds.
+- Local builds fall back to the checked-in generated asset map unless `BLOB_READ_WRITE_TOKEN` is present in the real environment.
+- To intentionally refresh from a token stored in [vivahgo/.env](/Users/nikhil/Documents/VivahGo-mobile/vivahgo/.env), set `PUBLIC_ASSET_MAP_USE_DOTENV_BLOB_TOKEN=true`.
 
 ## SEO Verification
 
