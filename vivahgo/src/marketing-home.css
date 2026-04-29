@@ -3400,6 +3400,7 @@ body[data-route='home'] #root {
 
   .marketing-home-shell {
     padding-bottom: 40px;
+    overflow-x: hidden;
   }
 
   .marketing-budget-cost-table,
