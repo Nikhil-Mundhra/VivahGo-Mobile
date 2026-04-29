@@ -7,6 +7,7 @@ import { SpeedInsights } from '@vercel/speed-insights/react'
 import { QueryClientProvider } from '@tanstack/react-query'
 import * as Sentry from "@sentry/react";
 import "../index.css";
+import "../forums.css";
 import App from "./App.jsx";
 import {
   installVitePreloadErrorHandler,

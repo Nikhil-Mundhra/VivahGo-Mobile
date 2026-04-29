@@ -181,6 +181,7 @@ export function applySeoMetadata(config = {}, options = {}) {
   const imageAlt = String(config.imageAlt || preview.alt).trim();
   const locale = String(config.locale || "en_IN").trim();
   const themeColor = String(config.themeColor || "#6b0f0f").trim();
+  const siteName = String(config.siteName || "VivahGo").trim();
   const alternateLinks = Array.isArray(config.alternateLinks) ? config.alternateLinks : [];
 
   if (!doc?.head) {
@@ -201,7 +202,7 @@ export function applySeoMetadata(config = {}, options = {}) {
   upsertMeta(doc, "name", "robots", robots);
   upsertMeta(doc, "name", "theme-color", themeColor);
   upsertMeta(doc, "property", "og:type", type);
-  upsertMeta(doc, "property", "og:site_name", "VivahGo");
+  upsertMeta(doc, "property", "og:site_name", siteName);
   upsertMeta(doc, "property", "og:locale", locale);
   upsertMeta(doc, "property", "og:title", title);
   upsertMeta(doc, "property", "og:description", description);

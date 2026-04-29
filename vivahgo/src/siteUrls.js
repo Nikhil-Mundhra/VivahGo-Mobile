@@ -1,7 +1,10 @@
 export const MARKETING_SITE_URL = "https://vivahgo.com";
 export const PLANNER_SITE_URL = "https://planner.vivahgo.com";
+export const FORUMS_SITE_URL = "https://forums.vivahgo.com";
 export const PLANNER_HOSTNAME = "planner.vivahgo.com";
+export const FORUMS_HOSTNAME = "forums.vivahgo.com";
 export const LOCAL_PLANNER_ROUTE = "/planner";
+export const LOCAL_FORUMS_ROUTE = "/forums";
 
 const LOCAL_HOST_PATTERN = /^(localhost|127(?:\.\d{1,3}){3}|::1|\[::1\])$/i;
 
@@ -17,9 +20,17 @@ export function isPlannerHostname(hostname = "") {
   return normalizeHostname(hostname) === PLANNER_HOSTNAME;
 }
 
+export function isForumsHostname(hostname = "") {
+  return normalizeHostname(hostname) === FORUMS_HOSTNAME;
+}
+
 export function shouldRenderMarketingHomeAtRoot(hostname = "") {
   const normalizedHostname = normalizeHostname(hostname);
-  return Boolean(normalizedHostname) && !isPlannerHostname(normalizedHostname);
+  return Boolean(normalizedHostname) && !isPlannerHostname(normalizedHostname) && !isForumsHostname(normalizedHostname);
+}
+
+export function shouldRenderForumsHomeAtRoot(hostname = "") {
+  return isForumsHostname(hostname);
 }
 
 function buildSiteUrl(siteUrl, pathname = "/") {
@@ -50,6 +61,22 @@ function normalizePlannerPath(pathname = "/") {
   return normalizedPath.startsWith(`${LOCAL_PLANNER_ROUTE}/`)
     ? normalizedPath
     : `${LOCAL_PLANNER_ROUTE}${normalizedPath}`;
+}
+
+function normalizeForumsPath(pathname = "/") {
+  const normalizedPath = pathname
+    ? (pathname.startsWith("/") ? pathname : `/${pathname}`)
+    : "/";
+
+  if (normalizedPath === "/" || normalizedPath === "/categories") {
+    return "/categories";
+  }
+
+  if (normalizedPath === LOCAL_FORUMS_ROUTE || normalizedPath.startsWith(`${LOCAL_FORUMS_ROUTE}/`)) {
+    return normalizedPath === LOCAL_FORUMS_ROUTE ? "/categories" : normalizedPath.slice(LOCAL_FORUMS_ROUTE.length) || "/categories";
+  }
+
+  return normalizedPath;
 }
 
 function getRuntimeLocation(options = {}) {
@@ -96,4 +123,17 @@ export function getPlannerUrl(pathname = "/", options = {}) {
   }
 
   return buildSiteUrl(PLANNER_SITE_URL, pathname);
+}
+
+export function getForumsUrl(pathname = "/categories", options = {}) {
+  const normalizedPath = normalizeForumsPath(pathname);
+
+  if (shouldUseLocalUrls(options)) {
+    const localPath = normalizedPath === "/categories"
+      ? `${LOCAL_FORUMS_ROUTE}/categories`
+      : `${LOCAL_FORUMS_ROUTE}${normalizedPath}`;
+    return buildOriginUrl(getRuntimeLocation(options).origin, localPath);
+  }
+
+  return buildSiteUrl(FORUMS_SITE_URL, normalizedPath);
 }

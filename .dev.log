@@ -1,0 +1,60 @@
+[90m2026-04-29T22:58:50+05:30[0m [32mINF[0m Injecting 84 Infisical secrets into your application process
+
+> vivah-app@0.0.0 dev:server
+> node --watch --import ./server/sentry-init.js server/index.js
+
+
+> vivah-app@0.0.0 dev:client
+> vite --host
+
+
+  VITE v8.0.3  ready in 130 ms
+
+  ➜  Local:   http://localhost:5173/
+  ➜  Network: http://192.168.29.48:5173/
+  ➜  press h + enter to show help
+[32minfo[0m - VivahGo API listening {
+  environment: 'development',
+  host: '0.0.0.0',
+  port: 4000,
+  local_url: 'http://localhost:4000'
+}
+11:00:42 PM [vite] (client) hmr update /src/app/App.jsx
+11:01:09 PM [vite] (client) Pre-transform error: Failed to resolve import "../../../shared/content/forums.cjs" from "src/features/forums/pages/ForumsPage.jsx". Does the file exist?
+  Plugin: vite:import-analysis
+  File: /Users/nikhil/Documents/VivahGo-mobile/vivahgo/src/features/forums/pages/ForumsPage.jsx:4:26
+  2  |  import "../../../styles.css";
+  3  |  import "../../../marketing-home.css";
+  4  |  import forumsContent from "../../../shared/content/forums.cjs";
+     |                             ^
+  5  |  import MarketingSiteHeader from "../../../components/MarketingSiteHeader.jsx";
+  6  |  import LegalFooter from "../../../components/LegalFooter.jsx";
+11:01:09 PM [vite] Internal server error: Failed to resolve import "../../../shared/content/forums.cjs" from "src/features/forums/pages/ForumsPage.jsx". Does the file exist?
+  Plugin: vite:import-analysis
+  File: /Users/nikhil/Documents/VivahGo-mobile/vivahgo/src/features/forums/pages/ForumsPage.jsx:4:26
+  2  |  import "../../../styles.css";
+  3  |  import "../../../marketing-home.css";
+  4  |  import forumsContent from "../../../shared/content/forums.cjs";
+     |                             ^
+  5  |  import MarketingSiteHeader from "../../../components/MarketingSiteHeader.jsx";
+  6  |  import LegalFooter from "../../../components/LegalFooter.jsx";
+      at TransformPluginContext._formatLog (file:///Users/nikhil/Documents/VivahGo-mobile/vivahgo/node_modules/vite/dist/node/chunks/node.js:30259:39)
+      at TransformPluginContext.error (file:///Users/nikhil/Documents/VivahGo-mobile/vivahgo/node_modules/vite/dist/node/chunks/node.js:30256:14)
+      at normalizeUrl (file:///Users/nikhil/Documents/VivahGo-mobile/vivahgo/node_modules/vite/dist/node/chunks/node.js:27544:18)
+      at async file:///Users/nikhil/Documents/VivahGo-mobile/vivahgo/node_modules/vite/dist/node/chunks/node.js:27607:30
+      at async Promise.all (index 3)
+      at async TransformPluginContext.transform (file:///Users/nikhil/Documents/VivahGo-mobile/vivahgo/node_modules/vite/dist/node/chunks/node.js:27575:4)
+      at async EnvironmentPluginContainer.transform (file:///Users/nikhil/Documents/VivahGo-mobile/vivahgo/node_modules/vite/dist/node/chunks/node.js:30048:14)
+      at async loadAndTransform (file:///Users/nikhil/Documents/VivahGo-mobile/vivahgo/node_modules/vite/dist/node/chunks/node.js:24177:26)
+11:01:23 PM [vite] (client) hmr update /src/app/App.jsx
+11:01:23 PM [vite] (client) hmr update /src/app/App.jsx
+11:01:24 PM [vite] (client) Pre-transform error: Failed to load url /src/shared/content/forums.js (resolved id: /Users/nikhil/Documents/VivahGo-mobile/vivahgo/src/shared/content/forums.js) in /Users/nikhil/Documents/VivahGo-mobile/vivahgo/src/app/App.jsx. Does the file exist?
+11:02:33 PM [vite] (client) hmr update /src/app/App.jsx
+11:02:35 PM [vite] (client) hmr update /src/app/App.jsx
+11:02:35 PM [vite] (client) hmr update /src/app/App.jsx
+11:02:40 PM [vite] (client) hmr update /src/app/App.jsx
+11:02:45 PM [vite] (client) hmr update /src/app/App.jsx
+11:04:14 PM [vite] (client) hmr update /src/app/App.jsx
+11:11:02 PM [vite] (client) hmr update /src/app/App.jsx
+11:11:07 PM [vite] (client) hmr update /src/app/App.jsx
+failed to wait for command termination: signal: interrupt

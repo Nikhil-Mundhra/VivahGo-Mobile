@@ -48,6 +48,27 @@
     {
       "source": "/",
       "has": [
+        { "type": "host", "value": "forums.vivahgo.com" }
+      ],
+      "destination": "/api/page?route=forums"
+    },
+    {
+      "source": "/category/:cid/:slug",
+      "has": [
+        { "type": "host", "value": "forums.vivahgo.com" }
+      ],
+      "destination": "/api/page?route=forums&categoryCid=:cid&categorySlug=:slug"
+    },
+    {
+      "source": "/((?!api/).*)",
+      "has": [
+        { "type": "host", "value": "forums.vivahgo.com" }
+      ],
+      "destination": "/api/page?route=forums"
+    },
+    {
+      "source": "/",
+      "has": [
         { "type": "host", "value": "planner.vivahgo.com" }
       ],
       "destination": "/api/page?route=planner"

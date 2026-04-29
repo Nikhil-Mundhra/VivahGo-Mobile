@@ -4,7 +4,8 @@ import { shouldShowChatbaseForRoute } from "../chatbase.js";
 import ChatbaseChatbot from "../components/ChatbaseChatbot.jsx";
 import ObservabilitySmokePanel from "../components/ObservabilitySmokePanel.jsx";
 import { usePageSeo } from "../seo.js";
-import { getMarketingUrl, getPlannerUrl } from "../siteUrls.js";
+import { getForumsUrl, getMarketingUrl, getPlannerUrl } from "../siteUrls.js";
+import * as forumsContent from "../shared/content/forums.js";
 import queryPages from "../shared/content/query-pages.json";
 import { setClarityRouteContext } from "../shared/clarity.js";
 import {
@@ -17,6 +18,7 @@ import { setSentryRoute } from "../shared/sentry.js";
 import { isAuthenticatedSession, readAuthSession } from "../authStorage.js";
 
 const PlannerPage = lazy(() => import("../pages/PlannerPage.jsx"));
+const ForumsPage = lazy(() => import("../features/forums/pages/ForumsPage.jsx"));
 const MarketingHomePage = lazy(() => import("../features/marketing/pages/MarketingHomePage.jsx"));
 const CareersPage = lazy(() => import("../features/marketing/pages/CareersPage.jsx"));
 const TermsPage = lazy(() => import("../features/marketing/pages/TermsPage.jsx"));
@@ -33,6 +35,7 @@ const ClerkSsoCallbackPage = lazy(() => import("../pages/ClerkSsoCallbackPage.js
 const QUERY_PAGE_BY_SLUG = Object.fromEntries(queryPages.map((page) => [page.slug, page]));
 const ROUTE_COMPONENTS = [
   { when: (routeInfo) => routeInfo.isPlannerRoute, render: () => <PlannerPage /> },
+  { when: (routeInfo) => routeInfo.isForumsRoute, render: () => <ForumsPage /> },
   { when: (routeInfo) => routeInfo.isVendorRoute, render: () => <VendorPortalPage /> },
   { when: (routeInfo) => routeInfo.isAdminRoute, render: () => <AdminPortalPage /> },
   { when: (routeInfo) => routeInfo.isClerkSsoCallbackRoute, render: () => <ClerkSsoCallbackPage /> },
@@ -76,109 +79,124 @@ export default function App() {
   const canonicalRoutePath = buildCanonicalRoutePath(routePath, routeInfo);
   const lastTrackedRouteRef = useRef("");
   const shouldShowChatbase = shouldShowChatbaseForRoute(routeInfo);
+  const forumsView = routeInfo.isForumsRoute ? forumsContent.resolveForumsViewFromPath(pathname) : null;
   const queryPage = routeInfo.queryPageSlug ? QUERY_PAGE_BY_SLUG[routeInfo.queryPageSlug] : null;
-  const fallbackSeo = routeInfo.isMarketingHomeRoute
-    ? {
-      title: "VivahGo | Wedding Planner App for Indian Weddings",
-      description: "VivahGo is a wedding planner app for Indian weddings that helps couples, families, and planners manage checklists, budgets, guests, vendors, RSVPs, timelines, and wedding websites in one shared workspace.",
-      canonicalUrl: getMarketingUrl("/"),
-    }
-    : routeInfo.isPricingRoute
+  const fallbackSeo = routeInfo.isForumsRoute
+    ? forumsView?.kind === "category" && forumsView.category
       ? {
-        title: "VivahGo Pricing | Plans for Couples and Planners",
-        description: "Compare wedding planner app pricing for couples, families, planners, and studios managing guests, budgets, vendors, RSVPs, and wedding websites.",
-        canonicalUrl: getMarketingUrl("/pricing"),
+        title: `${forumsView.category.name} | VivahGo forums`,
+        description: forumsView.category.description,
+        canonicalUrl: getForumsUrl(forumsView.canonicalPath, { hostname, origin: typeof window !== "undefined" ? window.location.origin : "" }),
+        siteName: "VivahGo forums",
       }
-      : routeInfo.isTermsRoute
+      : {
+        title: "Home | VivahGo forums",
+        description: "Browse the VivahGo forums for community discussions, product questions, and support.",
+        canonicalUrl: getForumsUrl("/categories", { hostname, origin: typeof window !== "undefined" ? window.location.origin : "" }),
+        siteName: "VivahGo forums",
+      }
+    : routeInfo.isMarketingHomeRoute
+      ? {
+        title: "VivahGo | Wedding Planner App for Indian Weddings",
+        description: "VivahGo is a wedding planner app for Indian weddings that helps couples, families, and planners manage checklists, budgets, guests, vendors, RSVPs, timelines, and wedding websites in one shared workspace.",
+        canonicalUrl: getMarketingUrl("/"),
+      }
+      : routeInfo.isPricingRoute
         ? {
-          title: "VivahGo Terms and Conditions",
-          description: "Read the terms and conditions for using VivahGo.",
-          canonicalUrl: getMarketingUrl("/terms"),
+          title: "VivahGo Pricing | Plans for Couples and Planners",
+          description: "Compare wedding planner app pricing for couples, families, planners, and studios managing guests, budgets, vendors, RSVPs, and wedding websites.",
+          canonicalUrl: getMarketingUrl("/pricing"),
         }
-      : routeInfo.isPrivacyRoute
-        ? {
-          title: "VivahGo Privacy Policy",
-          description: "Read how VivahGo collects, uses, and protects your information.",
-          canonicalUrl: getMarketingUrl("/privacy-policy"),
-        }
-      : routeInfo.isDataDeletionRoute
-        ? {
-          title: "VivahGo Data Deletion Instructions",
-          description: "Learn how to request deletion of your VivahGo account and associated personal data.",
-          canonicalUrl: getMarketingUrl("/data-deletion-instructions"),
-        }
-      : routeInfo.isGuidesRoute
-        ? {
-          title: "VivahGo Guides | Indian Wedding Planning Resources",
-          description: "Browse Indian wedding planning guides for checklists, budgets, guest lists, vendor coordination, cultural wedding timelines, and destination weddings.",
-          canonicalUrl: getMarketingUrl("/guides"),
-        }
-      : routeInfo.guideSlug
-        ? {
-          title: "VivahGo Guide",
-          description: "An Indian wedding planning guide from VivahGo.",
-          canonicalUrl: getMarketingUrl(`/guides/${routeInfo.guideSlug}`),
-        }
-      : queryPage
-        ? {
-          title: queryPage.seoTitle,
-          description: queryPage.seoDescription,
-          canonicalUrl: getMarketingUrl(`/${queryPage.slug}`),
-        }
-      : routeInfo.isCareersRoute
-        ? {
-          title: "VivahGo Careers | Join the Team",
-          description: "Explore careers at VivahGo and help build better wedding planning tools for couples and planners.",
-          canonicalUrl: getMarketingUrl("/careers"),
-        }
-        : routeInfo.isWeddingWebsiteRoute
+        : routeInfo.isTermsRoute
           ? {
-            title: "VivahGo Wedding Website | Beautiful Public Wedding Pages",
-            description: "Create a wedding website with event details, venue information, and a polished guest-facing experience.",
-            path: "/wedding",
-            noindex: true,
+            title: "VivahGo Terms and Conditions",
+            description: "Read the terms and conditions for using VivahGo.",
+            canonicalUrl: getMarketingUrl("/terms"),
           }
-          : routeInfo.rsvpToken
+          : routeInfo.isPrivacyRoute
             ? {
-              title: "VivahGo RSVP | Confirm Your Invitation",
-              description: "Confirm your attendance, update guest counts, and respond to your invitation in a few clicks.",
-              path: `/rsvp/${routeInfo.rsvpToken}`,
-              noindex: true,
+              title: "VivahGo Privacy Policy",
+              description: "Read how VivahGo collects, uses, and protects your information.",
+              canonicalUrl: getMarketingUrl("/privacy-policy"),
             }
-            : routeInfo.isVendorRoute
+            : routeInfo.isDataDeletionRoute
               ? {
-                title: "VivahGo Vendor Login | Manage Your Wedding Vendor Profile",
-                description: "Log in to the VivahGo vendor portal to manage your wedding vendor profile, portfolio, availability, and approvals.",
-                canonicalUrl: getMarketingUrl("/vendor"),
+                title: "VivahGo Data Deletion Instructions",
+                description: "Learn how to request deletion of your VivahGo account and associated personal data.",
+                canonicalUrl: getMarketingUrl("/data-deletion-instructions"),
               }
-              : routeInfo.isAdminRoute
+              : routeInfo.isGuidesRoute
                 ? {
-                  title: "VivahGo | Admin Portal",
-                  description: "VivahGo internal administration tools.",
-                  path: "/admin",
-                  noindex: true,
+                  title: "VivahGo Guides | Indian Wedding Planning Resources",
+                  description: "Browse Indian wedding planning guides for checklists, budgets, guest lists, vendor coordination, cultural wedding timelines, and destination weddings.",
+                  canonicalUrl: getMarketingUrl("/guides"),
                 }
-                : routeInfo.isClerkSsoCallbackRoute
+                : routeInfo.guideSlug
                   ? {
-                    title: "VivahGo | Completing Sign In",
-                    description: "Completing your sign-in.",
-                    path: "/auth/sso-callback",
-                    noindex: true,
+                    title: "VivahGo Guide",
+                    description: "An Indian wedding planning guide from VivahGo.",
+                    canonicalUrl: getMarketingUrl(`/guides/${routeInfo.guideSlug}`),
                   }
-                : routeInfo.publicWeddingSlug
-                  ? {
-                    title: "VivahGo Wedding Website",
-                    description: "A public wedding website powered by VivahGo.",
-                    path: `/${routeInfo.publicWeddingSlug}`,
-                    noindex: true,
-                  }
-                  : {
-                    title: "VivahGo Planner | Shared Wedding Workspace",
-                    description: "Manage your wedding checklist, guests, budget, events, and vendors from one workspace.",
-                    canonicalUrl: getPlannerUrl("/"),
-                    previewKey: "planner",
-                    noindex: true,
-                  };
+                  : queryPage
+                    ? {
+                      title: queryPage.seoTitle,
+                      description: queryPage.seoDescription,
+                      canonicalUrl: getMarketingUrl(`/${queryPage.slug}`),
+                    }
+                    : routeInfo.isCareersRoute
+                      ? {
+                        title: "VivahGo Careers | Join the Team",
+                        description: "Explore careers at VivahGo and help build better wedding planning tools for couples and planners.",
+                        canonicalUrl: getMarketingUrl("/careers"),
+                      }
+                      : routeInfo.isWeddingWebsiteRoute
+                        ? {
+                          title: "VivahGo Wedding Website | Beautiful Public Wedding Pages",
+                          description: "Create a wedding website with event details, venue information, and a polished guest-facing experience.",
+                          path: "/wedding",
+                          noindex: true,
+                        }
+                        : routeInfo.rsvpToken
+                          ? {
+                            title: "VivahGo RSVP | Confirm Your Invitation",
+                            description: "Confirm your attendance, update guest counts, and respond to your invitation in a few clicks.",
+                            path: `/rsvp/${routeInfo.rsvpToken}`,
+                            noindex: true,
+                          }
+                          : routeInfo.isVendorRoute
+                            ? {
+                              title: "VivahGo Vendor Login | Manage Your Wedding Vendor Profile",
+                              description: "Log in to the VivahGo vendor portal to manage your wedding vendor profile, portfolio, availability, and approvals.",
+                              canonicalUrl: getMarketingUrl("/vendor"),
+                            }
+                            : routeInfo.isAdminRoute
+                              ? {
+                                title: "VivahGo | Admin Portal",
+                                description: "VivahGo internal administration tools.",
+                                path: "/admin",
+                                noindex: true,
+                              }
+                              : routeInfo.isClerkSsoCallbackRoute
+                                ? {
+                                  title: "VivahGo | Completing Sign In",
+                                  description: "Completing your sign-in.",
+                                  path: "/auth/sso-callback",
+                                  noindex: true,
+                                }
+                                : routeInfo.publicWeddingSlug
+                                  ? {
+                                    title: "VivahGo Wedding Website",
+                                    description: "A public wedding website powered by VivahGo.",
+                                    path: `/${routeInfo.publicWeddingSlug}`,
+                                    noindex: true,
+                                  }
+                                  : {
+                                    title: "VivahGo Planner | Shared Wedding Workspace",
+                                    description: "Manage your wedding checklist, guests, budget, events, and vendors from one workspace.",
+                                    canonicalUrl: getPlannerUrl("/"),
+                                    previewKey: "planner",
+                                    noindex: true,
+                                  };
 
   useEffect(() => {
     if (typeof document !== "undefined") {

@@ -13,6 +13,7 @@ describe('VivahGo/src/siteUrls.js', function () {
     assert.equal(mod.getMarketingUrl('/pricing'), 'https://vivahgo.com/pricing');
     assert.equal(mod.getPlannerUrl('/'), 'https://planner.vivahgo.com/');
     assert.equal(mod.getPlannerUrl('/vendor'), 'https://planner.vivahgo.com/vendor');
+    assert.equal(mod.getForumsUrl('/categories'), 'https://forums.vivahgo.com/categories');
     assert.equal(
       mod.getMarketingUrl('/', { hostname: 'localhost', origin: 'http://localhost:5173' }),
       'http://localhost:5173/'
@@ -25,16 +26,23 @@ describe('VivahGo/src/siteUrls.js', function () {
       mod.getPlannerUrl('/tasks', { hostname: 'localhost', origin: 'http://localhost:5173' }),
       'http://localhost:5173/planner/tasks'
     );
+    assert.equal(
+      mod.getForumsUrl('/categories', { hostname: 'localhost', origin: 'http://localhost:5173' }),
+      'http://localhost:5173/forums/categories'
+    );
   });
 
   it('distinguishes planner, marketing, and local hosts', async function () {
     const mod = await load();
 
     assert.equal(mod.isPlannerHostname('planner.vivahgo.com'), true);
+    assert.equal(mod.isForumsHostname('forums.vivahgo.com'), true);
     assert.equal(mod.isPlannerHostname('vivahgo.com'), false);
     assert.equal(mod.shouldRenderMarketingHomeAtRoot('vivahgo.com'), true);
     assert.equal(mod.shouldRenderMarketingHomeAtRoot('www.vivahgo.com'), true);
     assert.equal(mod.shouldRenderMarketingHomeAtRoot('planner.vivahgo.com'), false);
+    assert.equal(mod.shouldRenderMarketingHomeAtRoot('forums.vivahgo.com'), false);
+    assert.equal(mod.shouldRenderForumsHomeAtRoot('forums.vivahgo.com'), true);
     assert.equal(mod.shouldRenderMarketingHomeAtRoot('localhost:5173'), true);
   });
 });

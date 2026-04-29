@@ -101,6 +101,29 @@ describe('VivahGo/src/seo.js', function () {
     );
   });
 
+  it('allows a custom site name for alternate branded surfaces', async function () {
+    const mod = await loadSeoModule();
+    const dom = new JSDOM('<!doctype html><html><head></head><body></body></html>', {
+      url: 'https://forums.vivahgo.com/categories',
+    });
+
+    mod.applySeoMetadata({
+      title: 'Home | VivahGo forums',
+      description: 'Forums.',
+      path: '/categories',
+      siteName: 'VivahGo forums',
+    }, {
+      doc: dom.window.document,
+      win: dom.window,
+      env: {},
+    });
+
+    assert.equal(
+      dom.window.document.querySelector('meta[property="og:site_name"]').getAttribute('content'),
+      'VivahGo forums'
+    );
+  });
+
   it('manages alternate feed links alongside canonical metadata', async function () {
     const mod = await loadSeoModule();
     const dom = new JSDOM('<!doctype html><html><head></head><body></body></html>', {

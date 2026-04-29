@@ -3,6 +3,7 @@ const path = require('node:path');
 
 const { setSecurityHeaders } = require('./_lib/core');
 const plannerModule = require('./planner');
+const forumsModule = require('../vivahgo/src/shared/content/forums.cjs');
 const keywordLibrary = require('../vivahgo/src/generated/seo-keywords.json');
 const guides = require('../vivahgo/src/shared/content/guides.json');
 const queryPages = require('../vivahgo/src/shared/content/query-pages.json');
@@ -600,6 +601,7 @@ function buildSeoMarkup(meta, req) {
   const type = escapeAttribute(meta.type || 'website');
   const themeColor = escapeAttribute(meta.themeColor || '#6b0f0f');
   const locale = escapeAttribute(meta.locale || 'en_IN');
+  const siteName = escapeAttribute(meta.siteName || 'VivahGo');
   const structuredData = Array.isArray(meta.structuredData)
     ? meta.structuredData.filter(Boolean)
     : (meta.structuredData ? [meta.structuredData] : []);
@@ -611,7 +613,7 @@ function buildSeoMarkup(meta, req) {
     `    <meta name="theme-color" content="${themeColor}" />`,
     `    <link rel="canonical" href="${canonicalUrl}" />`,
     `    <meta property="og:type" content="${type}" />`,
-    `    <meta property="og:site_name" content="VivahGo" />`,
+    `    <meta property="og:site_name" content="${siteName}" />`,
     `    <meta property="og:locale" content="${locale}" />`,
     `    <meta property="og:title" content="${escapeAttribute(meta.title)}" />`,
     `    <meta property="og:description" content="${description}" />`,
@@ -1405,8 +1407,28 @@ function buildVendorSnapshot() {
     </div>`;
 }
 
+function buildForumsMetadata(req, forumsView = null) {
+  const view = forumsView?.kind ? forumsView : forumsModule.resolveForumsViewFromPath('/categories');
+  const category = view?.kind === 'category' ? view.category : null;
+  const title = category ? `${category.name} | VivahGo forums` : 'Home | VivahGo forums';
+  const description = category?.description || 'Browse the VivahGo forums for community discussions, product questions, and support.';
+  const canonicalPath = category ? `/category/${forumsModule.getForumCategoryPath(category)}` : '/categories';
+
+  return {
+    title,
+    description,
+    canonicalUrl: buildAbsoluteUrl(req, canonicalPath),
+    robots: 'index, follow',
+    siteName: forumsModule.FORUMS_SITE_NAME,
+  };
+}
+
 function buildRouteSnapshot(routeData) {
   const route = routeData?.route || '';
+  if (route === 'forums') {
+    return forumsModule.buildForumsSnapshot({ view: routeData?.payload?.view });
+  }
+
   if (route === 'pricing') {
     return buildPricingSnapshot();
   }
@@ -1466,6 +1488,13 @@ async function getRouteData(req, plannerHandlers = plannerModule) {
   const route = String(req.query?.route || '').trim().toLowerCase();
   if (route === 'planner') {
     return { route, statusCode: 200, payload: null };
+  }
+
+  if (route === 'forums') {
+    const categoryCid = String(req.query?.categoryCid || '').trim();
+    const categorySlug = String(req.query?.categorySlug || '').trim();
+    const view = forumsModule.resolveForumsViewFromCategoryQuery(categoryCid, categorySlug);
+    return { route, statusCode: 200, payload: { view } };
   }
 
   if (route === 'guide') {
@@ -1970,6 +1999,10 @@ function resolveMetadata(req, routeData) {
     return buildPlannerMetadata();
   }
 
+  if (route === 'forums') {
+    return buildForumsMetadata(req, routeData?.payload?.view);
+  }
+
   if (route === 'guide') {
     return buildGuideMetadata(req, req.query?.slug || '', routeData?.payload, routeData?.statusCode);
   }
@@ -2099,6 +2132,7 @@ function createPageHandler(options = {}) {
 
 module.exports = createPageHandler();
 module.exports.buildGuideMetadata = buildGuideMetadata;
+module.exports.buildForumsMetadata = buildForumsMetadata;
 module.exports.buildMarketingMetadata = buildMarketingMetadata;
 module.exports.buildPlannerMetadata = buildPlannerMetadata;
 module.exports.buildQueryPageMetadata = buildQueryPageMetadata;

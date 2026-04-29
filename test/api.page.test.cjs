@@ -4,10 +4,12 @@ const os = require('node:os');
 const path = require('node:path');
 
 const { createRes } = require('./helpers/testUtils.cjs');
+const forumsModule = require('../vivahgo/src/shared/content/forums.cjs');
 const queryPages = require('../vivahgo/src/shared/content/query-pages.json');
 const {
   buildGuideMetadata,
   canUseSourceHtmlFallback,
+  buildForumsMetadata,
   buildMarketingMetadata,
   buildPlannerMetadata,
   buildQueryPageMetadata,
@@ -126,6 +128,15 @@ describe('api/page.js', function () {
     assert.equal(plannerMeta.robots, 'noindex, nofollow');
   });
 
+  it('builds forums metadata with the forums canonical url', function () {
+    const req = { headers: { host: 'forums.vivahgo.com', 'x-forwarded-proto': 'https' } };
+    const forumsMeta = buildForumsMetadata(req);
+
+    assert.equal(forumsMeta.canonicalUrl, 'https://forums.vivahgo.com/categories');
+    assert.equal(forumsMeta.siteName, 'VivahGo forums');
+    assert.equal(forumsMeta.robots, 'index, follow');
+  });
+
   it('resolves social preview images from host and explicit preview keys', function () {
     assert.deepEqual(resolveConfiguredSocialPreview({
       hostname: 'vivahgo.com',
@@ -192,6 +203,14 @@ describe('api/page.js', function () {
 
   it('builds crawlable snapshots for indexable marketing routes', function () {
     const homeSnapshot = buildRouteSnapshot({ route: 'home', statusCode: 200, payload: null });
+    const forumsSnapshot = buildRouteSnapshot({ route: 'forums', statusCode: 200, payload: null });
+    const forumsCategorySnapshot = buildRouteSnapshot({
+      route: 'forums',
+      statusCode: 200,
+      payload: {
+        view: forumsModule.resolveForumsViewFromPath('/category/5/opera-for-computers'),
+      },
+    });
     const guideSnapshot = buildRouteSnapshot({
       route: 'guide',
       statusCode: 200,
@@ -237,6 +256,16 @@ describe('api/page.js', function () {
     assert.match(homeSnapshot, /One platform\. Every wedding\. Total control/);
     assert.match(homeSnapshot, /Ditch the chaos, master your wedding plan from Roka to Vidaai/);
     assert.match(homeSnapshot, /wedding checklist app/i);
+    assert.match(forumsSnapshot, /Categories/);
+    assert.match(forumsSnapshot, /Opera for computers/);
+    assert.match(forumsCategorySnapshot, /Opera for computers/);
+    assert.match(forumsCategorySnapshot, /Subcategories/);
+    assert.match(forumsCategorySnapshot, /Latest activity/);
+    assert.match(forumsCategorySnapshot, /Opera 95 was the last one with support for Windows 7/);
+    assert.doesNotMatch(forumsSnapshot, /header-logo\.png/);
+    assert.doesNotMatch(forumsSnapshot, /forums-brand-title/);
+    assert.doesNotMatch(forumsSnapshot, /forums-brand-subtitle/);
+    assert.doesNotMatch(forumsSnapshot, /Copyright © VivahGo 2026/);
     assert.match(guideSnapshot, /Indian Wedding Budget Planning Guide/);
     assert.match(guideSnapshot, /Watch pending balances/);
     assert.match(querySnapshot, /The wedding planner app that keeps your wedding organized/);
@@ -320,6 +349,50 @@ describe('api/page.js', function () {
     assert.match(res.body, /Vendor Login/);
     assert.match(res.body, /wedding checklist app/i);
     assert.match(res.body, /https:\/\/vivahgo\.com\/guides\/indian-wedding-checklist/);
+  });
+
+  it('renders crawlable forums html through the page handler', async function () {
+    const handler = createPageHandler({
+      loadHtmlTemplate: async () => '<!doctype html><html><head><script type="module" src="/assets/app.js"></script></head><body><div id="root"></div></body></html>',
+      plannerHandlers: {},
+    });
+    const req = {
+      method: 'GET',
+      headers: { host: 'forums.vivahgo.com', 'x-forwarded-proto': 'https' },
+      query: { route: 'forums' },
+    };
+    const res = createRes();
+
+    await handler(req, res);
+
+    assert.equal(res.statusCode, 200);
+    assert.match(res.body, /Home \| VivahGo forums/);
+    assert.match(res.body, /https:\/\/forums\.vivahgo\.com\/categories/);
+    assert.match(res.body, /meta property="og:site_name" content="VivahGo forums"/);
+    assert.match(res.body, /Opera for computers/);
+  });
+
+  it('renders crawlable forums category html through the page handler', async function () {
+    const handler = createPageHandler({
+      loadHtmlTemplate: async () => '<!doctype html><html><head><script type="module" src="/assets/app.js"></script></head><body><div id="root"></div></body></html>',
+      plannerHandlers: {},
+    });
+    const req = {
+      method: 'GET',
+      headers: { host: 'forums.vivahgo.com', 'x-forwarded-proto': 'https' },
+      query: { route: 'forums', categoryCid: '5', categorySlug: 'opera-for-computers' },
+    };
+    const res = createRes();
+
+    await handler(req, res);
+
+    assert.equal(res.statusCode, 200);
+    assert.match(res.body, /Opera for computers \| VivahGo forums/);
+    assert.match(res.body, /https:\/\/forums\.vivahgo\.com\/category\/5\/opera-for-computers/);
+    assert.match(res.body, /Subcategories/);
+    assert.match(res.body, /Opera for Windows/);
+    assert.match(res.body, /Latest activity/);
+    assert.match(res.body, /Opera 95 was the last one with support for Windows 7/);
   });
 
   it('renders planner html with the planner preview image through the page handler', async function () {

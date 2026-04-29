@@ -18,6 +18,14 @@ describe('vercel.json', function () {
 
   it('serves planner root through the SEO page handler and leaves preview assets static', function () {
     const config = JSON.parse(readText('vercel.json'));
+    const forumRootRewrite = config.rewrites.find((rewrite) => (
+      rewrite.source === '/' &&
+      rewrite.has?.some((condition) => condition.type === 'host' && condition.value === 'forums.vivahgo.com')
+    ));
+    const forumFallbackRewrite = config.rewrites.find((rewrite) => (
+      rewrite.source === '/((?!api/).*)' &&
+      rewrite.has?.some((condition) => condition.type === 'host' && condition.value === 'forums.vivahgo.com')
+    ));
     const plannerRootRewrite = config.rewrites.find((rewrite) => (
       rewrite.source === '/' &&
       rewrite.has?.some((condition) => condition.type === 'host' && condition.value === 'planner.vivahgo.com')
@@ -26,8 +34,15 @@ describe('vercel.json', function () {
       rewrite.source === '/((?!api/).*)' &&
       rewrite.has?.some((condition) => condition.type === 'host' && condition.value === 'planner.vivahgo.com')
     ));
+    const forumCategoryRewrite = config.rewrites.find((rewrite) => (
+      rewrite.source === '/category/:cid/:slug' &&
+      rewrite.has?.some((condition) => condition.type === 'host' && condition.value === 'forums.vivahgo.com')
+    ));
     const dynamicWebsiteRewrite = config.rewrites.find((rewrite) => rewrite.destination === '/api/page?route=website&slug=:slug');
 
+    assert.equal(forumRootRewrite.destination, '/api/page?route=forums');
+    assert.equal(forumFallbackRewrite.destination, '/api/page?route=forums');
+    assert.equal(forumCategoryRewrite.destination, '/api/page?route=forums&categoryCid=:cid&categorySlug=:slug');
     assert.equal(plannerRootRewrite.destination, '/api/page?route=planner');
     assert.equal(plannerFallbackRewrite.destination, '/api/page?route=planner');
     assert.match(dynamicWebsiteRewrite.source, /social-preview\\\.png/);

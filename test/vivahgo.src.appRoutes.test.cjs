@@ -47,6 +47,10 @@ describe('VivahGo/src/appRoutes.js', function () {
 
     assert.equal(mod.getRouteInfo('/', { hostname: 'vivahgo.com' }).bodyRoute, 'home');
     assert.equal(mod.getRouteInfo('/', { hostname: 'vivahgo.com' }).isMarketingHomeRoute, true);
+    assert.equal(mod.getRouteInfo('/', { hostname: 'forums.vivahgo.com' }).bodyRoute, 'forums');
+    assert.equal(mod.getRouteInfo('/', { hostname: 'forums.vivahgo.com' }).isForumsRoute, true);
+    assert.equal(mod.getRouteInfo('/categories', { hostname: 'forums.vivahgo.com' }).bodyRoute, 'forums');
+    assert.equal(mod.getRouteInfo('/recent', { hostname: 'forums.vivahgo.com' }).bodyRoute, 'forums');
     assert.equal(mod.getRouteInfo('/home', { hostname: 'vivahgo.com' }).isMarketingHomeRoute, true);
 
     assert.equal(mod.getRouteInfo('/', { hostname: 'planner.vivahgo.com' }).bodyRoute, 'app');
@@ -87,6 +91,8 @@ describe('VivahGo/src/appRoutes.js', function () {
 
     assert.equal(mod.getRouteInfo('/', { hostname: 'localhost' }).bodyRoute, 'home');
     assert.equal(mod.getRouteInfo('/', { hostname: 'localhost' }).isMarketingHomeRoute, true);
+    assert.equal(mod.getRouteInfo('/forums', { hostname: 'localhost' }).bodyRoute, 'forums');
+    assert.equal(mod.getRouteInfo('/forums/categories', { hostname: 'localhost' }).isForumsRoute, true);
     assert.equal(mod.getRouteInfo('/planner', { hostname: 'localhost' }).bodyRoute, 'app');
     assert.equal(mod.getRouteInfo('/planner', { hostname: 'localhost' }).isPlannerRoute, true);
     assert.equal(mod.getRouteInfo('/planner/tasks', { hostname: 'localhost' }).plannerTab, 'tasks');

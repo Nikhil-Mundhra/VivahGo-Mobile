@@ -1,4 +1,11 @@
-import { isLocalHostname, isPlannerHostname, normalizeHostname, shouldRenderMarketingHomeAtRoot } from "../../siteUrls.js";
+import {
+  isForumsHostname,
+  isLocalHostname,
+  isPlannerHostname,
+  normalizeHostname,
+  shouldRenderForumsHomeAtRoot,
+  shouldRenderMarketingHomeAtRoot,
+} from "../../siteUrls.js";
 
 export const QUERY_CAPTURE_PAGE_SLUGS = [
   "wedding-planner-app",
@@ -31,10 +38,27 @@ export function getRouteInfo(pathname = "/", options = {}) {
   const normalizedPathname = normalizePathname(pathname);
   const normalizedHostname = normalizeHostname(options.hostname || "");
   const isAuthenticated = options.isAuthenticated === true;
+  const isForumsRootRoute = shouldRenderForumsHomeAtRoot(normalizedHostname) && normalizedPathname === "/";
   const redirectPath = isPlannerHostname(normalizedHostname) && normalizedPathname === "/vendor" && !isAuthenticated
     ? "/"
     : "";
   const canonicalPathname = redirectPath || normalizedPathname;
+  const isForumsRoute = isForumsHostname(normalizedHostname)
+    || isForumsRootRoute
+    || canonicalPathname === "/forums"
+    || canonicalPathname.startsWith("/forums/")
+    || (isLocalHostname(normalizedHostname) && [
+      "/categories",
+      "/recent",
+      "/tags",
+      "/users",
+      "/groups",
+      "/rules",
+      "/help",
+      "/search",
+      "/login",
+    ].includes(canonicalPathname))
+    || (isLocalHostname(normalizedHostname) && /^\/(category|topic|post|user)\//.test(canonicalPathname));
   const isRootMarketingHomeRoute = canonicalPathname === "/" && shouldRenderMarketingHomeAtRoot(normalizedHostname);
   const isLocalPlannerRoute = isLocalHostname(normalizedHostname) && canonicalPathname === "/planner";
   const localPlannerTabMatch = isLocalHostname(normalizedHostname) ? canonicalPathname.match(/^\/planner\/([^/]+)$/) : null;
@@ -46,6 +70,7 @@ export function getRouteInfo(pathname = "/", options = {}) {
     : isLocalPlannerRoute || Boolean(plannerTab);
   const isMarketingHomeAliasRoute = canonicalPathname === "/home" && !isPlannerHostname(normalizedHostname);
   const isMarketingHomeRoute = isRootMarketingHomeRoute || isMarketingHomeAliasRoute;
+  const isForumsAliasRoute = canonicalPathname === "/forums" || canonicalPathname.startsWith("/forums/");
   const isPricingRoute = canonicalPathname === "/pricing";
   const isTermsRoute = canonicalPathname === "/terms";
   const isPrivacyRoute = canonicalPathname === "/privacy-policy";
@@ -68,11 +93,13 @@ export function getRouteInfo(pathname = "/", options = {}) {
   const publicWeddingSlug = publicWeddingSlugMatch
     && !queryPageSlug
     && !isPlannerHostname(normalizedHostname)
+    && !isForumsHostname(normalizedHostname)
     && !["home", "planner", "pricing", "terms", "privacy-policy", "data-deletion-instructions", "guides", "rsvp", "vendor", "wedding", "admin", "careers"].includes(publicWeddingSlugMatch[1].toLowerCase())
     ? decodeURIComponent(publicWeddingSlugMatch[1])
     : "";
 
-  const bodyRoute = isMarketingHomeRoute || isPricingRoute || isTermsRoute || isPrivacyRoute || isDataDeletionRoute || isGuidesRoute || guideSlug || queryPageSlug ? "home"
+  const bodyRoute = isForumsRoute ? "forums"
+    : isMarketingHomeRoute || isPricingRoute || isTermsRoute || isPrivacyRoute || isDataDeletionRoute || isGuidesRoute || guideSlug || queryPageSlug ? "home"
     : rsvpToken ? "rsvp"
     : isWeddingWebsiteRoute ? "wedding"
     : isCareersRoute ? "careers"
@@ -88,6 +115,8 @@ export function getRouteInfo(pathname = "/", options = {}) {
     normalizedHostname,
     redirectPath,
     isRootMarketingHomeRoute,
+    isForumsRoute,
+    isForumsAliasRoute,
     isLocalPlannerRoute,
     isPlannerRoute,
     plannerTab,
