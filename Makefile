@@ -26,6 +26,10 @@ INFISICAL_RUN_ARGS += --projectId=$(INFISICAL_PROJECT_ID)
 INFISICAL_EXPORT_ARGS += --projectId=$(INFISICAL_PROJECT_ID)
 endif
 
+# Get local IP address (works on macOS and most Linux distros)
+LOCAL_IP := $(shell ipconfig getifaddr en0 2>/dev/null || hostname -I | cut -d' ' -f1)
+DEV_LOG := .dev.log
+
 .PHONY: build build_frontend build_backend test test_coverage coverage_check clean run dev run_local \
 	check-secrets test-db infisical-init infisical-login ensure-infisical setup sync-app-env sync-preview-env sync-envs
 
@@ -51,8 +55,16 @@ clean:
 	rm -rf coverage .nyc_output vivahgo/dist
 
 run: ensure-infisical
-	cd "$(APP_DIR)" && $(INFISICAL) run $(INFISICAL_RUN_ARGS) -- npm run dev
-
+	@echo -e "$(BLUE)-------------------------------------------------------$(RESET)"
+	@echo -e "🚀 $(BOLD)Server is starting...$(RESET)"
+	@echo -e "🌐 Dev Server:   $(CYAN)http://localhost:5173$(RESET)"
+	@echo -e "📱 Phone Access: $(CYAN)http://$(LOCAL_IP):5173$(RESET)"
+	@echo -e "$(BLUE)-------------------------------------------------------$(RESET)"
+	@echo -e "📝 Logs are being written to $(GREEN)$(DEV_LOG)$(RESET)"
+	@echo -e "👉 Run '$(BOLD)tail -f $(DEV_LOG)$(RESET)' to view stream"
+	@# We manually trigger dev:server and dev:client to ensure --host reaches the right place
+	@cd "$(APP_DIR)" && $(INFISICAL) run $(INFISICAL_RUN_ARGS) --command \
+		'npm run dev:server & SERVER_PID=$$!; sleep 2; npm run dev:client -- --host; kill $$SERVER_PID' > $(ROOT_DIR)/$(DEV_LOG) 2>&1
 dev: run
 
 run_local: ensure-infisical test build
