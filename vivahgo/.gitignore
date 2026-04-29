@@ -28,3 +28,6 @@ env.vercel
 
 # Local HTTPS dev certificates
 .devcert/
+
+# Run logs from make run
+.dev.log
