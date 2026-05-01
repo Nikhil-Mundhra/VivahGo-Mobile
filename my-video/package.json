@@ -9,7 +9,7 @@
     "@remotion/animation-utils": "^4.0.445",
     "@remotion/cli": "^4.0.445",
     "@remotion/google-fonts": "^4.0.445",
-    "@remotion/layout-utils": "^4.0.445",
+    "@remotion/layout-utils": "^4.0.455",
     "@remotion/media": "^4.0.445",
     "@remotion/tailwind-v4": "^4.0.445",
     "@remotion/zod-types": "^4.0.445",
