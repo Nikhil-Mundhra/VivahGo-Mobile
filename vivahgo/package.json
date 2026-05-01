@@ -48,7 +48,7 @@
     "react-dom": "^19.2.4"
   },
   "devDependencies": {
-    "@capacitor/cli": "^8.3.0",
+    "@capacitor/cli": "^8.3.1",
     "@eslint/js": "^9.39.4",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.2",
