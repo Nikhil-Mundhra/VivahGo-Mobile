@@ -51,6 +51,8 @@ jobs:
           echo "deployment_url=$deployment_url" >> "$GITHUB_OUTPUT"
 
       - name: Verify preview asset references
+        env:
+          VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
         run: node scripts/verify-deployed-assets.cjs "${{ steps.deploy_preview.outputs.deployment_url }}"
 
   deploy-production:
@@ -89,4 +91,6 @@ jobs:
           echo "deployment_url=$deployment_url" >> "$GITHUB_OUTPUT"
 
       - name: Verify production asset references
+        env:
+          VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
         run: node scripts/verify-deployed-assets.cjs "${{ steps.deploy_production.outputs.deployment_url }}"

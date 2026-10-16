@@ -35,6 +35,7 @@ function extractAssetUrls(html, deploymentUrl) {
 async function fetchWithTimeout(url, options = {}) {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), DEFAULT_TIMEOUT_MS);
+  const bypassSecret = process.env.VERCEL_AUTOMATION_BYPASS_SECRET;
 
   try {
     return await fetch(url, {
@@ -42,6 +43,7 @@ async function fetchWithTimeout(url, options = {}) {
       signal: controller.signal,
       headers: {
         "user-agent": "vivahgo-deploy-verifier",
+        ...(bypassSecret ? { "x-vercel-protection-bypass": bypassSecret } : {}),
         ...(options.headers || {}),
       },
     });
