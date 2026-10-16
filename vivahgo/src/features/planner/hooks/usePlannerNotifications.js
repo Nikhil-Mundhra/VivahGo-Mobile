@@ -11,24 +11,34 @@ import { getBrowserNotificationSupport, removeBrowserPushToken, requestBrowserPu
 import { DEFAULT_NOTIFICATION_PREFERENCES } from "../lib/plannerShellState.js";
 
 export function usePlannerNotifications({ store, queryClient }) {
+  const {
+    authMode,
+    authToken,
+    notificationPreferences,
+    setIsUpdatingNotifications,
+    setNotificationError,
+    setNotificationPreferences,
+    setNotificationSupport,
+  } = store;
+
   const notificationsQuery = useQuery({
     queryKey: plannerNotificationsQueryKey(),
-    queryFn: () => fetchPlannerNotificationSettings(store.authToken),
-    enabled: (store.authMode === "google" || store.authMode === "clerk") && Boolean(store.authToken),
+    queryFn: () => fetchPlannerNotificationSettings(authToken),
+    enabled: (authMode === "google" || authMode === "clerk") && Boolean(authToken),
   });
 
   const refreshBrowserNotificationState = useCallback(async () => {
     try {
       const support = await getBrowserNotificationSupport();
-      store.setNotificationSupport(support);
+      setNotificationSupport(support);
     } catch {
-      store.setNotificationSupport({ supported: false, configured: false, permission: "default" });
+      setNotificationSupport({ supported: false, configured: false, permission: "default" });
     }
-  }, [store]);
+  }, [setNotificationSupport]);
 
   const fetchAndApplyNotificationSettings = useCallback(async (token) => {
     if (!token) {
-      store.setNotificationPreferences(DEFAULT_NOTIFICATION_PREFERENCES);
+      setNotificationPreferences(DEFAULT_NOTIFICATION_PREFERENCES);
       return;
     }
 
@@ -37,79 +47,79 @@ export function usePlannerNotifications({ store, queryClient }) {
         queryKey: plannerNotificationsQueryKey(),
         queryFn: () => fetchPlannerNotificationSettings(token),
       });
-      store.setNotificationPreferences({
+      setNotificationPreferences({
         ...DEFAULT_NOTIFICATION_PREFERENCES,
         ...(response?.notificationPreferences || {}),
       });
     } catch {
-      store.setNotificationPreferences(DEFAULT_NOTIFICATION_PREFERENCES);
+      setNotificationPreferences(DEFAULT_NOTIFICATION_PREFERENCES);
     } finally {
       await refreshBrowserNotificationState();
     }
-  }, [queryClient, refreshBrowserNotificationState, store]);
+  }, [queryClient, refreshBrowserNotificationState, setNotificationPreferences]);
 
   async function handleSaveNotificationPreferences(nextPartial) {
-    if (!store.authToken) {
+    if (!authToken) {
       return;
     }
 
     const nextPreferences = {
       ...DEFAULT_NOTIFICATION_PREFERENCES,
-      ...store.notificationPreferences,
+      ...notificationPreferences,
       ...nextPartial,
     };
 
     try {
-      store.setIsUpdatingNotifications(true);
-      store.setNotificationError("");
-      store.setNotificationPreferences(nextPreferences);
-      const response = await savePlannerNotificationSettings(store.authToken, nextPreferences);
-      store.setNotificationPreferences({
+      setIsUpdatingNotifications(true);
+      setNotificationError("");
+      setNotificationPreferences(nextPreferences);
+      const response = await savePlannerNotificationSettings(authToken, nextPreferences);
+      setNotificationPreferences({
         ...DEFAULT_NOTIFICATION_PREFERENCES,
         ...(response?.notificationPreferences || nextPreferences),
       });
     } catch (error) {
-      store.setNotificationError(error.message || "Could not save notification preferences.");
+      setNotificationError(error.message || "Could not save notification preferences.");
     } finally {
-      store.setIsUpdatingNotifications(false);
+      setIsUpdatingNotifications(false);
     }
   }
 
   async function handleEnableBrowserNotifications() {
-    if (!store.authToken) {
+    if (!authToken) {
       return;
     }
 
     try {
-      store.setIsUpdatingNotifications(true);
-      store.setNotificationError("");
+      setIsUpdatingNotifications(true);
+      setNotificationError("");
       const token = await requestBrowserPushToken();
-      const response = await registerPlannerNotificationToken(store.authToken, {
+      const response = await registerPlannerNotificationToken(authToken, {
         token,
         platform: "web",
         deviceLabel: typeof navigator !== "undefined" ? navigator.userAgent.slice(0, 80) : "web-browser",
       });
-      store.setNotificationPreferences({
+      setNotificationPreferences({
         ...DEFAULT_NOTIFICATION_PREFERENCES,
-        ...(response?.notificationPreferences || store.notificationPreferences),
+        ...(response?.notificationPreferences || notificationPreferences),
       });
       await refreshBrowserNotificationState();
     } catch (error) {
-      store.setNotificationError(error.message || "Could not enable browser notifications.");
+      setNotificationError(error.message || "Could not enable browser notifications.");
       await refreshBrowserNotificationState();
     } finally {
-      store.setIsUpdatingNotifications(false);
+      setIsUpdatingNotifications(false);
     }
   }
 
   async function handleDisableBrowserNotifications() {
-    if (!store.authToken) {
+    if (!authToken) {
       return;
     }
 
     try {
-      store.setIsUpdatingNotifications(true);
-      store.setNotificationError("");
+      setIsUpdatingNotifications(true);
+      setNotificationError("");
       let token = "";
 
       try {
@@ -120,40 +130,40 @@ export function usePlannerNotifications({ store, queryClient }) {
 
       await removeBrowserPushToken().catch(() => false);
       const response = token
-        ? await removePlannerNotificationToken(store.authToken, { token })
-        : await savePlannerNotificationSettings(store.authToken, {
-          ...store.notificationPreferences,
+        ? await removePlannerNotificationToken(authToken, { token })
+        : await savePlannerNotificationSettings(authToken, {
+          ...notificationPreferences,
           browserPushEnabled: false,
         });
 
-      store.setNotificationPreferences({
+      setNotificationPreferences({
         ...DEFAULT_NOTIFICATION_PREFERENCES,
-        ...(response?.notificationPreferences || store.notificationPreferences),
+        ...(response?.notificationPreferences || notificationPreferences),
         browserPushEnabled: false,
       });
       await refreshBrowserNotificationState();
     } catch (error) {
-      store.setNotificationError(error.message || "Could not disconnect browser notifications.");
+      setNotificationError(error.message || "Could not disconnect browser notifications.");
     } finally {
-      store.setIsUpdatingNotifications(false);
+      setIsUpdatingNotifications(false);
     }
   }
 
   useEffect(() => {
-    if (!(store.authMode === "google" || store.authMode === "clerk") || !store.authToken) {
-      store.setNotificationPreferences(DEFAULT_NOTIFICATION_PREFERENCES);
+    if (!(authMode === "google" || authMode === "clerk") || !authToken) {
+      setNotificationPreferences(DEFAULT_NOTIFICATION_PREFERENCES);
       return;
     }
 
     if (notificationsQuery.data) {
-      store.setNotificationPreferences({
+      setNotificationPreferences({
         ...DEFAULT_NOTIFICATION_PREFERENCES,
         ...(notificationsQuery.data.notificationPreferences || {}),
       });
     } else if (notificationsQuery.isError) {
-      store.setNotificationPreferences(DEFAULT_NOTIFICATION_PREFERENCES);
+      setNotificationPreferences(DEFAULT_NOTIFICATION_PREFERENCES);
     }
-  }, [notificationsQuery.data, notificationsQuery.isError, store.authMode, store.authToken, store]);
+  }, [authMode, authToken, notificationsQuery.data, notificationsQuery.isError, setNotificationPreferences]);
 
   useEffect(() => {
     if (!notificationsQuery.data && !notificationsQuery.isError) {
@@ -165,9 +175,9 @@ export function usePlannerNotifications({ store, queryClient }) {
 
   useEffect(() => {
     getBrowserNotificationSupport()
-      .then((support) => store.setNotificationSupport(support))
-      .catch(() => store.setNotificationSupport({ supported: false, configured: false, permission: "default" }));
-  }, [store]);
+      .then((support) => setNotificationSupport(support))
+      .catch(() => setNotificationSupport({ supported: false, configured: false, permission: "default" }));
+  }, [setNotificationSupport]);
 
   return {
     fetchAndApplyNotificationSettings,

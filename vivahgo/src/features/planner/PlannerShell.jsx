@@ -145,9 +145,8 @@ export default function PlannerShell() {
 
       {store.screen === "splash" ? (
         <SplashScreen
-          onStart={() => store.setScreen(store.requiresOnboarding ? "onboard" : "app")}
+          onStart={() => store.setScreen("onboard")}
           onSkip={actions.handleSkipOnboarding}
-          showSkip={store.requiresOnboarding}
         />
       ) : null}
 

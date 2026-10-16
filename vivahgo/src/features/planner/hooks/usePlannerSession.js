@@ -26,6 +26,18 @@ export function usePlannerSession({
   syncPlannerAuthority,
   fetchAndApplyNotificationSettings,
 }) {
+  const {
+    setAuthMode,
+    setAuthToken,
+    setIsBootstrapping,
+    setLoginError,
+    setNotificationPreferences,
+    setRequiresOnboarding,
+    setScreen,
+    setSubscription,
+    setUser,
+  } = store;
+
   function persistSession(session) {
     return persistAuthSession(session);
   }
@@ -41,7 +53,7 @@ export function usePlannerSession({
 
     try {
       const status = await getSubscriptionStatus(token);
-      store.setSubscription({
+      setSubscription({
         tier: status.tier || "starter",
         status: status.status || "active",
         currentPeriodEnd: status.currentPeriodEnd || null,
@@ -49,7 +61,7 @@ export function usePlannerSession({
     } catch {
       // Non-fatal: default to starter if status fetch fails.
     }
-  }, [store]);
+  }, [setSubscription]);
 
   function resetPlannerExperience({ nextScreen, clearLoginError = false, resetPlannerAuthority = true } = {}) {
     store.pendingPlannerSaveRef.current = false;
@@ -238,7 +250,7 @@ export function usePlannerSession({
 
       if (!session) {
         if (!cancelled) {
-          store.setIsBootstrapping(false);
+          setIsBootstrapping(false);
         }
         return;
       }
@@ -249,12 +261,12 @@ export function usePlannerSession({
           const resolvedDemoPlanner = savedPlanner || createDemoPlanner();
           const demoRequiresOnboarding = shouldShowOnboarding(resolvedDemoPlanner);
           if (!cancelled) {
-            store.setAuthMode("demo");
-            store.setUser(session.user || null);
+            setAuthMode("demo");
+            setUser(session.user || null);
             applyPlanner(resolvedDemoPlanner);
-            store.setNotificationPreferences(DEFAULT_NOTIFICATION_PREFERENCES);
-            store.setRequiresOnboarding(demoRequiresOnboarding);
-            store.setScreen(resolvePlannerScreen(resolvedDemoPlanner));
+            setNotificationPreferences(DEFAULT_NOTIFICATION_PREFERENCES);
+            setRequiresOnboarding(demoRequiresOnboarding);
+            setScreen(resolvePlannerScreen(resolvedDemoPlanner));
           }
           return;
         }
@@ -265,9 +277,9 @@ export function usePlannerSession({
             queryFn: () => fetchPlanner(session.token, session.plannerOwnerId || session.user?.id || ""),
           });
           if (!cancelled) {
-            store.setAuthMode(session.mode);
-            store.setAuthToken(session.token);
-            store.setUser(session.user || null);
+            setAuthMode(session.mode);
+            setAuthToken(session.token);
+            setUser(session.user || null);
             hydratePlannerFromResponse(cachedPlanner, {
               resetJournal: true,
               fallbackPlannerOwnerId: session.plannerOwnerId || session.user?.id || "",
@@ -275,18 +287,18 @@ export function usePlannerSession({
             await refreshAccessibleWorkspaces(session.token);
             await fetchAndApplySubscription(session.token);
             await fetchAndApplyNotificationSettings(session.token);
-            store.setScreen(resolvePlannerScreen(cachedPlanner?.planner));
+            setScreen(resolvePlannerScreen(cachedPlanner?.planner));
           }
         }
       } catch (error) {
         console.error("Failed to restore session:", error);
         clearStoredSession();
         if (!cancelled) {
-          store.setLoginError("Your previous session could not be restored. Please sign in again.");
+          setLoginError("Your previous session could not be restored. Please sign in again.");
         }
       } finally {
         if (!cancelled) {
-          store.setIsBootstrapping(false);
+          setIsBootstrapping(false);
         }
       }
     }
@@ -299,11 +311,18 @@ export function usePlannerSession({
   }, [
     applyPlanner,
     fetchAndApplyNotificationSettings,
+    fetchAndApplySubscription,
     hydratePlannerFromResponse,
     queryClient,
     refreshAccessibleWorkspaces,
-    store,
-    fetchAndApplySubscription,
+    setAuthMode,
+    setAuthToken,
+    setIsBootstrapping,
+    setLoginError,
+    setNotificationPreferences,
+    setRequiresOnboarding,
+    setScreen,
+    setUser,
   ]);
 
   return {

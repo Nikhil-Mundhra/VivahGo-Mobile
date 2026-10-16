@@ -112,7 +112,7 @@ describe("PlannerShell demo flow", () => {
     vi.restoreAllMocks();
   });
 
-  it("opens the demo planner from the splash screen CTA", async () => {
+  it("opens the demo planner directly from login", async () => {
     const user = userEvent.setup();
     const { default: PlannerShell } = await import("./PlannerShell.jsx");
     const queryClient = new QueryClient({
@@ -133,10 +133,6 @@ describe("PlannerShell demo flow", () => {
     );
 
     await user.click(screen.getByRole("button", { name: "Explore Demo Planner" }));
-
-    expect(await screen.findByRole("button", { name: "Open My Planner ✨" })).toBeTruthy();
-
-    await user.click(screen.getByRole("button", { name: "Open My Planner ✨" }));
 
     await waitFor(() => {
       expect(screen.getByText("Wedding Calendar")).toBeTruthy();
