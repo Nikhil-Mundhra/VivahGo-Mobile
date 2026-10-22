@@ -48,7 +48,40 @@ const {
 const port = Number(process.env.PORT || 4000);
 const mongoUri = process.env.MONGODB_URI;
 const googleClientId = process.env.GOOGLE_CLIENT_ID;
-const jwtSecret = process.env.JWT_SECRET || 'change-me-before-production';
+const ephemeralSigningSecret = crypto.randomBytes(32).toString('hex');
+
+function isProductionEnv() {
+  return process.env.NODE_ENV === 'production';
+}
+
+function getConfiguredSecret(envKey, fallbackValue) {
+  const configuredValue = process.env[envKey];
+  if (configuredValue && configuredValue !== 'change-me-before-production') {
+    return configuredValue;
+  }
+
+  if (isProductionEnv()) {
+    throw new Error(`${envKey} must be configured in production.`);
+  }
+
+  return configuredValue || fallbackValue;
+}
+
+export function getJwtSecret() {
+  return getConfiguredSecret('JWT_SECRET', ephemeralSigningSecret);
+}
+
+export function getRsvpTokenSecret() {
+  try {
+    return getConfiguredSecret('RSVP_TOKEN_SECRET', getJwtSecret());
+  } catch (error) {
+    if (error?.message === 'RSVP_TOKEN_SECRET must be configured in production.') {
+      return getJwtSecret();
+    }
+    throw error;
+  }
+}
+
 const SESSION_COOKIE_NAME = 'vivahgo_session';
 const SESSION_COOKIE_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
 const CSRF_COOKIE_NAME = 'vivahgo_csrf';
@@ -506,11 +539,12 @@ export function normalizeStaffRole(value) {
 }
 
 export function getBootstrapAdminEmail() {
-  return normalizeConfiguredEmail(process.env.ADMIN_OWNER_EMAIL || 'nikhilmundhra28@gmail.com');
+  return normalizeConfiguredEmail(process.env.ADMIN_OWNER_EMAIL || '');
 }
 
 export function resolveStaffRole(email, currentRole = 'none') {
-  if (normalizeEmail(email) === getBootstrapAdminEmail()) {
+  const bootstrapAdminEmail = getBootstrapAdminEmail();
+  if (bootstrapAdminEmail && normalizeEmail(email) === bootstrapAdminEmail) {
     return 'owner';
   }
 
@@ -927,7 +961,7 @@ export function hasPlanRole(plan, email, minimumRole) {
   return (ROLE_LEVEL[role] || 0) >= (ROLE_LEVEL[minimumRole] || 0);
 }
 
-export function createSessionToken(user, secret = jwtSecret) {
+export function createSessionToken(user, secret) {
   return jwt.sign(
     {
       sub: user.googleId,
@@ -935,13 +969,9 @@ export function createSessionToken(user, secret = jwtSecret) {
       name: user.name,
       staffRole: resolveStaffRole(user.email, user.staffRole),
     },
-    secret,
+    secret || getJwtSecret(),
     { expiresIn: '7d' }
   );
-}
-
-function getRsvpTokenSecret() {
-  return process.env.RSVP_TOKEN_SECRET || jwtSecret;
 }
 
 const RSVP_TOKEN_VERSION = '1';
@@ -1119,12 +1149,21 @@ function verifyGuestRsvpToken(token) {
   return payload;
 }
 
+const DEFAULT_CLIENT_ORIGINS = Object.freeze([
+  'https://vivahgo.com',
+  'https://planner.vivahgo.com',
+]);
+
 export function getClientOrigins(clientOrigin = process.env.CLIENT_ORIGIN) {
-  if (!clientOrigin) {
-    return true;
+  if (clientOrigin) {
+    return clientOrigin.split(',').map(origin => origin.trim()).filter(Boolean);
   }
 
-  return clientOrigin.split(',').map(origin => origin.trim());
+  if (isProductionEnv()) {
+    return [...DEFAULT_CLIENT_ORIGINS];
+  }
+
+  return true;
 }
 
 function parseCookieHeader(value) {
@@ -1269,7 +1308,7 @@ function clearSessionCookie(req, res) {
   });
 }
 
-export function authMiddleware(req, res, next, secret = jwtSecret) {
+export function authMiddleware(req, res, next, secret) {
   const authHeader = req.headers.authorization || '';
   const token = authHeader.startsWith('Bearer ')
     ? authHeader.slice(7)
@@ -1279,8 +1318,18 @@ export function authMiddleware(req, res, next, secret = jwtSecret) {
     return res.status(401).json({ error: 'Authentication required.' });
   }
 
+  let effectiveSecret;
   try {
-    req.auth = jwt.verify(token, secret);
+    effectiveSecret = secret || getJwtSecret();
+  } catch (error) {
+    if (error?.message === 'JWT_SECRET must be configured in production.') {
+      return res.status(500).json({ error: 'Server auth is not configured.' });
+    }
+    return res.status(401).json({ error: 'Authentication failed.' });
+  }
+
+  try {
+    req.auth = jwt.verify(token, effectiveSecret);
     setSentryRequestUser(req.auth);
     return next();
   } catch {
@@ -1352,7 +1401,10 @@ function sanitizeStaffUser(user = {}) {
     staffRole,
     staffAddedBy: user.staffAddedBy || '',
     staffGrantedAt: user.staffGrantedAt || null,
-    isBootstrapOwner: normalizeEmail(user.email || '') === getBootstrapAdminEmail(),
+    isBootstrapOwner: Boolean(
+      getBootstrapAdminEmail() &&
+      normalizeEmail(user.email || '') === getBootstrapAdminEmail()
+    ),
   };
 }
 
@@ -1810,7 +1862,7 @@ async function listAccessiblePlanners(PlannerModel, auth) {
 export function createApp(options = {}) {
   const {
     googleClientId: injectedGoogleClientId = googleClientId,
-    jwtSecret: injectedJwtSecret = jwtSecret,
+    jwtSecret: explicitJwtSecret,
     oauthClient: injectedOauthClient,
     PlannerModel = Planner,
     UserModel = User,
@@ -1822,6 +1874,15 @@ export function createApp(options = {}) {
     deleteCareerResume = deleteB2Object,
     sendCareerRejectionEmailFn = sendCareerRejectionEmail,
   } = options;
+
+  let injectedJwtSecret = explicitJwtSecret;
+  if (!injectedJwtSecret) {
+    try {
+      injectedJwtSecret = getJwtSecret();
+    } catch {
+      injectedJwtSecret = undefined;
+    }
+  }
 
   const oauthClient =
     injectedOauthClient !== undefined
@@ -3081,12 +3142,20 @@ export function createApp(options = {}) {
         return res.status(404).json({ error: 'Guest not found.' });
       }
 
-      const token = createGuestRsvpToken({
-        ownerId,
-        planId: plan.id,
-        guestId,
-        version: Number(guest?.rsvpTokenVersion) || 1,
-      });
+      let token;
+      try {
+        token = createGuestRsvpToken({
+          ownerId,
+          planId: plan.id,
+          guestId,
+          version: Number(guest?.rsvpTokenVersion) || 1,
+        });
+      } catch (tokenError) {
+        if (tokenError?.message === 'JWT_SECRET must be configured in production.' || tokenError?.message === 'RSVP_TOKEN_SECRET must be configured in production.') {
+          return res.status(500).json({ error: 'RSVP is not configured right now.' });
+        }
+        throw tokenError;
+      }
       const coupleName = [plan.bride || normalized.wedding?.bride || '', plan.groom || normalized.wedding?.groom || ''].filter(Boolean).join(' & ');
 
       return res.json({
@@ -3107,6 +3176,9 @@ export function createApp(options = {}) {
     try {
       payload = verifyGuestRsvpToken(req.query?.token);
     } catch (error) {
+      if (error?.message === 'JWT_SECRET must be configured in production.' || error?.message === 'RSVP_TOKEN_SECRET must be configured in production.') {
+        return res.status(500).json({ error: 'RSVP is not configured right now.' });
+      }
       return res.status(400).json({ error: error.message || 'Invalid RSVP token.' });
     }
 
@@ -3165,6 +3237,9 @@ export function createApp(options = {}) {
     try {
       payload = verifyGuestRsvpToken(req.body?.token);
     } catch (error) {
+      if (error?.message === 'JWT_SECRET must be configured in production.' || error?.message === 'RSVP_TOKEN_SECRET must be configured in production.') {
+        return res.status(500).json({ error: 'RSVP is not configured right now.' });
+      }
       return res.status(400).json({ error: error.message || 'Invalid RSVP token.' });
     }
 

@@ -1,5 +1,6 @@
 const {
   connectDb,
+  getBootstrapAdminEmail,
   getStaffAccess,
   getUserModel,
   hasStaffRole,
@@ -87,7 +88,11 @@ function sanitizeStaffUser(user = {}) {
     staffRole,
     staffAddedBy: user.staffAddedBy || '',
     staffGrantedAt: user.staffGrantedAt || null,
-    isBootstrapOwner: resolveStaffRole(user.email, user.staffRole) === 'owner' && normalizeEmail(user.email) === normalizeEmail(process.env.ADMIN_OWNER_EMAIL || 'nikhilmundhra28@gmail.com'),
+    isBootstrapOwner: Boolean(
+      getBootstrapAdminEmail() &&
+      resolveStaffRole(user.email, user.staffRole) === 'owner' &&
+      normalizeEmail(user.email) === getBootstrapAdminEmail()
+    ),
   };
 }
 

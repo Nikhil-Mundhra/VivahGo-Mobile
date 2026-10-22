@@ -265,12 +265,21 @@ function decryptPlannerFromStorage(planner = {}) {
   return decryptPlannerNode(planner);
 }
 
+const DEFAULT_CLIENT_ORIGINS = Object.freeze([
+  'https://vivahgo.com',
+  'https://planner.vivahgo.com',
+]);
+
 function getClientOrigins() {
-  if (!process.env.CLIENT_ORIGIN) {
-    return ['*'];
+  if (process.env.CLIENT_ORIGIN) {
+    return process.env.CLIENT_ORIGIN.split(',').map(origin => origin.trim()).filter(Boolean);
   }
 
-  return process.env.CLIENT_ORIGIN.split(',').map(origin => origin.trim()).filter(Boolean);
+  if (isProductionEnv()) {
+    return [...DEFAULT_CLIENT_ORIGINS];
+  }
+
+  return ['*'];
 }
 
 function requestIsSecure(req) {
@@ -519,9 +528,13 @@ function setCorsHeaders(req, res) {
   setSecurityHeaders(req, res);
 
   if (allowAll && requestOrigin) {
-    res.setHeader('Access-Control-Allow-Origin', requestOrigin);
-    res.setHeader('Access-Control-Allow-Credentials', 'true');
-    res.setHeader('Vary', 'Origin');
+    if (isProductionEnv()) {
+      res.setHeader('Access-Control-Allow-Origin', '*');
+    } else {
+      res.setHeader('Access-Control-Allow-Origin', requestOrigin);
+      res.setHeader('Access-Control-Allow-Credentials', 'true');
+      res.setHeader('Vary', 'Origin');
+    }
   } else if (allowAll) {
     res.setHeader('Access-Control-Allow-Origin', '*');
   } else if (requestOrigin && origins.includes(requestOrigin)) {
@@ -1317,11 +1330,12 @@ function normalizeStaffRole(value) {
 }
 
 function getBootstrapAdminEmail() {
-  return normalizeConfiguredEmail(process.env.ADMIN_OWNER_EMAIL || 'nikhilmundhra28@gmail.com');
+  return normalizeConfiguredEmail(process.env.ADMIN_OWNER_EMAIL || '');
 }
 
 function resolveStaffRole(email, currentRole = 'none') {
-  if (normalizeEmail(email) === getBootstrapAdminEmail()) {
+  const bootstrapAdminEmail = getBootstrapAdminEmail();
+  if (bootstrapAdminEmail && normalizeEmail(email) === bootstrapAdminEmail) {
     return 'owner';
   }
 

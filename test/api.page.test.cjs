@@ -15,8 +15,10 @@ const {
   buildRouteSnapshot,
   buildWebsiteMetadata,
   createPageHandler,
+  getRequestSiteUrl,
   injectMetadataIntoHtml,
   injectRootMarkupIntoHtml,
+  isAllowedSiteHost,
   readBuiltHtmlTemplate,
   resetHtmlTemplateCache,
   resolveConfiguredSocialPreview,
@@ -95,6 +97,56 @@ describe('api/page.js', function () {
     assert.match(html, /meta property="og:image:width" content="640"/);
     assert.match(html, /meta property="og:image:height" content="467"/);
     assert.doesNotMatch(html, /<title>Old<\/title>/);
+  });
+
+  it('rejects untrusted host headers and prevents host-header poisoning', function () {
+    const maliciousReq = {
+      headers: {
+        host: 'evil-attacker.com',
+        'x-forwarded-host': 'evil-attacker.com',
+        'x-forwarded-proto': 'https',
+      },
+    };
+
+    assert.equal(isAllowedSiteHost('evil-attacker.com'), false);
+    assert.equal(isAllowedSiteHost('attacker.example.org'), false);
+    assert.equal(isAllowedSiteHost('vivahgo.com'), true);
+    assert.equal(isAllowedSiteHost('planner.vivahgo.com'), true);
+    assert.equal(isAllowedSiteHost('preview-branch-1.vercel.app'), true);
+
+    assert.equal(getRequestSiteUrl(maliciousReq), 'https://vivahgo.com');
+
+    const html = injectMetadataIntoHtml(
+      '<!doctype html><html><head><title>Old</title></head><body><div id="root"></div></body></html>',
+      {
+        title: 'Wedding Website',
+        canonicalPath: '/my-wedding',
+      },
+      maliciousReq
+    );
+
+    assert.match(html, /https:\/\/vivahgo\.com\/my-wedding/);
+    assert.doesNotMatch(html, /evil-attacker\.com/);
+  });
+
+  it('allows custom domains configured in CLIENT_ORIGIN', function () {
+    const previousClientOrigin = process.env.CLIENT_ORIGIN;
+    try {
+      process.env.CLIENT_ORIGIN = 'https://custom-wedding.example.com';
+      assert.equal(isAllowedSiteHost('custom-wedding.example.com'), true);
+      assert.equal(
+        getRequestSiteUrl({
+          headers: { host: 'custom-wedding.example.com', 'x-forwarded-proto': 'https' },
+        }),
+        'https://custom-wedding.example.com'
+      );
+    } finally {
+      if (previousClientOrigin !== undefined) {
+        process.env.CLIENT_ORIGIN = previousClientOrigin;
+      } else {
+        delete process.env.CLIENT_ORIGIN;
+      }
+    }
   });
 
   it('injects crawlable root markup into the app shell', function () {

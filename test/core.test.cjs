@@ -8,6 +8,7 @@ const {
   buildEmptyPlanner,
   getCacheControlPolicy,
   getPublicCache,
+  getBootstrapAdminEmail,
   createGuestRsvpToken,
   createSessionToken,
   ensureCsrfToken,
@@ -28,9 +29,11 @@ const {
   verifyGuestRsvpToken,
   verifySession,
 } = require('../api/_lib/core');
+const { sanitizeStaffUser } = require('../api/_lib/admin');
 
 describe('core helpers', function () {
   afterEach(function () {
+    delete process.env.ADMIN_OWNER_EMAIL;
     delete process.env.CLIENT_ORIGIN;
     delete process.env.JWT_SECRET;
     delete process.env.NODE_ENV;
@@ -276,6 +279,41 @@ describe('core helpers', function () {
 
       assert.equal(res.headers['Access-Control-Allow-Origin'], undefined);
       assert.equal(res.headers.Vary, undefined);
+    });
+
+    it('uses default production origins and blocks arbitrary origins when CLIENT_ORIGIN is unset in production', function () {
+      process.env.NODE_ENV = 'production';
+      const req = { headers: { origin: 'https://evil.com' } };
+      const res = createRes();
+
+      setCorsHeaders(req, res);
+
+      assert.equal(res.headers['Access-Control-Allow-Origin'], undefined);
+      assert.equal(res.headers['Access-Control-Allow-Credentials'], undefined);
+    });
+
+    it('allows default production origins when CLIENT_ORIGIN is unset in production', function () {
+      process.env.NODE_ENV = 'production';
+      const req = { headers: { origin: 'https://vivahgo.com' } };
+      const res = createRes();
+
+      setCorsHeaders(req, res);
+
+      assert.equal(res.headers['Access-Control-Allow-Origin'], 'https://vivahgo.com');
+      assert.equal(res.headers['Access-Control-Allow-Credentials'], 'true');
+      assert.equal(res.headers.Vary, 'Origin');
+    });
+
+    it('does not reflect arbitrary origins with credentials when CLIENT_ORIGIN is wildcard in production', function () {
+      process.env.NODE_ENV = 'production';
+      process.env.CLIENT_ORIGIN = '*';
+      const req = { headers: { origin: 'https://evil.com' } };
+      const res = createRes();
+
+      setCorsHeaders(req, res);
+
+      assert.equal(res.headers['Access-Control-Allow-Origin'], '*');
+      assert.equal(res.headers['Access-Control-Allow-Credentials'], undefined);
     });
   });
 
@@ -625,10 +663,27 @@ describe('core helpers', function () {
   });
 
   describe('staff role resolution', function () {
+    it('does not grant owner to any fallback address when ADMIN_OWNER_EMAIL is unset', function () {
+      delete process.env.ADMIN_OWNER_EMAIL;
+
+      assert.equal(getBootstrapAdminEmail(), '');
+      assert.equal(resolveStaffRole('nikhilmundhra28@gmail.com', 'none'), 'none');
+      assert.equal(resolveStaffRole('nikhilmundhra28@gmail.com', 'editor'), 'editor');
+
+      const sanitized = sanitizeStaffUser({ email: 'nikhilmundhra28@gmail.com', staffRole: 'none' });
+      assert.equal(sanitized.isBootstrapOwner, false);
+      assert.equal(sanitized.staffRole, 'none');
+    });
+
     it('treats a quoted ADMIN_OWNER_EMAIL as the bootstrap owner', function () {
       process.env.ADMIN_OWNER_EMAIL = '"nikhilmundhra28@gmail.com"';
 
+      assert.equal(getBootstrapAdminEmail(), 'nikhilmundhra28@gmail.com');
       assert.equal(resolveStaffRole('nikhilmundhra28@gmail.com', 'none'), 'owner');
+
+      const sanitized = sanitizeStaffUser({ email: 'nikhilmundhra28@gmail.com', staffRole: 'none' });
+      assert.equal(sanitized.isBootstrapOwner, true);
+      assert.equal(sanitized.staffRole, 'none');
     });
   });
 

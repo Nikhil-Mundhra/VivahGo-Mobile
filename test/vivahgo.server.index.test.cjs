@@ -125,6 +125,25 @@ describe('VivahGo/server/index.js', function () {
     assert.equal(mod.getClientOrigins(undefined), true);
     assert.deepEqual(mod.getClientOrigins('https://a.com, https://b.com'), ['https://a.com', 'https://b.com']);
 
+    const previousNodeEnv = process.env.NODE_ENV;
+    const previousClientOrigin = process.env.CLIENT_ORIGIN;
+    try {
+      process.env.NODE_ENV = 'production';
+      delete process.env.CLIENT_ORIGIN;
+      assert.deepEqual(mod.getClientOrigins(), ['https://vivahgo.com', 'https://planner.vivahgo.com']);
+    } finally {
+      if (previousNodeEnv !== undefined) {
+        process.env.NODE_ENV = previousNodeEnv;
+      } else {
+        delete process.env.NODE_ENV;
+      }
+      if (previousClientOrigin !== undefined) {
+        process.env.CLIENT_ORIGIN = previousClientOrigin;
+      } else {
+        delete process.env.CLIENT_ORIGIN;
+      }
+    }
+
     const token = mod.createSessionToken(
       { googleId: 'gid-1', email: 'user@example.com', name: 'User' },
       'test-secret'
@@ -134,20 +153,74 @@ describe('VivahGo/server/index.js', function () {
     assert.equal(payload.email, 'user@example.com');
   });
 
-  it('treats a quoted ADMIN_OWNER_EMAIL as the bootstrap owner', async function () {
+  it('treats a quoted ADMIN_OWNER_EMAIL as the bootstrap owner and does not grant owner when unset', async function () {
     const previousAdminOwnerEmail = process.env.ADMIN_OWNER_EMAIL;
-    process.env.ADMIN_OWNER_EMAIL = '"nikhilmundhra28@gmail.com"';
-
     const mod = await loadServerModule();
 
-    if (previousAdminOwnerEmail !== undefined) {
-      process.env.ADMIN_OWNER_EMAIL = previousAdminOwnerEmail;
-    } else {
+    try {
       delete process.env.ADMIN_OWNER_EMAIL;
-    }
+      assert.equal(mod.getBootstrapAdminEmail(), '');
+      assert.equal(mod.resolveStaffRole('nikhilmundhra28@gmail.com', 'none'), 'none');
 
-    assert.equal(mod.getBootstrapAdminEmail(), 'nikhilmundhra28@gmail.com');
-    assert.equal(mod.resolveStaffRole('nikhilmundhra28@gmail.com', 'none'), 'owner');
+      process.env.ADMIN_OWNER_EMAIL = '"nikhilmundhra28@gmail.com"';
+      assert.equal(mod.getBootstrapAdminEmail(), 'nikhilmundhra28@gmail.com');
+      assert.equal(mod.resolveStaffRole('nikhilmundhra28@gmail.com', 'none'), 'owner');
+    } finally {
+      if (previousAdminOwnerEmail !== undefined) {
+        process.env.ADMIN_OWNER_EMAIL = previousAdminOwnerEmail;
+      } else {
+        delete process.env.ADMIN_OWNER_EMAIL;
+      }
+    }
+  });
+
+  it('enforces secure signing secrets in production and avoids predictable fallbacks', async function () {
+    const mod = await loadServerModule();
+    const previousNodeEnv = process.env.NODE_ENV;
+    const previousJwtSecret = process.env.JWT_SECRET;
+    const previousRsvpSecret = process.env.RSVP_TOKEN_SECRET;
+
+    try {
+      delete process.env.NODE_ENV;
+      delete process.env.JWT_SECRET;
+      delete process.env.RSVP_TOKEN_SECRET;
+
+      const nonProdSecret = mod.getJwtSecret();
+      assert.ok(nonProdSecret && typeof nonProdSecret === 'string');
+      assert.notEqual(nonProdSecret, 'change-me-before-production');
+
+      process.env.NODE_ENV = 'production';
+      delete process.env.JWT_SECRET;
+      delete process.env.RSVP_TOKEN_SECRET;
+      assert.throws(() => mod.getJwtSecret(), /JWT_SECRET must be configured in production/);
+      assert.throws(() => mod.getRsvpTokenSecret(), /JWT_SECRET must be configured in production/);
+
+      process.env.JWT_SECRET = 'change-me-before-production';
+      assert.throws(() => mod.getJwtSecret(), /JWT_SECRET must be configured in production/);
+
+      process.env.JWT_SECRET = 'valid-production-secret';
+      assert.equal(mod.getJwtSecret(), 'valid-production-secret');
+      assert.equal(mod.getRsvpTokenSecret(), 'valid-production-secret');
+
+      process.env.RSVP_TOKEN_SECRET = 'custom-rsvp-secret';
+      assert.equal(mod.getRsvpTokenSecret(), 'custom-rsvp-secret');
+    } finally {
+      if (previousNodeEnv !== undefined) {
+        process.env.NODE_ENV = previousNodeEnv;
+      } else {
+        delete process.env.NODE_ENV;
+      }
+      if (previousJwtSecret !== undefined) {
+        process.env.JWT_SECRET = previousJwtSecret;
+      } else {
+        delete process.env.JWT_SECRET;
+      }
+      if (previousRsvpSecret !== undefined) {
+        process.env.RSVP_TOKEN_SECRET = previousRsvpSecret;
+      } else {
+        delete process.env.RSVP_TOKEN_SECRET;
+      }
+    }
   });
 
   it('auth middleware returns 401 for missing/invalid token and calls next for valid token', async function () {

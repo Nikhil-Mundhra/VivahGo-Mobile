@@ -396,6 +396,31 @@ function buildQueryPageDataSnapshot(page) {
         </section>`;
 }
 
+function isAllowedSiteHost(host = '') {
+  const normalized = normalizePreviewHostname(host);
+  if (!normalized) {
+    return false;
+  }
+
+  if (normalized === 'vivahgo.com' || normalized.endsWith('.vivahgo.com') || normalized.endsWith('.vercel.app')) {
+    return true;
+  }
+
+  if (process.env.CLIENT_ORIGIN) {
+    const allowedOrigins = process.env.CLIENT_ORIGIN.split(',').map((item) => item.trim()).filter(Boolean);
+    for (const origin of allowedOrigins) {
+      try {
+        const parsed = new URL(origin);
+        if (normalizePreviewHostname(parsed.hostname) === normalized) {
+          return true;
+        }
+      } catch {}
+    }
+  }
+
+  return false;
+}
+
 function getRequestSiteUrl(req) {
   const configuredSiteUrl = [
     process.env.VITE_SITE_URL,
@@ -413,7 +438,7 @@ function getRequestSiteUrl(req) {
     ? req.headers['x-forwarded-host'].split(',')[0].trim()
     : '';
   const host = forwardedHost || req.headers?.host || '';
-  if (host && !/^(localhost|127(?:\.\d{1,3}){3})(:\d+)?$/i.test(host)) {
+  if (host && isAllowedSiteHost(host)) {
     return `${forwardedProto || 'https'}://${host}`.replace(/\/$/, '');
   }
 
@@ -2107,6 +2132,7 @@ module.exports.buildRouteSnapshot = buildRouteSnapshot;
 module.exports.buildWebsiteMetadata = buildWebsiteMetadata;
 module.exports.canUseSourceHtmlFallback = canUseSourceHtmlFallback;
 module.exports.createPageHandler = createPageHandler;
+module.exports.isAllowedSiteHost = isAllowedSiteHost;
 module.exports.getRequestSiteUrl = getRequestSiteUrl;
 module.exports.getSocialPreview = getSocialPreview;
 module.exports.injectMetadataIntoHtml = injectMetadataIntoHtml;
